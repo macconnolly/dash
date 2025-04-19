@@ -1,6 +1,6 @@
 template:
   name: floor_plan_card
-  description: "Mobile-optimized floor plan card with responsive controls"
+  description: "Mobile-optimized interactive floor plan with weather-responsive and context-aware styling"
   variables:
     title:
       type: string
@@ -42,6 +42,24 @@ template:
         kitchen: "light.kitchen"
         bedroom: "light.bedroom"
       description: "Map of room IDs to light entities"
+    climate_entities:
+      type: map
+      default:
+        living_room: "climate.living_room"
+        kitchen: "climate.kitchen"
+        bedroom: "climate.bedroom"
+      description: "Map of room IDs to climate entities (optional)"
+    temperature_entities:
+      type: map
+      default:
+        living_room: "sensor.living_room_temperature"
+        kitchen: "sensor.kitchen_temperature"
+        bedroom: "sensor.bedroom_temperature"
+      description: "Map of room IDs to temperature sensors (optional)"
+    adaptive_lighting_entities:
+      type: map
+      default: {}
+      description: "Map of room IDs to adaptive lighting booleans (optional)"
     scene_entities:
       type: list
       default: ["scene.home_bright", "scene.home_evening", "scene.home_night"]
@@ -60,6 +78,10 @@ template:
         scene.home_evening: "mdi:brightness-6"
         scene.home_night: "mdi:brightness-3"
       description: "Map of scene entities to icons"
+    weather_entity:
+      type: string
+      default: "weather.home"
+      description: "Weather entity for weather-responsive effects"
     context_entity:
       type: string
       default: "sensor.home_context_engine"
@@ -68,6 +90,10 @@ template:
       type: boolean
       default: true
       description: "Show quick action buttons"
+    animations_enabled:
+      type: boolean
+      default: true
+      description: "Enable animations and dynamic effects"
   template: |
     # Use our centralized style adapter
     type: custom:style_adapter
@@ -103,18 +129,87 @@ template:
         1 light on
       {% else %}
         {{ lights_on.value }} lights on
-      {% endif %}
+      {% endif %} •
+      {{ states(variables.context_entity) | title }}
     content:
       type: vertical-stack
       cards:
-        # Interactive floor plan image
+        # Interactive floor plan image with weather effects
         - type: picture-elements
           image: {{ variables.image_path }}
           elements:
+            # Weather-responsive overlay
+            - type: conditional
+              conditions:
+                - entity: {{ variables.weather_entity }}
+                  state_not: unavailable
+              element:
+                type: custom:mod-card
+                card:
+                  type: custom:button-card
+                  entity: {{ variables.weather_entity }}
+                  name: ""
+                  styles:
+                    card:
+                      - width: 100%
+                      - height: 100%
+                      - top: 0
+                      - left: 0
+                      - opacity: 0.3
+                      - background: >
+                          {% if is_state(variables.weather_entity, 'rainy') or 
+                               is_state(variables.weather_entity, 'pouring') or
+                               is_state(variables.weather_entity, 'lightning') or
+                               is_state(variables.weather_entity, 'lightning-rainy') %}
+                            linear-gradient(180deg, rgba(100, 120, 150, 0.1) 0%, rgba(100, 120, 150, 0.2) 100%)
+                          {% elif is_state(variables.weather_entity, 'cloudy') or 
+                                 is_state(variables.weather_entity, 'partlycloudy') %}
+                            linear-gradient(180deg, rgba(220, 220, 220, 0.1) 0%, rgba(200, 200, 200, 0.2) 100%)
+                          {% elif is_state(variables.weather_entity, 'snowy') or 
+                                 is_state(variables.weather_entity, 'snowy-rainy') %}
+                            linear-gradient(180deg, rgba(240, 240, 250, 0.1) 0%, rgba(230, 230, 240, 0.2) 100%)
+                          {% elif is_state('sun.sun', 'below_horizon') %}
+                            linear-gradient(180deg, rgba(40, 45, 60, 0.1) 0%, rgba(30, 35, 50, 0.2) 100%)
+                          {% else %}
+                            linear-gradient(180deg, rgba(200, 220, 255, 0.05) 0%, rgba(200, 220, 255, 0.1) 100%)
+                          {% endif %}
+                style: |
+                  ha-card {
+                    overflow: visible;
+                    border: none;
+                    box-shadow: none;
+                    background: transparent;
+                    pointer-events: none;
+                  }
+                  {% if is_state(variables.weather_entity, 'rainy') or is_state(variables.weather_entity, 'pouring') %}
+                    @keyframes rain {
+                      0% { background-position: 0% 0%; }
+                      100% { background-position: 20% 100%; }
+                    }
+                    ha-card::before {
+                      content: '';
+                      position: absolute;
+                      top: 0;
+                      left: 0;
+                      width: 100%;
+                      height: 100%;
+                      background-image: 
+                        linear-gradient(to bottom, 
+                          rgba(100, 100, 120, 0) 0%,
+                          rgba(100, 100, 120, 0.2) 100%);
+                      opacity: 0.8;
+                      animation: rain 8s linear infinite;
+                      pointer-events: none;
+                    }
+                  {% endif %}
+
             {% for room_id, coords in variables.room_coordinates.items() %}
             {% set presence = variables.presence_entities[room_id] %}
             {% set light = variables.light_entities[room_id] %}
             {% set room_name = variables.room_names[room_id] %}
+            {% set temp_entity = variables.temperature_entities[room_id] if room_id in variables.temperature_entities else none %}
+            {% set adaptive_entity = variables.adaptive_lighting_entities[room_id] if room_id in variables.adaptive_lighting_entities else none %}
+            
             # Room overlay for {{ room_name }}
             - type: custom:button-card
               entity: {{ presence }}
@@ -125,6 +220,10 @@ template:
                 {% else %}
                   mdi:lightbulb-outline
                 {% endif %}
+              label: >
+                {% if temp_entity %}
+                  {{ states(temp_entity) }}°
+                {% endif %}
               style:
                 top: {{ coords[1] }}%
                 left: {{ coords[0] }}%
@@ -133,46 +232,99 @@ template:
                 transform: translate(-50%, -50%)
                 opacity: >
                   {% if is_state(presence, 'on') %}
-                    0.9
+                    0.95
                   {% else %}
-                    0.6
+                    0.7
                   {% endif %}
               styles:
                 card:
-                  - border-radius: 8px
+                  - border-radius: 12px
                   - background: >
                       {% if is_state(presence, 'on') and is_state(light, 'on') %}
-                        rgba(var(--rgb-context-color), 0.2)
+                        {% set ctx = states(variables.context_entity) %}
+                        {% if ctx == 'morning' %}
+                          rgba(255, 152, 0, 0.25)
+                        {% elif ctx == 'day' %}
+                          rgba(255, 193, 7, 0.25)
+                        {% elif ctx == 'evening' %}
+                          rgba(63, 81, 181, 0.25)
+                        {% elif ctx == 'night' %}
+                          rgba(33, 150, 243, 0.25)
+                        {% elif ctx == 'sleeping' %}
+                          rgba(156, 39, 176, 0.25)
+                        {% else %}
+                          rgba(var(--rgb-context-color), 0.25)
+                        {% endif %}
                       {% elif is_state(presence, 'on') %}
-                        rgba(76, 175, 80, 0.2)
+                        rgba(76, 175, 80, 0.25)
                       {% elif is_state(light, 'on') %}
-                        rgba(255, 235, 59, 0.1)
+                        rgba(255, 235, 59, 0.15)
                       {% else %}
-                        rgba(0, 0, 0, 0.1)
+                        rgba(0, 0, 0, 0.15)
                       {% endif %}
+                  - backdrop-filter: blur(2px)
                   - border: >
                       {% if is_state(presence, 'on') %}
-                        2px solid var(--context-color)
+                        {% set ctx = states(variables.context_entity) %}
+                        {% if ctx == 'morning' %}
+                          2px solid rgba(255, 152, 0, 0.7)
+                        {% elif ctx == 'day' %}
+                          2px solid rgba(255, 193, 7, 0.7)
+                        {% elif ctx == 'evening' %}
+                          2px solid rgba(63, 81, 181, 0.7)
+                        {% elif ctx == 'night' %}
+                          2px solid rgba(33, 150, 243, 0.7)
+                        {% elif ctx == 'sleeping' %}
+                          2px solid rgba(156, 39, 176, 0.7)
+                        {% else %}
+                          2px solid var(--context-color)
+                        {% endif %}
                       {% elif is_state(light, 'on') %}
                         2px solid rgba(255, 235, 59, 0.7)
                       {% else %}
                         1px solid rgba(255, 255, 255, 0.2)
                       {% endif %}
+                  - box-shadow: >
+                      {% if is_state(presence, 'on') and variables.animations_enabled %}
+                        0 0 10px rgba(var(--rgb-context-color), 0.4)
+                      {% elif is_state(light, 'on') and variables.animations_enabled %}
+                        0 0 8px rgba(255, 235, 59, 0.3)
+                      {% else %}
+                        none
+                      {% endif %}
+                  - transition: all 0.3s ease
                 name:
-                  - font-size: 14px
+                  - font-size: 16px
                   - font-weight: bold
                   - color: >
                       {% if is_state(presence, 'on') or is_state(light, 'on') %}
-                        rgba(255, 255, 255, 0.9)
+                        rgba(255, 255, 255, 0.95)
                       {% else %}
-                        rgba(255, 255, 255, 0.6)
+                        rgba(255, 255, 255, 0.7)
                       {% endif %}
                 icon:
                   - color: >
                       {% if is_state(light, 'on') %}
                         rgba(255, 235, 59, 1)
                       {% else %}
-                        rgba(255, 255, 255, 0.5)
+                        rgba(255, 255, 255, 0.6)
+                      {% endif %}
+                  - width: 24px
+                  - height: 24px
+                label:
+                  - font-size: 14px
+                  - color: >
+                      {% if temp_entity %}
+                        {% set temp = states(temp_entity) | float %}
+                        {% if temp < 18 %}
+                          rgba(33, 150, 243, 0.95)
+                        {% elif temp > 24 %}
+                          rgba(255, 87, 34, 0.95)
+                        {% else %}
+                          rgba(76, 175, 80, 0.95)
+                        {% endif %}
+                      {% else %}
+                        rgba(255, 255, 255, 0.8)
                       {% endif %}
               tap_action:
                 action: call-service
@@ -182,26 +334,122 @@ template:
                   content:
                     type: custom:unified_popup
                     title: {{ room_name }}
-                    icon: mdi:floor-plan
+                    subtitle: >
+                      {% if is_state(presence, 'on') %}Active{% else %}Vacant{% endif %}
+                      {% if temp_entity %} • {{ states(temp_entity) }}°{% endif %}
+                      • {{ states(variables.context_entity) | title }}
+                    icon: >
+                      {% if room_id == 'living_room' %}
+                        mdi:sofa
+                      {% elif room_id == 'kitchen' %}
+                        mdi:countertop
+                      {% elif room_id == 'bedroom' %}
+                        mdi:bed
+                      {% elif room_id == 'bathroom' %}
+                        mdi:bathtub
+                      {% else %}
+                        mdi:floor-plan
+                      {% endif %}
+                    context_entity: {{ variables.context_entity }}
+                    show_close_button: true
+                    mobile_fullscreen: true
                     content:
-                      type: vertical-stack
-                      cards:
-                        # Room Status
-                        - type: entities
-                          entities:
-                            - entity: {{ presence }}
-                              name: Presence
-                            - entity: {{ light }}
-                              name: Light
-                        # Detailed Controls
-                        - type: custom:mushroom-light-card
-                          entity: {{ light }}
-                          name: "Lights"
-                          use_light_color: true
-                              
+                      template: >
+                        /dashboards/popups/{{ room_id }}.yaml
               hold_action:
                 action: toggle
                 entity: {{ light }}
+              double_tap_action:
+                action: call-service
+                service: scene.turn_on
+                service_data:
+                  entity_id: >
+                    {% set context = states(variables.context_entity) %}
+                    scene.{{ room_id }}_{{ context }}
+            
+            # Adaptive lighting indicator (if available)
+            {% if adaptive_entity %}
+            - type: conditional
+              conditions:
+                - entity: {{ light }}
+                  state: "on"
+                - entity: {{ adaptive_entity }}
+                  state: "on"
+              element:
+                type: state-badge
+                entity: {{ adaptive_entity }}
+                style:
+                  top: {{ coords[1] - (coords[3] / 3) }}%
+                  left: {{ coords[0] + (coords[2] / 3) }}%
+                  "--paper-item-icon-color": >
+                    {% set ctx = states(variables.context_entity) %}
+                    {% if ctx == 'morning' %}
+                      rgba(255, 152, 0, 0.9)
+                    {% elif ctx == 'day' %}
+                      rgba(255, 193, 7, 0.9)
+                    {% elif ctx == 'evening' %}
+                      rgba(198, 40, 40, 0.9)
+                    {% elif ctx == 'night' %}
+                      rgba(33, 150, 243, 0.9)
+                    {% elif ctx == 'sleeping' %}
+                      rgba(156, 39, 176, 0.9)
+                    {% else %}
+                      rgba(255, 255, 255, 0.9)
+                    {% endif %}
+                  "--paper-item-icon-active-color": >
+                    {% set ctx = states(variables.context_entity) %}
+                    {% if ctx == 'morning' %}
+                      rgba(255, 152, 0, 0.9)
+                    {% elif ctx == 'day' %}
+                      rgba(255, 193, 7, 0.9)
+                    {% elif ctx == 'evening' %}
+                      rgba(198, 40, 40, 0.9)
+                    {% elif ctx == 'night' %}
+                      rgba(33, 150, 243, 0.9)
+                    {% elif ctx == 'sleeping' %}
+                      rgba(156, 39, 176, 0.9)
+                    {% else %}
+                      rgba(255, 255, 255, 0.9)
+                    {% endif %}
+                  border-radius: 50%
+                  width: 24px
+                  height: 24px
+                  transform: scale(0.8)
+                  opacity: 0.9
+                  box-shadow: 0 0 6px rgba(var(--rgb-context-color), 0.5)
+            {% endif %}
+            
+            # Room temperature
+            {% if temp_entity %}
+            - type: state-badge
+              entity: {{ temp_entity }}
+              style:
+                top: {{ coords[1] + (coords[3] / 3) }}%
+                left: {{ coords[0] - (coords[2] / 3) }}%
+                "--paper-item-icon-color": >
+                  {% set temp = states(temp_entity) | float %}
+                  {% if temp < 18 %}
+                    rgba(33, 150, 243, 0.9)
+                  {% elif temp > 24 %}
+                    rgba(255, 87, 34, 0.9)
+                  {% else %}
+                    rgba(76, 175, 80, 0.9)
+                  {% endif %}
+                border-radius: 50%
+                width: 24px
+                height: 24px
+                transform: scale(0.8)
+                opacity: 0.9
+                box-shadow: >
+                  {% set temp = states(temp_entity) | float %}
+                  {% if temp < 18 %}
+                    0 0 6px rgba(33, 150, 243, 0.5)
+                  {% elif temp > 24 %}
+                    0 0 6px rgba(255, 87, 34, 0.5)
+                  {% else %}
+                    0 0 6px rgba(76, 175, 80, 0.5)
+                  {% endif %}
+            {% endif %}
             {% endfor %}
         
         {% if variables.show_quick_actions %}
@@ -209,6 +457,47 @@ template:
         - type: custom:mushroom-chips-card
           alignment: center
           chips:
+            # Context-driven home scene
+            - type: template
+              icon: >
+                {% set ctx = states(variables.context_entity) %}
+                {% if ctx == 'morning' %}
+                  mdi:weather-sunny
+                {% elif ctx == 'day' %}
+                  mdi:white-balance-sunny
+                {% elif ctx == 'evening' %}
+                  mdi:weather-sunset
+                {% elif ctx == 'night' or ctx == 'sleeping' %}
+                  mdi:weather-night
+                {% elif ctx == 'movie' %}
+                  mdi:movie
+                {% else %}
+                  mdi:home
+                {% endif %}
+              content: "{{ states(variables.context_entity) | title }} Mode"
+              tap_action:
+                action: call-service
+                service: scene.turn_on
+                service_data:
+                  entity_id: "scene.home_{{ states(variables.context_entity) }}"
+              icon_color: >
+                {% set ctx = states(variables.context_entity) %}
+                {% if ctx == 'morning' %}
+                  amber
+                {% elif ctx == 'day' %}
+                  yellow
+                {% elif ctx == 'evening' %}
+                  deep-orange
+                {% elif ctx == 'night' %}
+                  blue
+                {% elif ctx == 'sleeping' %}
+                  purple
+                {% elif ctx == 'movie' %}
+                  pink
+                {% else %}
+                  grey
+                {% endif %}
+
             # Home scenes
             {% for scene in variables.scene_entities %}
             - type: template
@@ -303,21 +592,46 @@ template:
                   grey
                 {% endif %}
         {% endif %}
-
+  
   card_mod:
     style: |
+      /* Apply weather styles from weather-responsive.yaml */
+      :host {
+        {% set weather = states(variables.weather_entity).state %}
+        {% set is_night = is_state('sun.sun', 'below_horizon') %}
+        
+        {% if weather == 'rainy' or weather == 'pouring' or weather == 'lightning' or weather == 'lightning-rainy' %}
+          --card-background-color: {% if is_night %}rgba(40, 45, 60, 0.8){% else %}rgba(60, 70, 85, 0.8){% endif %};
+          --primary-text-color: rgba(255, 255, 255, 0.9);
+        {% elif weather == 'cloudy' or weather == 'partlycloudy' %}
+          --card-background-color: {% if is_night %}rgba(40, 45, 60, 0.8){% else %}rgba(70, 75, 80, 0.8){% endif %};
+          --primary-text-color: rgba(255, 255, 255, 0.9);
+        {% elif weather == 'snowy' or weather == 'snowy-rainy' %}
+          --card-background-color: {% if is_night %}rgba(40, 45, 60, 0.8){% else %}rgba(80, 85, 95, 0.8){% endif %};
+          --primary-text-color: rgba(255, 255, 255, 0.9);
+        {% elif is_night %}
+          --card-background-color: rgba(40, 45, 60, 0.8);
+          --primary-text-color: rgba(255, 255, 255, 0.9);
+        {% else %}
+          --card-background-color: rgba(60, 70, 85, 0.8);
+          --primary-text-color: rgba(255, 255, 255, 0.9);
+        {% endif %}
+      }
+      
       /* Picture card styling */
       ha-card picture-elements {
-        border-radius: var(--ha-card-border-radius, 8px);
+        border-radius: var(--ha-card-border-radius, 12px);
         overflow: hidden;
       }
       
-      /* Ensure image is responsive */
+      /* Ensure image is responsive and properly styled */
       ha-card img {
         width: 100%;
         height: auto;
-        max-height: 300px;
+        max-height: 350px;
         object-fit: contain;
+        filter: {% if is_state('sun.sun', 'below_horizon') %}brightness(0.8) contrast(1.1){% endif %};
+        transition: filter 2s ease;
       }
       
       /* Improve room button visibility */
@@ -327,8 +641,8 @@ template:
       
       /* Ensure touch targets are large enough */
       ha-card .chip {
-        min-height: 44px;
-        min-width: 44px;
+        min-height: 48px;
+        min-width: 48px;
       }
       
       /* Animation for presence detection */
@@ -340,13 +654,32 @@ template:
       
       /* Apply animation to occupied rooms */
       ha-card button-card[style*="rgba(var(--rgb-context-color)"] {
-        animation: occupied-pulse 3s infinite ease-in-out;
+        {% if variables.animations_enabled %}
+          animation: occupied-pulse 3s infinite ease-in-out;
+        {% endif %}
       }
+      
+      /* Additional weather animations */
+      {% if weather == 'rainy' or weather == 'pouring' %}
+        @keyframes rain-blur {
+          0% { filter: blur(0.3px); }
+          50% { filter: blur(0.6px); }
+          100% { filter: blur(0.3px); }
+        }
+        
+        ha-card img {
+          animation: rain-blur 4s infinite ease-in-out;
+        }
+      {% endif %}
       
       /* Mobile optimization */
       @media (max-width: 600px) {
         ha-card button-card .name {
           font-size: 12px !important;
+        }
+        
+        ha-card button-card .label {
+          font-size: 10px !important;
         }
         
         ha-card .chip-label {
