@@ -1,0 +1,233 @@
+template:
+  name: persistent_controls
+  description: "Persistent control bar with media controls, quick actions, and context-aware functionality"
+  variables:
+    position:
+      type: string
+      default: "bottom"
+      description: "Position on screen (bottom, top)"
+    show_media_controls:
+      type: boolean
+      default: true
+      description: "Whether to show media player controls"
+    show_quick_actions:
+      type: boolean
+      default: true
+      description: "Whether to show context-based quick actions"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Entity that provides context information"
+    primary_media_entities:
+      type: list
+      default: ["media_player.living_room", "media_player.kitchen", "media_player.bedroom"]
+      description: "List of media player entities to control"
+    auto_hide:
+      type: boolean
+      default: false
+      description: "Whether to auto-hide when nothing is playing"
+    height:
+      type: string
+      default: "56px"
+      description: "Height of the control bar (min 44px for touch targets)"
+  template: |
+    type: custom:style_adapter
+    card_style: "control"
+    context_entity: {{ variables.context_entity }}
+    content:
+      type: conditional
+      conditions:
+        - condition: template
+          value_template: >
+            {% if variables.auto_hide %}
+              {% set media_players = variables.primary_media_entities %}
+              {% for player in media_players %}
+                {% if is_state(player, 'playing') %}
+                  {{ true }}
+                  {% break %}
+                {% endif %}
+              {% endfor %}
+              {% if is_state('binary_sensor.quick_action_available', 'on') %}
+                {{ true }}
+              {% else %}
+                {{ false }}
+              {% endif %}
+            {% else %}
+              {{ true }}
+            {% endif %}
+      card:
+        type: horizontal-stack
+        cards:
+          {% if variables.show_media_controls %}
+          # Media controls section
+          - type: custom:state-switch
+            entity: sensor.active_media_player
+            default: "none"
+            states:
+              "none":
+                type: custom:mushroom-template-card
+                icon: mdi:music-off
+                layout: horizontal
+                tap_action:
+                  action: more-info
+                  entity: {{ variables.primary_media_entities[0] }}
+                primary: >
+                  No Media
+              {% for player in variables.primary_media_entities %}
+              "{{ player }}":
+                type: custom:mushroom-media-player-card
+                entity: {{ player }}
+                fill_container: true
+                use_media_info: true
+                show_volume_control: false
+                media_controls:
+                  - play_pause
+                  - previous
+                  - next
+                tap_action:
+                  action: more-info
+                  entity: {{ player }}
+              {% endfor %}
+          {% endif %}
+          
+          {% if variables.show_quick_actions %}
+          # Context-based quick actions
+          - type: custom:mushroom-chips-card
+            alignment: end
+            chips:
+              # Dynamic chips based on context
+              - type: template
+                icon: >
+                  {% set context = states(variables.context_entity) %}
+                  {% if context == 'morning' %}
+                    mdi:coffee
+                  {% elif context == 'day' %}
+                    mdi:white-balance-sunny
+                  {% elif context == 'evening' %}
+                    mdi:weather-sunset
+                  {% elif context == 'night' or context == 'sleeping' %}
+                    mdi:weather-night
+                  {% elif context == 'movie' %}
+                    mdi:movie-open
+                  {% elif context == 'away' %}
+                    mdi:shield-home
+                  {% else %}
+                    mdi:home
+                  {% endif %}
+                tap_action:
+                  action: call-service
+                  service: script.context_primary_action
+                  service_data: {}
+                icon_color: >
+                  {% set context = states(variables.context_entity) %}
+                  {% if context == 'morning' %}
+                    amber
+                  {% elif context == 'day' %}
+                    yellow
+                  {% elif context == 'evening' %}
+                    deep-orange
+                  {% elif context == 'night' or context == 'sleeping' %}
+                    blue
+                  {% elif context == 'movie' %}
+                    purple
+                  {% else %}
+                    grey
+                  {% endif %}
+              
+              # Lights toggle
+              - type: entity
+                entity: light.all_lights
+                icon_color: amber
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+              
+              # Home/Away toggle
+              - type: template
+                icon: >
+                  {% if is_state('binary_sensor.home_occupied', 'on') %}
+                    mdi:home
+                  {% else %}
+                    mdi:home-export-outline
+                  {% endif %}
+                tap_action:
+                  action: call-service
+                  service: >
+                    {% if is_state('binary_sensor.home_occupied', 'on') %}
+                      script.leaving_home
+                    {% else %}
+                      script.arriving_home
+                    {% endif %}
+                  service_data: {}
+                icon_color: >
+                  {% if is_state('binary_sensor.home_occupied', 'on') %}
+                    green
+                  {% else %}
+                    grey
+                  {% endif %}
+          {% endif %}
+
+  card_mod:
+    style: |
+      ha-card {
+        /* Mobile-friendly touch targets */
+        min-height: 56px;
+        height: {{ variables.height }};
+        
+        /* Positioning based on settings */
+        position: fixed;
+        left: 0;
+        width: 100%;
+        z-index: 999;
+        {% if variables.position == 'bottom' %}
+        bottom: 0;
+        border-radius: 12px 12px 0 0;
+        border-top: 1px solid var(--divider-color);
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        padding-bottom: env(safe-area-inset-bottom, 0px); /* iOS safe area support */
+        {% else %}
+        top: 0;
+        border-radius: 0 0 12px 12px;
+        border-bottom: 1px solid var(--divider-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding-top: env(safe-area-inset-top, 0px); /* iOS safe area support */
+        {% endif %}
+        
+        /* Semi-transparent background with blur */
+        background-color: rgba(var(--rgb-card-background-color), 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        
+        /* Smooth animations */
+        transition: all 0.3s ease;
+        
+        /* Context-based subtle accent border */
+        border-left: 3px solid var(--context-color);
+      }
+      
+      /* Large enough touch targets */
+      ha-card .chip {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      ha-card .controls > div, 
+      ha-card ha-icon-button {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Active state feedback for touch */
+      ha-card .chip:active,
+      ha-card ha-icon-button:active {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+      
+      /* Make bottom padding for scrollable content when at bottom */
+      {% if variables.position == 'bottom' %}
+      :host {
+        --mdc-bottom-sheet-shape-padding: 56px;
+      }
+      {% endif %}

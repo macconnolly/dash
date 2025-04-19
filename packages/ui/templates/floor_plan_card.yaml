@@ -1,0 +1,355 @@
+template:
+  name: floor_plan_card
+  description: "Mobile-optimized floor plan card with responsive controls"
+  variables:
+    title:
+      type: string
+      default: "Floor Plan"
+      description: "Title for the floor plan card"
+    image_path:
+      type: string
+      default: "/local/floorplan/home.png"
+      description: "Path to the floor plan image"
+    rooms:
+      type: list
+      default: ["living_room", "kitchen", "bedroom"]
+      description: "List of room IDs"
+    room_names:
+      type: map
+      default:
+        living_room: "Living Room"
+        kitchen: "Kitchen"
+        bedroom: "Bedroom"
+      description: "Map of room IDs to display names"
+    room_coordinates:
+      type: map
+      default:
+        living_room: [25, 40, 40, 30]
+        kitchen: [70, 40, 20, 30]
+        bedroom: [25, 75, 35, 20]
+      description: "Map of room IDs to [x, y, width, height] as percentages"
+    presence_entities:
+      type: map
+      default:
+        living_room: "binary_sensor.living_room_presence"
+        kitchen: "binary_sensor.kitchen_presence"
+        bedroom: "binary_sensor.bedroom_presence"
+      description: "Map of room IDs to presence entities"
+    light_entities:
+      type: map
+      default:
+        living_room: "light.living_room"
+        kitchen: "light.kitchen"
+        bedroom: "light.bedroom"
+      description: "Map of room IDs to light entities"
+    scene_entities:
+      type: list
+      default: ["scene.home_bright", "scene.home_evening", "scene.home_night"]
+      description: "Scene entities for quick access"
+    scene_names:
+      type: map
+      default:
+        scene.home_bright: "Bright"
+        scene.home_evening: "Evening"
+        scene.home_night: "Night"
+      description: "Map of scene entities to display names"
+    scene_icons:
+      type: map
+      default:
+        scene.home_bright: "mdi:brightness-7"
+        scene.home_evening: "mdi:brightness-6"
+        scene.home_night: "mdi:brightness-3"
+      description: "Map of scene entities to icons"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context entity for styling"
+    show_quick_actions:
+      type: boolean
+      default: true
+      description: "Show quick action buttons"
+  template: |
+    # Use our centralized style adapter
+    type: custom:style_adapter
+    card_style: "card"
+    context_entity: {{ variables.context_entity }}
+    title: {{ variables.title }}
+    icon: mdi:floor-plan
+    subtitle: >
+      {% set occupied_count = namespace(value=0) %}
+      {% for room_id, entity in variables.presence_entities.items() %}
+        {% if is_state(entity, 'on') %}
+          {% set occupied_count.value = occupied_count.value + 1 %}
+        {% endif %}
+      {% endfor %}
+      
+      {% set lights_on = namespace(value=0) %}
+      {% for room_id, entity in variables.light_entities.items() %}
+        {% if is_state(entity, 'on') %}
+          {% set lights_on.value = lights_on.value + 1 %}
+        {% endif %}
+      {% endfor %}
+      
+      {% if occupied_count.value == 0 %}
+        Home vacant
+      {% elif occupied_count.value == 1 %}
+        1 room occupied
+      {% else %}
+        {{ occupied_count.value }} rooms occupied
+      {% endif %} • 
+      {% if lights_on.value == 0 %}
+        All lights off
+      {% elif lights_on.value == 1 %}
+        1 light on
+      {% else %}
+        {{ lights_on.value }} lights on
+      {% endif %}
+    content:
+      type: vertical-stack
+      cards:
+        # Interactive floor plan image
+        - type: picture-elements
+          image: {{ variables.image_path }}
+          elements:
+            {% for room_id, coords in variables.room_coordinates.items() %}
+            {% set presence = variables.presence_entities[room_id] %}
+            {% set light = variables.light_entities[room_id] %}
+            {% set room_name = variables.room_names[room_id] %}
+            # Room overlay for {{ room_name }}
+            - type: custom:button-card
+              entity: {{ presence }}
+              name: {{ room_name }}
+              icon: >
+                {% if is_state(light, 'on') %}
+                  mdi:lightbulb-on
+                {% else %}
+                  mdi:lightbulb-outline
+                {% endif %}
+              style:
+                top: {{ coords[1] }}%
+                left: {{ coords[0] }}%
+                width: {{ coords[2] }}%
+                height: {{ coords[3] }}%
+                transform: translate(-50%, -50%)
+                opacity: >
+                  {% if is_state(presence, 'on') %}
+                    0.9
+                  {% else %}
+                    0.6
+                  {% endif %}
+              styles:
+                card:
+                  - border-radius: 8px
+                  - background: >
+                      {% if is_state(presence, 'on') and is_state(light, 'on') %}
+                        rgba(var(--rgb-context-color), 0.2)
+                      {% elif is_state(presence, 'on') %}
+                        rgba(76, 175, 80, 0.2)
+                      {% elif is_state(light, 'on') %}
+                        rgba(255, 235, 59, 0.1)
+                      {% else %}
+                        rgba(0, 0, 0, 0.1)
+                      {% endif %}
+                  - border: >
+                      {% if is_state(presence, 'on') %}
+                        2px solid var(--context-color)
+                      {% elif is_state(light, 'on') %}
+                        2px solid rgba(255, 235, 59, 0.7)
+                      {% else %}
+                        1px solid rgba(255, 255, 255, 0.2)
+                      {% endif %}
+                name:
+                  - font-size: 14px
+                  - font-weight: bold
+                  - color: >
+                      {% if is_state(presence, 'on') or is_state(light, 'on') %}
+                        rgba(255, 255, 255, 0.9)
+                      {% else %}
+                        rgba(255, 255, 255, 0.6)
+                      {% endif %}
+                icon:
+                  - color: >
+                      {% if is_state(light, 'on') %}
+                        rgba(255, 235, 59, 1)
+                      {% else %}
+                        rgba(255, 255, 255, 0.5)
+                      {% endif %}
+              tap_action:
+                action: call-service
+                service: browser_mod.popup
+                service_data:
+                  title: {{ room_name }}
+                  content:
+                    type: custom:unified_popup
+                    title: {{ room_name }}
+                    icon: mdi:floor-plan
+                    content:
+                      type: vertical-stack
+                      cards:
+                        # Room Status
+                        - type: entities
+                          entities:
+                            - entity: {{ presence }}
+                              name: Presence
+                            - entity: {{ light }}
+                              name: Light
+                        # Detailed Controls
+                        - type: custom:mushroom-light-card
+                          entity: {{ light }}
+                          name: "Lights"
+                          use_light_color: true
+                              
+              hold_action:
+                action: toggle
+                entity: {{ light }}
+            {% endfor %}
+        
+        {% if variables.show_quick_actions %}
+        # Quick Actions Row
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            # Home scenes
+            {% for scene in variables.scene_entities %}
+            - type: template
+              icon: >
+                {% if variables.scene_icons[scene] %}
+                  {{ variables.scene_icons[scene] }}
+                {% else %}
+                  mdi:lightbulb
+                {% endif %}
+              content: >
+                {% if variables.scene_names[scene] %}
+                  {{ variables.scene_names[scene] }}
+                {% else %}
+                  {{ scene.split('.')[1] | replace('_', ' ') | title }}
+                {% endif %}
+              tap_action:
+                action: call-service
+                service: scene.turn_on
+                service_data:
+                  entity_id: {{ scene }}
+              icon_color: >
+                {% set name = variables.scene_names[scene] | default('') %}
+                {% if name == 'Bright' %}
+                  yellow
+                {% elif name == 'Evening' %}
+                  deep-orange
+                {% elif name == 'Night' %}
+                  blue
+                {% elif name == 'Morning' %}
+                  amber
+                {% else %}
+                  auto
+                {% endif %}
+            {% endfor %}
+            
+            # All Lights Toggle
+            - type: template
+              icon: >
+                {% set all_on = true %}
+                {% set any_on = false %}
+                {% for room_id, entity in variables.light_entities.items() %}
+                  {% if is_state(entity, 'off') %}
+                    {% set all_on = false %}
+                  {% else %}
+                    {% set any_on = true %}
+                  {% endif %}
+                {% endfor %}
+                
+                {% if all_on %}
+                  mdi:lightbulb-group
+                {% elif any_on %}
+                  mdi:lightbulb-multiple
+                {% else %}
+                  mdi:lightbulb-group-off
+                {% endif %}
+              content: >
+                {% set on_count = namespace(value=0) %}
+                {% for room_id, entity in variables.light_entities.items() %}
+                  {% if is_state(entity, 'on') %}
+                    {% set on_count.value = on_count.value + 1 %}
+                  {% endif %}
+                {% endfor %}
+                
+                {% if on_count.value == 0 %}
+                  All Off
+                {% elif on_count.value == variables.light_entities | length %}
+                  All On
+                {% else %}
+                  {{ on_count.value }} On
+                {% endif %}
+              tap_action:
+                action: call-service
+                service: light.toggle
+                service_data:
+                  entity_id: >
+                    {% set all_entities = [] %}
+                    {% for room_id, entity in variables.light_entities.items() %}
+                      {% set all_entities = all_entities + [entity] %}
+                    {% endfor %}
+                    {{ all_entities }}
+              icon_color: >
+                {% set on_count = namespace(value=0) %}
+                {% for room_id, entity in variables.light_entities.items() %}
+                  {% if is_state(entity, 'on') %}
+                    {% set on_count.value = on_count.value + 1 %}
+                  {% endif %}
+                {% endfor %}
+                
+                {% if on_count.value > 0 %}
+                  amber
+                {% else %}
+                  grey
+                {% endif %}
+        {% endif %}
+
+  card_mod:
+    style: |
+      /* Picture card styling */
+      ha-card picture-elements {
+        border-radius: var(--ha-card-border-radius, 8px);
+        overflow: hidden;
+      }
+      
+      /* Ensure image is responsive */
+      ha-card img {
+        width: 100%;
+        height: auto;
+        max-height: 300px;
+        object-fit: contain;
+      }
+      
+      /* Improve room button visibility */
+      ha-card button-card {
+        backdrop-filter: blur(2px);
+      }
+      
+      /* Ensure touch targets are large enough */
+      ha-card .chip {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Animation for presence detection */
+      @keyframes occupied-pulse {
+        0% { box-shadow: 0 0 5px var(--context-color); }
+        50% { box-shadow: 0 0 15px var(--context-color); }
+        100% { box-shadow: 0 0 5px var(--context-color); }
+      }
+      
+      /* Apply animation to occupied rooms */
+      ha-card button-card[style*="rgba(var(--rgb-context-color)"] {
+        animation: occupied-pulse 3s infinite ease-in-out;
+      }
+      
+      /* Mobile optimization */
+      @media (max-width: 600px) {
+        ha-card button-card .name {
+          font-size: 12px !important;
+        }
+        
+        ha-card .chip-label {
+          font-size: 0.7rem;
+        }
+      }

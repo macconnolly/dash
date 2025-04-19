@@ -1,7 +1,84 @@
-# ======================================================
-# CONTEXT ENGINE - The brain of the adaptive dashboard
-# ======================================================
+###############################################################################
+#                                                                             #
+#                          Context Engine Package v3.0                        #
+#                                                                             #
+###############################################################################
+#
+# This package creates an advanced context engine for your home dashboard
+# It intelligently adapts your UI based on:
+# - Time of day
+# - Room occupancy with priority for open concept areas
+# - Weather conditions
+# - Home occupancy
+# - User activities and routines
+# - Environmental sensor data
+#
 
+# Core context selection
+input_select:
+  home_context:
+    name: Home Context
+    options:
+      - morning
+      - day
+      - evening
+      - night
+      - sleeping
+      - away
+      - movie
+      - focus
+      - hosting
+    initial: day
+    icon: mdi:home-assistant
+
+# Input boolean switches for manual context control
+input_boolean:
+  context_auto_switch:
+    name: Automatic Context Switching
+    icon: mdi:sync
+    initial: on
+  context_override:
+    name: Context Override Active
+    icon: mdi:override
+    initial: off
+
+# Room occupancy tracking
+input_boolean:
+  living_room_occupied:
+    name: Living Room Occupied
+    icon: mdi:sofa
+  kitchen_occupied:
+    name: Kitchen Occupied
+    icon: mdi:countertop
+  dining_room_occupied:
+    name: Dining Room Occupied
+    icon: mdi:silverware-fork-knife
+  bedroom_occupied:
+    name: Bedroom Occupied
+    icon: mdi:bed
+  bathroom_occupied:
+    name: Bathroom Occupied
+    icon: mdi:shower
+  home_occupied:
+    name: Home Occupied
+    icon: mdi:home
+
+# Context engine helper sensors
+input_text:
+  active_open_area:
+    name: Active Open Area
+    icon: mdi:floor-plan
+  previous_active_open_area:
+    name: Previous Active Open Area
+    icon: mdi:history
+  primary_media_player:
+    name: Primary Media Player
+    icon: mdi:speaker
+  last_context_change:
+    name: Last Context Change
+    icon: mdi:clock-outline
+
+# Context Engine Core
 template:
   - trigger:
       - platform: time_pattern
@@ -68,6 +145,7 @@ template:
             {% set weather_entity = 'weather.home_2' %}
             {% set climate_entity = 'climate.dining_room' %}
             {% set media_active = false %}
+
             {% for entity_id in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom'] %}
               {% if is_state(entity_id, 'playing') %}
                 {% set media_active = true %}
@@ -138,5 +216,330 @@ template:
             {% endif %}
             {{ al_info.current_values | to_json }}
 
-# Note: Removed previous light_integrity and sonos_status sensors as they are superseded
-# Note: Removed previous room-specific, system state, time, and activity context engines as they are superseded by the new structure
+      - name: "Home Context Engine"
+        unique_id: home_context_engine
+        icon: >
+          {% if is_state('input_select.home_context', 'morning') %}
+            mdi:weather-sunset-up
+          {% elif is_state('input_select.home_context', 'day') %}
+            mdi:white-balance-sunny
+          {% elif is_state('input_select.home_context', 'evening') %}
+            mdi:weather-sunset-down
+          {% elif is_state('input_select.home_context', 'night') %}
+            mdi:weather-night
+          {% elif is_state('input_select.home_context', 'sleeping') %}
+            mdi:sleep
+          {% elif is_state('input_select.home_context', 'away') %}
+            mdi:home-export-outline
+          {% elif is_state('input_select.home_context', 'movie') %}
+            mdi:movie-open
+          {% elif is_state('input_select.home_context', 'focus') %}
+            mdi:head-cog
+          {% elif is_state('input_select.home_context', 'hosting') %}
+            mdi:account-group
+          {% else %}
+            mdi:home
+          {% endif %}
+        state: "{{ states('input_select.home_context') }}"
+
+      # Open area activity detection with priority logic
+      - name: "Open Area Activity"
+        unique_id: open_area_activity
+        icon: mdi:floor-plan
+        state: >
+          {% set living_presence = is_state('binary_sensor.living_room_presence', 'on') %}
+          {% set living_last_changed = state_attr('binary_sensor.living_room_presence', 'last_changed') | default(0) %}
+          
+          {% set kitchen_presence = is_state('binary_sensor.kitchen_presence', 'on') %}
+          {% set kitchen_last_changed = state_attr('binary_sensor.kitchen_presence', 'last_changed') | default(0) %}
+          
+          {% set dining_presence = is_state('binary_sensor.dining_room_presence', 'on') %}
+          {% set dining_last_changed = state_attr('binary_sensor.dining_room_presence', 'last_changed') | default(0) %}
+          
+          {% set living_lights = is_state('light.living_room', 'on') %}
+          {% set kitchen_lights = is_state('light.kitchen', 'on') %}
+          {% set dining_lights = is_state('light.dining_room', 'on') %}
+          
+          {% set living_media = is_state('media_player.living_room', 'playing') %}
+          {% set kitchen_media = is_state('media_player.kitchen', 'playing') %}
+          {% set dining_media = is_state('media_player.dining_room', 'playing') %}
+          
+          {% set current_context = states('input_select.home_context') %}
+          
+          {% if living_presence and kitchen_presence and dining_presence %}
+            {% if living_media %}
+              living_room
+            {% elif kitchen_media %}
+              kitchen
+            {% elif current_context == 'movie' %}
+              living_room
+            {% elif current_context in ['morning', 'evening'] %}
+              kitchen
+            {% elif kitchen_lights %}
+              kitchen
+            {% else %}
+              {% set timestamps = [living_last_changed, kitchen_last_changed, dining_last_changed] %}
+              {% set latest_index = timestamps.index(max(timestamps)) %}
+              {{ ['living_room', 'kitchen', 'dining_room'][latest_index] }}
+            {% endif %}
+          
+          {% elif living_presence and kitchen_presence %}
+            {% if living_media %}
+              living_room
+            {% elif kitchen_media %}
+              kitchen
+            {% elif current_context == 'movie' %}
+              living_room
+            {% elif current_context in ['morning', 'evening'] %}
+              kitchen
+            {% elif living_lights and not kitchen_lights %}
+              living_room
+            {% elif kitchen_lights and not living_lights %}
+              kitchen
+            {% else %}
+              {% if living_last_changed > kitchen_last_changed %}
+                living_room
+              {% else %}
+                kitchen
+              {% endif %}
+            {% endif %}
+          
+          {% elif living_presence and dining_presence %}
+            {% if living_media %}
+              living_room
+            {% elif dining_media %}
+              dining_room
+            {% elif current_context == 'movie' %}
+              living_room
+            {% elif current_context in ['morning', 'evening'] %}
+              dining_room
+            {% elif living_lights and not dining_lights %}
+              living_room
+            {% elif dining_lights and not living_lights %}
+              dining_room
+            {% else %}
+              {% if living_last_changed > dining_last_changed %}
+                living_room
+              {% else %}
+                dining_room
+              {% endif %}
+            {% endif %}
+          
+          {% elif kitchen_presence and dining_presence %}
+            {% if kitchen_media %}
+              kitchen
+            {% elif dining_media %}
+              dining_room
+            {% elif current_context in ['morning', 'evening'] %}
+              kitchen
+            {% elif kitchen_lights and not dining_lights %}
+              kitchen
+            {% elif dining_lights and not kitchen_lights %}
+              dining_room
+            {% else %}
+              {% if kitchen_last_changed > dining_last_changed %}
+                kitchen
+              {% else %}
+                dining_room
+              {% endif %}
+            {% endif %}
+          
+          {% elif living_presence %}
+            living_room
+          {% elif kitchen_presence %}
+            kitchen
+          {% elif dining_presence %}
+            dining_room
+          {% else %}
+            {% if living_media %}
+              living_room
+            {% elif kitchen_media %}
+              kitchen
+            {% elif dining_media %}
+              dining_room
+            {% else %}
+              {{ states('input_text.active_open_area') }}
+            {% endif %}
+          {% endif %}
+
+      - name: "Context Duration"
+        unique_id: context_duration
+        icon: mdi:clock-outline
+        state: >
+          {% set last_change = states('input_text.last_context_change') | as_timestamp %}
+          {% set now_time = now() | as_timestamp %}
+          {% set duration_seconds = now_time - last_change %}
+          {{ (duration_seconds / 60) | round(0) }}
+        unit_of_measurement: "min"
+
+      - name: "Context Transition Count Today"
+        unique_id: context_transition_count_today
+        icon: mdi:swap-horizontal
+        state: >
+          {% set count = states('sensor.context_transition_count') | int(0) %}
+          {% if now().hour == 0 and now().minute == 0 %}
+            0
+          {% else %}
+            {{ count }}
+          {% endif %}
+        
+      - name: "Most Frequent Context Today"
+        unique_id: most_frequent_context_today
+        icon: mdi:chart-pie
+        state: >
+          {% set stats = state_attr('sensor.context_statistics', 'stats') %}
+          {% if stats %}
+            {% set max_context = '' %}
+            {% set max_count = 0 %}
+            {% for context, count in stats.items() %}
+              {% if count > max_count %}
+                {% set max_context = context %}
+                {% set max_count = count %}
+              {% endif %}
+            {% endfor %}
+            {{ max_context | title if max_context else 'None' }}
+          {% else %}
+            Unknown
+          {% endif %}
+
+# Context transition automation
+automation:
+  - id: context_transition_recorder
+    alias: "Record Context Transitions"
+    trigger:
+      - platform: state
+        entity_id: input_select.home_context
+    action:
+      - service: input_text.set_value
+        data:
+          entity_id: input_text.last_context_change
+          value: "{{ now() }}"
+      - service: counter.increment
+        entity_id: counter.context_transition_count
+      - service: input_text.set_value
+        data_template:
+          entity_id: input_text.previous_active_open_area
+          value: "{{ states('input_text.active_open_area') }}"
+      - delay:
+          seconds: 1
+      - service: input_text.set_value
+        data_template:
+          entity_id: input_text.active_open_area
+          value: "{{ states('sensor.open_area_activity') }}"
+
+  - id: open_area_activity_tracker
+    alias: "Track Open Area Activity"
+    trigger:
+      - platform: state
+        entity_id: sensor.open_area_activity
+    action:
+      - service: input_text.set_value
+        data_template:
+          entity_id: input_text.active_open_area
+          value: "{{ trigger.to_state.state }}"
+
+  # Context-based automations for open concept space
+  - id: context_aware_open_area_lighting
+    alias: "Context-Aware Open Area Lighting"
+    trigger:
+      - platform: state
+        entity_id: input_select.home_context
+      - platform: state
+        entity_id: sensor.open_area_activity
+        to: 
+          - "living_room"
+          - "kitchen"
+          - "dining_room"
+    condition:
+      - condition: state
+        entity_id: input_boolean.home_occupied
+        state: "on"
+    action:
+      - choose:
+          # Morning context
+          - conditions:
+              - condition: state
+                entity_id: input_select.home_context
+                state: "morning"
+            sequence:
+              - service: light.turn_on
+                data_template:
+                  entity_id: >
+                    {% if trigger.to_state.state == "living_room" or states('sensor.open_area_activity') == "living_room" %}
+                      light.living_room
+                    {% elif trigger.to_state.state == "kitchen" or states('sensor.open_area_activity') == "kitchen" %}
+                      light.kitchen
+                    {% elif trigger.to_state.state == "dining_room" or states('sensor.open_area_activity') == "dining_room" %}
+                      light.dining_room
+                    {% endif %}
+                  brightness_pct: 85
+                  color_temp: 400  # Bright, cool light for morning
+
+          # Evening context
+          - conditions:
+              - condition: state
+                entity_id: input_select.home_context
+                state: "evening"
+            sequence:
+              - service: light.turn_on
+                data_template:
+                  entity_id: >
+                    {% if trigger.to_state.state == "living_room" or states('sensor.open_area_activity') == "living_room" %}
+                      light.living_room
+                    {% elif trigger.to_state.state == "kitchen" or states('sensor.open_area_activity') == "kitchen" %}
+                      light.kitchen
+                    {% elif trigger.to_state.state == "dining_room" or states('sensor.open_area_activity') == "dining_room" %}
+                      light.dining_room
+                    {% endif %}
+                  brightness_pct: 70
+                  color_temp: 500  # Warm light for evening
+
+          # Movie context
+          - conditions:
+              - condition: state
+                entity_id: input_select.home_context
+                state: "movie"
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity_id: sensor.open_area_activity
+                    state: "living_room"
+                  - condition: state
+                    entity_id: trigger.to_state.entity_id
+                    state: "living_room"
+            sequence:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.living_room_movie
+      
+      # Default fallback for other contexts
+      - default:
+          - service: switch.turn_on
+            entity_id: switch.adaptive_lighting_adapt_all_lights
+
+counter:
+  context_transition_count:
+    name: Context Transition Count
+    initial: 0
+    step: 1
+    icon: mdi:swap-horizontal
+    
+# Context Statistics Sensor (for analytics)
+sensor:
+  - platform: history_stats
+    name: context_statistics
+    entity_id: input_select.home_context
+    state: all
+    type: count
+    end: '{{ now() }}'
+    duration:
+      hours: 24
+    
+# Open area room groups for unified control
+light:
+  - platform: group
+    name: Open Area All Lights
+    entities:
+      - light.living_room
+      - light.kitchen
+      - light.dining_room

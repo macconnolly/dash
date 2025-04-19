@@ -1,0 +1,231 @@
+template:
+  name: "climate_hub"
+  description: "Responsive climate control hub with mobile-optimized controls"
+  variables:
+    entities:
+      type: list
+      default: ["climate.living_room", "climate.bedroom"]
+      description: "List of climate entities to display"
+    fan:
+      type: string
+      default: "fan.hvac_fan"
+      description: "HVAC fan entity (optional)"
+    energy_sensor:
+      type: string
+      default: "sensor.hvac_energy_today"
+      description: "HVAC energy consumption sensor (optional)"
+    title:
+      type: string
+      default: "Climate Control"
+      description: "Section title"
+    show_chart:
+      type: boolean
+      default: true
+      description: "Whether to show temperature chart"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context entity for styling"
+    compact:
+      type: boolean
+      default: false
+      description: "Use compact layout for mobile"
+  template: |
+    # Use our centralized style adapter
+    type: custom:style_adapter
+    card_style: "control"
+    context_entity: {{ variables.context_entity }}
+    title: {{ variables.title }}
+    icon: >
+      {% set entity = variables.entities[0] %}
+      {% if is_state_attr(entity, 'hvac_action', 'heating') %}
+        mdi:fire
+      {% elif is_state_attr(entity, 'hvac_action', 'cooling') %}
+        mdi:snowflake
+      {% elif is_state_attr(entity, 'hvac_action', 'idle') %}
+        mdi:thermostat
+      {% else %}
+        mdi:thermostat-off
+      {% endif %}
+    subtitle: >
+      {% set entity = variables.entities[0] %}
+      {% set temperature = state_attr(entity, 'current_temperature') %}
+      {% set action = state_attr(entity, 'hvac_action') | title %}
+      {{ temperature }}° • {{ action }}
+    content:
+      type: vertical-stack
+      cards:
+        # Climate controls grid - responsive
+        - type: custom:layout-card
+          layout_type: grid
+          layout:
+            grid-template-columns: >
+              {% if variables.compact %}
+                repeat(auto-fill, minmax(130px, 1fr))
+              {% else %}
+                repeat(auto-fill, minmax(150px, 1fr))
+              {% endif %}
+            grid-auto-rows: min-content
+            gap: var(--spacing-md, 16px)
+          cards:
+            {% for entity in variables.entities %}
+            # Individual climate controls
+            - type: custom:mushroom-climate-card
+              entity: {{ entity }}
+              fill_container: true
+              name: >
+                {% if entity.split('.')[1] | replace('_', ' ') | title %}
+                  {{ entity.split('.')[1] | replace('_', ' ') | title }}
+                {% else %}
+                  Climate
+                {% endif %}
+              icon: >
+                {% if is_state_attr(entity, 'hvac_action', 'heating') %}
+                  mdi:fire
+                {% elif is_state_attr(entity, 'hvac_action', 'cooling') %}
+                  mdi:snowflake
+                {% elif is_state_attr(entity, 'hvac_action', 'idle') %}
+                  mdi:thermostat
+                {% else %}
+                  mdi:thermostat-off
+                {% endif %}
+              icon_color: >
+                {% if is_state_attr(entity, 'hvac_action', 'heating') %}
+                  red
+                {% elif is_state_attr(entity, 'hvac_action', 'cooling') %}
+                  blue
+                {% else %}
+                  grey
+                {% endif %}
+              show_temperature_control: true
+              collapsible_controls: false
+              hvac_modes:
+                - heat
+                - cool
+                - heat_cool
+                - "off"
+            {% endfor %}
+            
+            # HVAC Fan Control (if provided)
+            {% if variables.fan %}
+            - type: custom:mushroom-fan-card
+              entity: {{ variables.fan }}
+              name: "HVAC Fan"
+              icon: mdi:fan
+              fill_container: true
+              show_percentage_control: true
+              show_oscillate_control: false
+              icon_animation: >
+                {% if is_state(variables.fan, 'on') %}
+                  spin
+                {% else %}
+                  none
+                {% endif %}
+            {% endif %}
+            
+            # Energy consumption (if provided)
+            {% if variables.energy_sensor %}
+            - type: custom:mushroom-template-card
+              primary: "Energy Usage"
+              secondary: >
+                {{ states(variables.energy_sensor) }} kWh today
+              icon: mdi:lightning-bolt
+              entity: {{ variables.energy_sensor }}
+              tap_action:
+                action: more-info
+                entity: {{ variables.energy_sensor }}
+              icon_color: >
+                {% set value = states(variables.energy_sensor) | float(0) %}
+                {% if value > 10 %}
+                  red
+                {% elif value > 5 %}
+                  amber
+                {% else %}
+                  green
+                {% endif %}
+              fill_container: true
+            {% endif %}
+        
+        # Temperature trend visualization (if enabled)
+        {% if variables.show_chart %}
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_chart }}"
+          card:
+            type: custom:apexcharts-card
+            header:
+              show: true
+              title: Temperature Trends
+              show_states: false
+            graph_span: 24h
+            all_series_config:
+              stroke_width: 2
+              curve: "smooth"
+            series:
+              {% for entity in variables.entities %}
+              - entity: >
+                  {% set room = entity.split('.')[1] %}
+                  sensor.{{ room }}_temperature
+                name: "{{ room | replace('_', ' ') | title }}"
+              {% endfor %}
+            apex_config:
+              chart:
+                height: 200
+                toolbar:
+                  show: false
+                zoom:
+                  enabled: false
+              tooltip:
+                enabled: true
+                x:
+                  format: "HH:mm"
+              xaxis:
+                labels:
+                  datetimeUTC: false
+                  format: "HH:mm"
+              yaxis:
+                labels:
+                  formatter: "|value|°"
+                forceNiceScale: true
+        {% endif %}
+
+  card_mod:
+    style: |
+      /* Highlight active climate states */
+      ha-card mushroom-climate-card-temperature-control {
+        padding: 8px 0;
+      }
+      
+      /* Ensure proper touch targets for all buttons */
+      ha-card .actions {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      
+      ha-card .actions mwc-button {
+        min-height: 44px;
+        margin: 4px;
+        flex-grow: 1;
+      }
+      
+      /* Animation for active HVAC */
+      @keyframes hvac-active-pulse {
+        0% { opacity: 0.7; }
+        50% { opacity: 1; }
+        100% { opacity: 0.7; }
+      }
+      
+      /* Apply animation to active climate cards */
+      ha-card mushroom-climate-card[style*="--icon-color-red"],
+      ha-card mushroom-climate-card[style*="--icon-color-blue"] {
+        animation: hvac-active-pulse 4s infinite;
+      }
+      
+      /* Mobile optimized chart */
+      @media (max-width: 600px) {
+        ha-card apexcharts-card {
+          height: 180px;
+          overflow: hidden;
+        }
+      }

@@ -1,0 +1,286 @@
+template:
+  name: adaptive_lighting_status_strip
+  description: "Visual indicator of adaptive lighting status for different lighting groups"
+  base: base_card
+  variables:
+    show_labels:
+      type: boolean
+      default: true
+      description: "Show text labels for each light group"
+    show_tooltips:
+      type: boolean
+      default: true
+      description: "Show tooltips on hover"
+    show_title:
+      type: boolean
+      default: true
+      description: "Show title above the strip"
+    title:
+      type: string
+      default: "Adaptive Lighting Status"
+      description: "Title to display"
+    compact_mode:
+      type: boolean
+      default: false
+      description: "Use compact mode with smaller indicators"
+    manual_control_entities:
+      type: list
+      default:
+        - input_boolean.al_manual_control_non_hue
+        - input_boolean.al_manual_control_kitchen_island
+        - input_boolean.al_manual_control_master_adapt
+        - input_boolean.al_manual_control_track_lights
+        - input_boolean.al_manual_control_hue_adapt
+      description: "List of input_boolean entities that indicate manual control status"
+    group_names:
+      type: map
+      default:
+        input_boolean.al_manual_control_non_hue: "Living Room"
+        input_boolean.al_manual_control_kitchen_island: "Kitchen"
+        input_boolean.al_manual_control_master_adapt: "Bedroom"
+        input_boolean.al_manual_control_track_lights: "Dining"
+        input_boolean.al_manual_control_hue_adapt: "Accent"
+      description: "Names to display for each lighting group"
+    group_icons:
+      type: map
+      default:
+        input_boolean.al_manual_control_non_hue: "mdi:sofa"
+        input_boolean.al_manual_control_kitchen_island: "mdi:countertop"
+        input_boolean.al_manual_control_master_adapt: "mdi:bed"
+        input_boolean.al_manual_control_track_lights: "mdi:track-light"
+        input_boolean.al_manual_control_hue_adapt: "mdi:lightbulb-group"
+      description: "Icons for each lighting group"
+  template: |
+    type: custom:bubble-card
+    card_type: custom
+    card:
+      type: vertical-stack
+      cards:
+        # Title section (conditional)
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_title }}"
+          card:
+            type: markdown
+            content: >
+              ### {{ variables.title }}
+            style: >
+              ha-card {
+                box-shadow: none;
+                background: transparent;
+                padding: 0;
+                margin-bottom: 8px;
+              }
+              h3 {
+                font-size: 16px;
+                font-weight: 500;
+                margin: 0;
+                padding: 0;
+                opacity: 0.8;
+              }
+        
+        # Status strip
+        - type: horizontal-stack
+          cards:
+            {% for entity in variables.manual_control_entities %}
+              {% set is_manual = is_state(entity, 'on') %}
+              {% set name = variables.group_names[entity] if entity in variables.group_names else entity.split('.')[1]|replace('al_manual_control_', '')|title|replace('_', ' ') %}
+              {% set icon = variables.group_icons[entity] if entity in variables.group_icons else 'mdi:lightbulb' %}
+              - type: custom:button-card
+                entity: {{ entity }}
+                icon: >
+                  {% if is_manual %}
+                    mdi:lightbulb
+                  {% else %}
+                    mdi:lightbulb-auto-outline
+                  {% endif %}
+                name: >
+                  {% if variables.show_labels %}
+                    {{ name }}
+                  {% else %}
+                    &nbsp;
+                  {% endif %}
+                size: >
+                  {% if variables.compact_mode %}
+                    30%
+                  {% else %}
+                    40%
+                  {% endif %}
+                aspect_ratio: 1/1
+                styles:
+                  grid:
+                    - grid-template-areas: '"i" "n"'
+                    - grid-template-columns: 1fr
+                    - grid-template-rows: 1fr min-content
+                  card:
+                    - border-radius: 12px
+                    - padding: >
+                        {% if variables.compact_mode %}
+                          8px 4px
+                        {% else %}
+                          12px 8px
+                        {% endif %}
+                    - background-color: >
+                        {% if is_manual %}
+                          rgba(var(--rgb-amber), 0.15)
+                        {% else %}
+                          rgba(var(--rgb-blue), 0.15)
+                        {% endif %}
+                  icon:
+                    - color: >
+                        {% if is_manual %}
+                          var(--amber-color, #FFC107)
+                        {% else %}
+                          var(--blue-color, #2196F3)
+                        {% endif %}
+                  name:
+                    - font-size: >
+                        {% if variables.compact_mode %}
+                          10px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - color: var(--primary-text-color)
+                    - opacity: 0.7
+                    - margin-top: 4px
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: call-service
+                  service: switch.toggle
+                  service_data:
+                    entity_id: switch.adaptive_lighting_adapt_{{entity.split('.')[1]|replace('al_manual_control_', '')}}
+                tooltip: >
+                  {% if variables.show_tooltips %}
+                    {% if is_manual %}
+                      {{ name }} is in manual mode. Tap to enable adaptive lighting.
+                    {% else %}
+                      {{ name }} is using adaptive lighting. Tap to switch to manual control.
+                    {% endif %}
+                  {% endif %}
+            {% endfor %}
+        
+        # Summary status
+        - type: custom:mushroom-template-card
+          entity: sensor.adaptive_lighting_status
+          icon: >
+            {% set status = states('sensor.adaptive_lighting_status') %}
+            {% if status == 'fully_adaptive' %}
+              mdi:lightbulb-auto
+            {% elif status == 'mostly_manual' %}
+              mdi:lightbulb-on
+            {% else %}
+              mdi:lightbulb-auto-outline
+            {% endif %}
+          primary: >
+            {% set status = states('sensor.adaptive_lighting_status') %}
+            {% if status == 'fully_adaptive' %}
+              All lights using adaptive lighting
+            {% elif status == 'mostly_manual' %}
+              Most lights in manual mode
+            {% else %}
+              Partially adaptive lighting
+            {% endif %}
+          secondary: >
+            {% set manual_count = state_attr('sensor.adaptive_lighting_status', 'manual_count')|int %}
+            {% set total = variables.manual_control_entities|length %}
+            {{ manual_count }} of {{ total }} groups in manual mode
+          icon_color: >
+            {% set status = states('sensor.adaptive_lighting_status') %}
+            {% if status == 'fully_adaptive' %}
+              blue
+            {% elif status == 'mostly_manual' %}
+              amber
+            {% else %}
+              cyan
+            {% endif %}
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: Adaptive Lighting Controls
+              content:
+                type: vertical-stack
+                cards:
+                  - type: markdown
+                    content: >
+                      ### Adaptive Lighting Controls
+                      
+                      Toggle individual zones between adaptive and manual control.
+                  - type: entities
+                    entities:
+                      - entity: switch.adaptive_lighting_adapt_all_lights
+                        name: Adapt All Lights
+                      - entity: switch.adaptive_lighting_adapt_non_hue
+                        name: Living Room Lights
+                      - entity: switch.adaptive_lighting_adapt_kitchen_island
+                        name: Kitchen Island
+                      - entity: switch.adaptive_lighting_adapt_master_adapt
+                        name: Bedroom Lights
+                      - entity: switch.adaptive_lighting_adapt_track_lights
+                        name: Track Lights
+                      - entity: switch.adaptive_lighting_adapt_hue_adapt
+                        name: Accent Lights
+                  - type: markdown
+                    content: >
+                      **Current Mode:** {{ states('sensor.adaptive_lighting_status') | replace('_', ' ') | title }}
+                      
+                      Color temperature: {{ state_attr('sensor.adaptive_lighting_status', 'adaptive_lights').color_temp|default(0) }}K
+                      
+                      Brightness: {{ state_attr('sensor.adaptive_lighting_status', 'adaptive_lights').brightness|default(0) }}%
+                  - type: entities
+                    entities:
+                      - entity: input_select.home_context
+                        name: Current Home Context
+          
+  styles_javascript: |
+    `
+    // Apply container styling
+    const container = root.querySelector('.horizontal-stack-card');
+    if (container) {
+      container.style.padding = "${variables.compact_mode ? '4px' : '8px'}";
+      container.style.borderRadius = "16px";
+      container.style.background = "var(--card-background-color)";
+      container.style.boxShadow = "var(--ha-card-box-shadow, none)";
+    }
+    
+    // Apply animated effects
+    const statusButtons = root.querySelectorAll('.horizontal-stack-card button-card');
+    statusButtons.forEach(btn => {
+      const entity = btn.getConfig().entity;
+      const isManual = hass.states[entity]?.state === 'on';
+      
+      // Pulse animation for manual mode
+      if (isManual) {
+        btn.querySelector('.icon').style.animation = "pulse 2s infinite ease-in-out";
+      } else {
+        btn.querySelector('.icon').style.animation = "";
+      }
+      
+      // Add responsive hover effects
+      btn.addEventListener('mouseenter', function() {
+        this.style.transform = "translateY(-2px)";
+        this.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+      });
+      
+      btn.addEventListener('mouseleave', function() {
+        this.style.transform = "translateY(0)";
+        this.style.boxShadow = "none";
+      });
+    });
+    
+    // Create keyframe animations if they don't exist
+    if (!document.getElementById('adaptive-lighting-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'adaptive-lighting-keyframes';
+      style.textContent = `
+        @keyframes pulse {
+          0% { transform: scale(0.95); opacity: 0.7; }
+          50% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(0.95); opacity: 0.7; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    `

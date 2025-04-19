@@ -1,0 +1,360 @@
+template:
+  name: persistent_media_controls
+  description: "Always-available media controls for active Sonos speakers"
+  variables:
+    style:
+      type: string
+      default: "bubble"
+      description: "Style variant to use (bubble or streamline)"
+    show_album_art:
+      type: boolean
+      default: true
+      description: "Show album art when available"
+    show_volume:
+      type: boolean
+      default: true
+      description: "Show volume controls"
+    position_mode:
+      type: string
+      default: "bottom"
+      description: "Position on screen (bottom, top, or float)"
+    accent_color:
+      type: string
+      default: ""
+      description: "Custom accent color for controls"
+    icons_only:
+      type: boolean
+      default: false
+      description: "Show only icons, no text for compact mode"
+    auto_hide:
+      type: boolean
+      default: false
+      description: "Auto-hide when nothing is playing"
+  template: |
+    {% set style_variant = variables.style | default('bubble') %}
+    {% set show_art = variables.show_album_art | default(true) %}
+    {% set show_volume = variables.show_volume | default(true) %}
+    {% set position = variables.position_mode | default('bottom') %}
+    {% set accent = variables.accent_color | default('') %}
+    {% set icons_only = variables.icons_only | default(false) %}
+    {% set auto_hide = variables.auto_hide | default(false) %}
+    
+    {% set sonos_entities = ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom', 'media_player.sun_house'] %}
+    {% set playing_players = sonos_entities | select('is_state', 'playing') | list %}
+    {% set master_player = states('sensor.sonos_last_active_player') %}
+    
+    {% if playing_players | count > 0 %}
+      {% set primary_player = playing_players[0] %}
+    {% elif master_player in sonos_entities %}
+      {% set primary_player = master_player %}
+    {% else %}
+      {% set primary_player = 'media_player.living_room' %}
+    {% endif %}
+    
+    {% set is_playing = is_state(primary_player, 'playing') %}
+    {% set position_class = {
+      'bottom': 'footer',
+      'top': 'header',
+      'float': 'panel'
+    }[position] %}
+    
+    {% if auto_hide and not is_playing %}
+      type: custom:bubble-card
+      card_type: custom
+      card:
+        type: custom:state-switch
+        entity: sensor.sonos_active_count
+        default: "0"
+        states:
+          "0":
+            type: custom:button-card
+            color_type: blank-card
+            styles:
+              card:
+                - height: 0px
+                - padding: 0
+                - margin: 0
+          "1", "2", "3", "4", "5":
+            type: vertical-stack
+            view_layout:
+              position: {{ position_class }}
+            cards:
+              - type: custom:bubble-card
+                card_type: media
+                entity: {{ primary_player }}
+                info: short
+                show_volume_level: {{ show_volume }}
+                collapse: true
+                artwork: {{ 'cover-fit' if show_art else 'none' }}
+                source: icon
+                sound_mode: icon
+    {% else %}
+      type: custom:bubble-card
+      card_type: custom
+      card:
+        type: vertical-stack
+        view_layout:
+          position: {{ position_class }}
+        cards:
+          - type: custom:state-switch
+            entity: sensor.sonos_active_count
+            default: "0"
+            states:
+              "0":
+                type: custom:mushroom-template-card
+                primary: >
+                  {% if icons_only %}
+                    &nbsp;
+                  {% else %}
+                    No Media Playing
+                  {% endif %}
+                secondary: >
+                  {% if icons_only %}
+                    &nbsp;
+                  {% else %}
+                    Tap to start playback
+                  {% endif %}
+                icon: mdi:music-off
+                tap_action:
+                  action: more-info
+                  entity: {{ primary_player }}
+                layout: horizontal
+                icon_color: >
+                  {% if accent %}
+                    {{ accent }}
+                  {% else %}
+                    blue
+                  {% endif %}
+                card_mod:
+                  style: |
+                    ha-card {
+                      opacity: 0.8;
+                      height: {{ '48px' if icons_only else '56px' }};
+                      margin-top: {{ '0' if position == 'bottom' else 'auto' }};
+                      margin-bottom: {{ '0' if position == 'top' else 'auto' }};
+                    }
+              "1", "2", "3", "4", "5":
+                type: custom:bubble-card
+                card_type: media
+                entity: {{ primary_player }}
+                info: short
+                show_volume_level: {{ show_volume }}
+                collapse: true
+                artwork: {{ 'cover-fit' if show_art else 'none' }}
+                source: icon
+                sound_mode: icon
+    {% endif %}
+    
+  styles_javascript: |
+    `
+    // Get settings
+    const styleVariant = '${variables.style}' || 'bubble';
+    const showArt = ${variables.show_album_art} !== false;
+    const showVolume = ${variables.show_volume} !== false;
+    const position = '${variables.position_mode}' || 'bottom';
+    const accentColor = '${variables.accent_color}';
+    const iconsOnly = ${variables.icons_only} === true;
+    const autoHide = ${variables.auto_hide} === true;
+    
+    // Get active Sonos data
+    const sonosEntities = ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom', 'media_player.sun_house'];
+    const playingPlayers = sonosEntities.filter(entity => hass.states[entity]?.state === 'playing');
+    const primaryPlayer = playingPlayers.length > 0 ? playingPlayers[0] : 
+                          hass.states['sensor.sonos_last_active_player']?.state || 'media_player.living_room';
+    const isPlaying = hass.states[primaryPlayer]?.state === 'playing';
+    
+    // Automatically expand control when playing
+    let mediaCard = root.querySelector('bubble-card[card_type="media"]');
+    if (mediaCard) {
+      // Get state of active player
+      const playerState = hass.states[primaryPlayer]?.state || 'idle';
+      
+      // Apply styling based on player state
+      if (playerState === 'playing') {
+        // Expanded view with all controls for active playback
+        mediaCard.style.maxHeight = showVolume ? '160px' : '120px';
+        mediaCard.style.transition = 'max-height 0.5s ease-in-out';
+        
+        // Make sure we're not collapsed when playing
+        if (mediaCard._config) {
+          mediaCard._config.collapse = false;
+        }
+        
+        // Add artwork color extraction if artwork is visible
+        if (showArt) {
+          const artworkEl = mediaCard.querySelector('.artwork');
+          if (artworkEl) {
+            if (!artworkEl.hasAttribute('data-color-extracted')) {
+              // Simple dominant color extraction (this is simplified - you'd want a proper color analysis library)
+              const img = artworkEl.querySelector('img');
+              if (img && img.complete) {
+                try {
+                  const canvas = document.createElement('canvas');
+                  const ctx = canvas.getContext('2d');
+                  canvas.width = 1;
+                  canvas.height = 1;
+                  ctx.drawImage(img, 0, 0, 1, 1);
+                  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+                  
+                  // Use extracted color for controls
+                  const controls = mediaCard.querySelectorAll('.control-button');
+                  controls.forEach(btn => {
+                    btn.style.color = `rgb(${r}, ${g}, ${b})`;
+                  });
+                  
+                  artworkEl.setAttribute('data-color-extracted', 'true');
+                } catch (e) {
+                  console.error('Error extracting artwork color:', e);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Collapsed view for idle/paused state
+        mediaCard.style.maxHeight = '56px';
+        
+        // Set collapse true when not playing
+        if (mediaCard._config) {
+          mediaCard._config.collapse = true;
+        }
+      }
+      
+      // Apply position styling
+      const container = root.querySelector('.vertical-stack-card');
+      if (container) {
+        // Position fixed at bottom or top
+        if (position === 'bottom') {
+          container.style.position = 'fixed';
+          container.style.bottom = '0';
+          container.style.left = '0';
+          container.style.width = '100%';
+          container.style.zIndex = '999';
+          container.style.background = 'var(--card-background-color)';
+          container.style.borderTop = '1px solid var(--divider-color)';
+          container.style.boxShadow = '0 -2px 4px rgba(0,0,0,0.1)';
+          container.style.borderRadius = '12px 12px 0 0';
+        } else if (position === 'top') {
+          container.style.position = 'fixed';
+          container.style.top = '0';
+          container.style.left = '0';
+          container.style.width = '100%';
+          container.style.zIndex = '999';
+          container.style.background = 'var(--card-background-color)';
+          container.style.borderBottom = '1px solid var(--divider-color)';
+          container.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          container.style.borderRadius = '0 0 12px 12px';
+        } else if (position === 'float') {
+          container.style.position = 'fixed';
+          container.style.bottom = '16px';
+          container.style.right = '16px';
+          container.style.width = '320px';
+          container.style.zIndex = '999';
+          container.style.background = 'var(--card-background-color)';
+          container.style.border = '1px solid var(--divider-color)';
+          container.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+          container.style.borderRadius = '12px';
+        }
+        
+        // Add backdrop blur effect for a modern look
+        container.style.backdropFilter = 'blur(10px)';
+        container.style.backgroundColor = 'rgba(var(--rgb-card-background-color, 255, 255, 255), 0.8)';
+      }
+      
+      // For bottom position, add padding to avoid content being hidden under the player
+      if (position === 'bottom') {
+        // Find the Lovelace panel
+        const panel = document.querySelector('home-assistant home-assistant-main ha-panel-lovelace');
+        if (panel) {
+          const lovelaceRoot = panel.shadowRoot.querySelector('hui-root');
+          if (lovelaceRoot) {
+            const view = lovelaceRoot.shadowRoot.querySelector('hui-view') || 
+                          lovelaceRoot.shadowRoot.querySelector('hui-panel-view');
+            if (view) {
+              // Calculate height based on current player state
+              const playerHeight = isPlaying && showVolume ? 160 : 56;
+              view.style.paddingBottom = `${playerHeight + 8}px`;
+              view.style.transition = 'padding-bottom 0.3s ease-in-out';
+            }
+          }
+        }
+      }
+    }
+    
+    // Add touch-optimized controls for mobile
+    const mediaControls = root.querySelectorAll('.control-button');
+    if (mediaControls.length > 0) {
+      mediaControls.forEach(btn => {
+        // Increase touch target size
+        btn.style.minWidth = '48px';
+        btn.style.minHeight = '48px';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.margin = '0 4px';
+        
+        // Add touch feedback
+        btn.addEventListener('touchstart', function() {
+          this.style.transform = 'scale(0.95)';
+          this.style.opacity = '0.9';
+        });
+        
+        btn.addEventListener('touchend', function() {
+          this.style.transform = 'scale(1)';
+          this.style.opacity = '1';
+        });
+      });
+    }
+    
+    // Apply accent color if specified
+    if (accentColor) {
+      const controlButtons = root.querySelectorAll('ha-icon');
+      controlButtons.forEach(icon => {
+        icon.style.color = accentColor;
+      });
+    }
+    
+    // Add progress bar animation when playing
+    const progressBar = root.querySelector('.progress');
+    if (progressBar && isPlaying) {
+      progressBar.style.transition = 'width 1s linear';
+    }
+    
+    // Add multi-room controls when multiple speakers are active
+    const activeSpeakers = sonosEntities.filter(entity => 
+      hass.states[entity]?.state !== 'unavailable' && 
+      hass.states[entity]?.state !== 'off'
+    );
+    
+    if (activeSpeakers.length > 1 && isPlaying) {
+      const controlsContainer = mediaCard?.querySelector('.control-row') || mediaCard;
+      
+      // Check if we've already added the multi-room button
+      if (controlsContainer && !root.querySelector('#multi-room-btn')) {
+        const multiRoomBtn = document.createElement('ha-icon');
+        multiRoomBtn.id = 'multi-room-btn';
+        multiRoomBtn.icon = 'mdi:speaker-multiple';
+        multiRoomBtn.style.cursor = 'pointer';
+        multiRoomBtn.style.margin = '0 8px';
+        multiRoomBtn.style.color = accentColor || 'var(--primary-color)';
+        
+        multiRoomBtn.addEventListener('click', () => {
+          // Open Sonos group control
+          const event = new CustomEvent('hass-more-info', {
+            bubbles: true,
+            composed: true,
+            detail: {
+              entityId: 'media_player.sonos_group'
+            }
+          });
+          multiRoomBtn.dispatchEvent(event);
+        });
+        
+        // Add tooltip
+        multiRoomBtn.title = 'Manage Sonos Groups';
+        
+        // Add to controls
+        controlsContainer.appendChild(multiRoomBtn);
+      }
+    }
+    `

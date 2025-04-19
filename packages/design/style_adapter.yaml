@@ -1,0 +1,183 @@
+template:
+  name: style_adapter
+  description: "Centralized design system providing consistent styling for dashboard components"
+  variables:
+    style:
+      type: string
+      default: "streamline"
+      description: "Style variant to use (streamline recommended, bubble supported for legacy)"
+    title:
+      type: string
+      default: ""
+      description: "Card title (if applicable)"
+    subtitle:
+      type: string
+      default: ""
+      description: "Card subtitle (if applicable)"
+    icon:
+      type: string
+      default: ""
+      description: "Icon to use (if applicable)"
+    use_card_mod:
+      type: boolean
+      default: true
+      description: "Whether to use card_mod for additional styling"
+    content:
+      type: yaml
+      default: []
+      description: "List of cards or blocks to render inside the card"
+    card_style:
+      type: string
+      default: "default"
+      description: "Card style (default, popup, control, status)"
+    icon_size:
+      type: string
+      default: "medium"
+      description: "Icon size (small, medium, large)"
+    touch_feedback:
+      type: boolean
+      default: true
+      description: "Whether to show touch feedback effects"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Entity that provides the current context"
+  template: |
+    {% set variant = variables.style | default('streamline') %}
+    {% set context = states(variables.context_entity) %}
+    
+    {% if variant == 'bubble' %}
+    # Render as Bubble Card (legacy support)
+    type: custom:bubble-card
+    card_type: custom
+    {% if variables.title or variables.subtitle or variables.icon %}
+    header:
+      title: {{ variables.title }}
+      subtitle: {{ variables.subtitle }}
+      icon: {{ variables.icon }}
+    {% endif %}
+    {% else %}
+    # Render as Streamline Card
+    type: custom:streamline-card
+    card_style: {{ variables.card_style | default('default') }}
+    {% endif %}
+    
+    card:
+      {% if variables.content %}
+      {{ variables.content | indent(6) }}
+      {% else %}
+      type: vertical-stack
+      cards:
+        {% if variant == 'streamline' and (variables.title or variables.subtitle or variables.icon) %}
+        - type: custom:streamline-header
+          title: {{ variables.title }}
+          subtitle: {{ variables.subtitle }}
+          icon: {{ variables.icon }}
+          {% if variables.icon_size %}
+          icon_size: {{ variables.icon_size }}
+          {% endif %}
+        {% endif %}
+        # Additional cards would be placed here
+      {% endif %}
+    
+    {% if variables.use_card_mod %}
+    card_mod:
+      style: |
+        ha-card {
+          /* Mobile-optimized base styling */
+          min-height: 44px;
+          padding: 16px;
+          
+          /* Spacing system */
+          --spacing-xs: 4px;
+          --spacing-sm: 8px; 
+          --spacing-md: 16px;
+          --spacing-lg: 24px;
+          --spacing-xl: 32px;
+          
+          /* Touch target sizing */
+          --touch-target-min: 44px;
+          
+          /* Border radius by style */
+          {% if variant == 'bubble' %}
+          border-radius: 16px;
+          {% elif variables.card_style == 'popup' %}
+          border-radius: 12px;
+          {% else %}
+          border-radius: 8px;
+          {% endif %}
+          
+          /* Transitions for feedback */
+          transition: all 0.3s ease;
+          overflow: hidden;
+          
+          /* Context-based styling */
+          {% if context == 'morning' %}
+          --context-color: rgba(255, 152, 0, 1);
+          --context-color-light: rgba(255, 152, 0, 0.1);
+          {% elif context == 'day' %}
+          --context-color: rgba(76, 175, 80, 1);
+          --context-color-light: rgba(76, 175, 80, 0.1);
+          {% elif context == 'evening' %}
+          --context-color: rgba(233, 30, 99, 1);
+          --context-color-light: rgba(233, 30, 99, 0.1);
+          {% elif context == 'night' or context == 'sleeping' %}
+          --context-color: rgba(63, 81, 181, 1);
+          --context-color-light: rgba(63, 81, 181, 0.1);
+          {% elif context == 'movie' %}
+          --context-color: rgba(96, 125, 139, 1);
+          --context-color-light: rgba(96, 125, 139, 0.1);
+          {% elif context == 'away' %}
+          --context-color: rgba(158, 158, 158, 1);
+          --context-color-light: rgba(158, 158, 158, 0.1);
+          {% else %}
+          --context-color: var(--primary-color);
+          --context-color-light: rgba(var(--rgb-primary-color), 0.1);
+          {% endif %}
+        }
+        
+        /* Ensure buttons have proper touch targets */
+        ha-card button, 
+        ha-card .clickable,
+        ha-card ha-icon-button {
+          min-height: var(--touch-target-min);
+          min-width: var(--touch-target-min);
+        }
+        
+        /* Touch feedback for interactive elements */
+        {% if variables.touch_feedback %}
+        ha-card .clickable:active,
+        ha-card button:active {
+          transform: scale(0.97);
+          opacity: 0.8;
+        }
+        
+        ha-card .ripple {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        ha-card .ripple:after {
+          content: "";
+          display: block;
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          top: 0;
+          left: 0;
+          pointer-events: none;
+          background-image: radial-gradient(circle, #000 10%, transparent 10.01%);
+          background-repeat: no-repeat;
+          background-position: 50%;
+          transform: scale(10, 10);
+          opacity: 0;
+          transition: transform 0.5s, opacity 0.8s;
+        }
+        
+        ha-card .ripple:active:after {
+          transform: scale(0, 0);
+          opacity: 0.2;
+          transition: 0s;
+        }
+        {% endif %}
+    {% endif %}

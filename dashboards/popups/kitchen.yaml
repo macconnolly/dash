@@ -1,11 +1,279 @@
 # Pop-up definition for Kitchen (#kitchen-popup)
 # Placeholder - Content to be added based on guide/requirements
 
-type: vertical-stack
-cards:
-  - type: custom:bubble-header
-    title: "Kitchen Details"
-    icon: mdi:countertop
-  - type: markdown
-    content: "Kitchen controls and sensors will be displayed here."
-    # Add relevant kitchen sensors, lights, appliances etc.
+type: custom:unified_popup
+title: "Kitchen"
+subtitle: >
+  {% set presence = is_state('binary_sensor.kitchen_presence', 'on') %}
+  {% set temp = states('sensor.kitchen_temperature') %}
+  {% if presence %}Active{% else %}Vacant{% endif %} • {{ temp }}° • {{ states('sensor.home_context_engine') | title }}
+icon: "mdi:countertop"
+context_entity: sensor.home_context_engine
+show_close_button: true
+sticky_header: false
+mobile_fullscreen: true
+content:
+  type: vertical-stack
+  cards:
+    # Context-aware quick actions
+    - type: custom:mushroom-chips-card
+      alignment: center
+      chips:
+        # Context-based primary action
+        - type: template
+          icon: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' %}
+              mdi:coffee
+            {% elif context == 'day' %}
+              mdi:food-variant
+            {% elif context == 'evening' %}
+              mdi:food-turkey
+            {% elif context == 'night' %}
+              mdi:cup-water
+            {% else %}
+              mdi:countertop
+            {% endif %}
+          content: >
+            {% set context = states('sensor.home_context_engine') | title %}
+            {{ context }} Mode
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: >
+                {% set context = states('sensor.home_context_engine') %}
+                scene.kitchen_{{ context }}
+          icon_color: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' %}
+              amber
+            {% elif context == 'day' %}
+              yellow
+            {% elif context == 'evening' %}
+              deep-orange
+            {% elif context == 'night' %}
+              blue
+            {% else %}
+              grey
+            {% endif %}
+              
+        # Kitchen Timer
+        - type: action
+          icon: mdi:timer-outline
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Kitchen Timers"
+              content:
+                type: custom:timer-card
+                entity: timer.kitchen_timer
+                duration: 300
+                icon: mdi:chef-hat
+              
+        # Recipe Lookup
+        - type: action
+          icon: mdi:book-open-variant
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Recipe Assistant"
+              content:
+                type: custom:cooking-assistant
+                entities:
+                  - input_text.recipe_search
+                  - sensor.recipe_results
+
+    # Room environment status
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+        - type: custom:mushroom-template-card
+          primary: "Temperature"
+          secondary: "{{ states('sensor.kitchen_temperature') }}°"
+          icon: mdi:thermometer
+          entity: sensor.kitchen_temperature
+          icon_color: >
+            {% set temp = states('sensor.kitchen_temperature') | float %}
+            {% if temp < 18 %}
+              blue
+            {% elif temp > 24 %}
+              deep-orange
+            {% else %}
+              green
+            {% endif %}
+          tap_action:
+            action: more-info
+
+        - type: custom:mushroom-template-card
+          primary: "Humidity" 
+          secondary: "{{ states('sensor.kitchen_humidity') }}%"
+          icon: mdi:water-percent
+          entity: sensor.kitchen_humidity
+          icon_color: >
+            {% set humidity = states('sensor.kitchen_humidity') | float %}
+            {% if humidity < 30 %}
+              deep-orange
+            {% elif humidity > 60 %}
+              blue
+            {% else %}
+              green
+            {% endif %}
+          tap_action:
+            action: more-info
+
+        - type: custom:mushroom-template-card
+          primary: "Air Quality"
+          secondary: >
+            {% if states('sensor.kitchen_air_quality') | float < 50 %}
+              Good
+            {% elif states('sensor.kitchen_air_quality') | float < 100 %}
+              Moderate
+            {% else %}
+              Poor
+            {% endif %}
+          icon: mdi:air-filter
+          entity: sensor.kitchen_air_quality
+          icon_color: >
+            {% set aqi = states('sensor.kitchen_air_quality') | float %}
+            {% if aqi < 50 %}
+              green
+            {% elif aqi < 100 %}
+              amber
+            {% else %}
+              deep-orange
+            {% endif %}
+          tap_action:
+            action: more-info
+
+        - type: custom:mushroom-template-card 
+          primary: "Activity"
+          secondary: >
+            {% if is_state('binary_sensor.kitchen_presence', 'on') %}
+              Active
+            {% else %}
+              Inactive
+            {% endif %}
+          icon: >
+            {% if is_state('binary_sensor.kitchen_presence', 'on') %}
+              mdi:account-multiple
+            {% else %}
+              mdi:account-off
+            {% endif %}
+          entity: binary_sensor.kitchen_presence
+          icon_color: >
+            {% if is_state('binary_sensor.kitchen_presence', 'on') %}
+              green
+            {% else %}
+              grey
+            {% endif %}
+          tap_action:
+            action: more-info
+
+    # Light control
+    - type: custom:mushroom-light-card
+      entity: light.kitchen_lights
+      name: "Lights"
+      use_light_color: true
+      show_brightness_control: true
+      show_color_control: true
+      show_color_temp_control: true
+      collapsible_controls: false
+  
+    # Kitchen appliances controls
+    - type: custom:mushroom-header-card
+      title: "Appliances"
+      alignment: center
+    
+    - type: horizontal-stack
+      cards:
+        - type: custom:mushroom-entity-card
+          entity: switch.coffee_maker
+          name: "Coffee"
+          icon: mdi:coffee-maker
+          tap_action:
+            action: toggle
+        
+        - type: custom:mushroom-entity-card
+          entity: switch.kitchen_fan
+          name: "Fan"
+          icon: mdi:fan
+          tap_action:
+            action: toggle
+          
+        - type: custom:mushroom-entity-card
+          entity: switch.dishwasher
+          name: "Dishwasher"
+          icon: mdi:dishwasher
+          tap_action:
+            action: toggle
+
+    # Dynamic kitchen scenes
+    - type: custom:mushroom-chips-card
+      alignment: center
+      chips:
+        - type: action
+          icon: mdi:food-turkey
+          content: "Cooking"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.kitchen_cooking
+          icon_color: red
+        
+        - type: action
+          icon: mdi:coffee
+          content: "Morning"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.kitchen_morning
+          icon_color: amber
+        
+        - type: action
+          icon: mdi:silverware-fork-knife
+          content: "Dining"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.kitchen_dining
+          icon_color: deep-purple
+        
+        - type: action
+          icon: mdi:lightbulb-off
+          content: "Off"
+          tap_action:
+            action: call-service
+            service: light.turn_off
+            service_data:
+              entity_id: light.kitchen_lights
+          icon_color: grey
+    
+    # Media control if available
+    - type: conditional
+      conditions:
+        - entity: media_player.kitchen_speaker
+          state_not: unavailable
+      card:
+        type: custom:mushroom-media-player-card
+        entity: media_player.kitchen_speaker
+        name: "Kitchen Speaker"
+        fill_container: true
+        use_media_info: true
+        use_media_artwork: true
+        show_volume_control: true
+        volume_controls:
+          - volume_buttons
+          - volume_slider
+        media_controls:
+          - play_pause_stop
+          - previous
+          - next
+        tap_action:
+          action: more-info

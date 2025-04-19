@@ -1,0 +1,129 @@
+template:
+  name: unified_popup
+  description: "Context-aware popup template for all dashboard popups"
+  variables:
+    title:
+      type: string
+      default: "Popup"
+      description: "Title of the popup"
+    subtitle:
+      type: string
+      default: ""
+      description: "Subtitle for the popup"
+    icon:
+      type: string
+      default: "mdi:information"
+      description: "Icon for the popup"
+    content:
+      type: yaml
+      default: []
+      description: "Content to render inside the popup"
+    show_close_button:
+      type: boolean
+      default: true
+      description: "Whether to show a close button in the header"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context sensor for adaptive styling"
+    sticky_header:
+      type: boolean
+      default: false
+      description: "Whether the header should stick to the top on scroll"
+    mobile_fullscreen:
+      type: boolean
+      default: true
+      description: "Whether the popup should be fullscreen on mobile"
+  template: |
+    # Uses our centralized style adapter with popup styling
+    type: custom:style_adapter
+    card_style: popup
+    context_entity: {{ variables.context_entity }}
+    title: {{ variables.title }}
+    subtitle: {{ variables.subtitle }}
+    icon: {{ variables.icon }}
+    use_card_mod: true
+    touch_feedback: true
+    content:
+      type: vertical-stack
+      cards:
+        # Header with close button (if enabled)
+        {% if variables.show_close_button %}
+        - type: custom:streamline-header
+          title: {{ variables.title }}
+          subtitle: {{ variables.subtitle }}
+          icon: {{ variables.icon }}
+          icon_size: medium
+          {% if variables.show_close_button %}
+          tap_action:
+            action: close-popup
+          {% endif %}
+        {% endif %}
+        
+        # Content section
+        {% if variables.content %}
+        {{ variables.content | indent(8) }}
+        {% endif %}
+        
+        # Optional sticky close button at bottom
+        {% if variables.sticky_header and variables.show_close_button %}
+        - type: custom:streamline-button
+          icon: mdi:close
+          name: Close
+          tap_action:
+            action: close-popup
+          show_icon: true
+          show_name: false
+          full_width: true
+        {% endif %}
+
+  card_mod:
+    style: |
+      ha-card {
+        /* Base popup styling */
+        min-height: 44px;
+        padding: 0;
+        max-height: 90vh;
+        overflow-y: auto;
+        
+        /* Mobile optimizations */
+        {% if variables.mobile_fullscreen %}
+        @media (max-width: 600px) {
+          max-width: 100vw !important;
+          width: 100vw !important;
+          max-height: 100vh !important;
+          height: 100vh !important;
+          position: fixed;
+          top: 0;
+          left: 0;
+          margin: 0 !important;
+          border-radius: 0 !important;
+        }
+        {% endif %}
+        
+        /* Sticky header if enabled */
+        {% if variables.sticky_header %}
+        .card-header {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          backdrop-filter: blur(10px);
+          background: rgba(var(--rgb-card-background-color), 0.8);
+        }
+        {% endif %}
+      }
+      
+      /* Ensure proper scrolling */
+      ha-card .card-content {
+        padding: var(--spacing-md, 16px);
+      }
+      
+      /* Animation for popup appearance */
+      @keyframes fadeIn {
+        from { opacity: 0.8; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      ha-card {
+        animation: fadeIn 0.2s ease-out;
+      }

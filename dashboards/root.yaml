@@ -1,0 +1,270 @@
+title: Smart Home Dashboard
+views:
+  - title: Main
+    path: main
+    icon: mdi:home
+    panel: false
+    badges: []
+    cards:
+      # Dynamic context-aware header
+      - type: custom:style_adapter
+        card_style: header
+        context_entity: sensor.home_context_engine
+        title: "Smart Home"
+        subtitle: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% set context_name = state_attr('sensor.home_context_engine', 'context_name') %}
+          {% set temp = states('sensor.outdoor_temperature') %}
+          {{ context_name }} • {{ temp }}°
+        icon: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% if context == 'morning' %}
+            mdi:weather-sunset-up
+          {% elif context == 'day' %}
+            mdi:white-balance-sunny
+          {% elif context == 'evening' %}
+            mdi:weather-sunset-down
+          {% elif context == 'night' or context == 'sleeping' %}
+            mdi:weather-night
+          {% elif context == 'movie' %}
+            mdi:movie-open
+          {% elif context == 'away' %}
+            mdi:home-export-outline
+          {% else %}
+            mdi:home
+          {% endif %}
+        content:
+          type: conditional
+          conditions:
+            - entity: weather.home
+              state_not: "unavailable"
+          card:
+            type: weather-forecast
+            entity: weather.home
+            show_forecast: true
+            forecast_type: daily
+      
+      # Floor plan card for spatial navigation
+      - type: custom:floor_plan_card
+        title: "Home Floor Plan"
+        image_path: "/local/floorplan/home.png"
+        rooms: 
+          - living_room
+          - kitchen
+          - dining_room
+          - bedroom
+          - bathroom
+        room_names:
+          living_room: "Living Room"
+          kitchen: "Kitchen"
+          dining_room: "Dining Room"
+          bedroom: "Bedroom"
+          bathroom: "Bathroom"
+        room_coordinates:
+          living_room: [25, 40, 40, 30]
+          kitchen: [70, 40, 20, 30]
+          dining_room: [47, 70, 25, 20]
+          bedroom: [25, 75, 35, 20]
+          bathroom: [80, 75, 15, 20]
+        presence_entities:
+          living_room: binary_sensor.living_room_presence
+          kitchen: binary_sensor.kitchen_presence
+          dining_room: binary_sensor.dining_room_presence
+          bedroom: binary_sensor.bedroom_presence
+          bathroom: binary_sensor.bathroom_presence
+        light_entities:
+          living_room: light.living_room
+          kitchen: light.kitchen
+          dining_room: light.dining_room
+          bedroom: light.bedroom
+          bathroom: light.bathroom
+        scene_entities:
+          - scene.home_bright
+          - scene.home_evening
+          - scene.home_night
+        scene_names:
+          scene.home_bright: "Bright"
+          scene.home_evening: "Evening"
+          scene.home_night: "Night"
+        scene_icons:
+          scene.home_bright: "mdi:brightness-7"
+          scene.home_evening: "mdi:brightness-6"
+          scene.home_night: "mdi:brightness-3"
+        context_entity: sensor.home_context_engine
+        show_quick_actions: true
+      
+      # Open area / prioritized room based on context
+      - type: conditional
+        conditions:
+          - entity: sensor.priority_room
+            state: open_area
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:context_room_card
+              room_name: "Open Living Area"
+              area_id: "open_area"
+              presence_entity: binary_sensor.open_area_presence
+              temperature_entity: sensor.living_room_temperature
+              light_entity: light.open_area
+              media_entity: media_player.living_room
+              climate_entity: climate.living_room
+              icon: mdi:sofa
+              context_relevance: 10
+              context_entity: sensor.home_context_engine
+              show_climate: true
+              show_popup: true
+      
+      # Room cards grid - dynamically shows most relevant rooms
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # Only show rooms that aren't part of the current priority room
+          - type: conditional
+            conditions:
+              - entity: sensor.priority_room
+                state_not: living_room
+            card:
+              type: custom:context_room_card
+              room_name: "Living Room"
+              area_id: "living_room"
+              presence_entity: binary_sensor.living_room_presence
+              temperature_entity: sensor.living_room_temperature
+              light_entity: light.living_room
+              media_entity: media_player.living_room
+              climate_entity: climate.living_room
+              icon: mdi:sofa
+              context_entity: sensor.home_context_engine
+              show_climate: true
+          
+          - type: conditional
+            conditions:
+              - entity: sensor.priority_room
+                state_not: kitchen
+            card:
+              type: custom:context_room_card
+              room_name: "Kitchen"
+              area_id: "kitchen"
+              presence_entity: binary_sensor.kitchen_presence
+              temperature_entity: sensor.kitchen_temperature
+              light_entity: light.kitchen
+              media_entity: media_player.kitchen
+              icon: mdi:countertop
+              context_entity: sensor.home_context_engine
+              show_climate: false
+          
+          - type: conditional
+            conditions:
+              - entity: sensor.priority_room
+                state_not: bedroom
+            card:
+              type: custom:context_room_card
+              room_name: "Bedroom"
+              area_id: "bedroom"
+              presence_entity: binary_sensor.bedroom_presence
+              temperature_entity: sensor.bedroom_temperature
+              light_entity: light.bedroom
+              media_entity: media_player.bedroom
+              climate_entity: climate.bedroom
+              icon: mdi:bed
+              context_entity: sensor.home_context_engine
+              show_climate: true
+          
+          - type: conditional
+            conditions:
+              - entity: sensor.priority_room
+                state_not: bathroom
+            card:
+              type: custom:context_room_card
+              room_name: "Bathroom"
+              area_id: "bathroom"
+              presence_entity: binary_sensor.bathroom_presence
+              temperature_entity: sensor.bathroom_temperature
+              light_entity: light.bathroom
+              icon: mdi:shower
+              context_entity: sensor.home_context_engine
+              show_climate: false
+      
+      # Climate hub (collapsible for mobile)
+      - type: custom:climate_hub
+        title: "Climate Control"
+        entities:
+          - climate.living_room
+          - climate.bedroom
+        fan: fan.hvac_fan
+        energy_sensor: sensor.hvac_energy_today
+        show_chart: true
+        context_entity: sensor.home_context_engine
+        compact: true
+      
+      # Media hub (collapsible for mobile)
+      - type: custom:media_hub
+        title: "Media Control"
+        master_player: media_player.living_room
+        players:
+          - media_player.living_room
+          - media_player.kitchen
+          - media_player.bedroom
+        player_names:
+          media_player.living_room: "Living Room"
+          media_player.kitchen: "Kitchen"
+          media_player.bedroom: "Bedroom"
+        player_icons:
+          media_player.living_room: "mdi:sofa"
+          media_player.kitchen: "mdi:countertop"
+          media_player.bedroom: "mdi:bed"
+        show_artwork: true
+        compact: true
+        context_entity: sensor.home_context_engine
+      
+      # System status card
+      - type: custom:style_adapter
+        card_style: "status"
+        title: "System Status"
+        icon: mdi:home-assistant
+        subtitle: >
+          {% set lights = states.light | selectattr('state', 'eq', 'on') | list | count %}
+          {% set media = states.media_player | selectattr('state', 'eq', 'playing') | list | count %}
+          {% set temp = states('sensor.living_room_temperature') %}
+          {{ lights }} lights on • {{ media }} media active • {{ temp }}°
+        content:
+          type: entities
+          entities:
+            - entity: sensor.processor_use
+              name: CPU Usage
+              icon: mdi:cpu-64-bit
+            - entity: sensor.memory_use
+              name: Memory Usage
+              icon: mdi:memory
+            - entity: sensor.disk_use_percent
+              name: Disk Usage
+              icon: mdi:harddisk
+            - entity: sensor.last_boot
+              name: Last Boot
+              icon: mdi:restart
+            - entity: update.home_assistant_core_update
+              name: Home Assistant Updates
+              icon: mdi:home-assistant
+      
+  # Context-specific views that show only when appropriate context is active
+  - !include dashboards/views/morning.yaml
+  - !include dashboards/views/day.yaml
+  - !include dashboards/views/evening.yaml
+  - !include dashboards/views/night.yaml
+  - !include dashboards/views/sleeping.yaml
+  - !include dashboards/views/movie.yaml
+  - !include dashboards/views/away.yaml
+  
+# Persistent bottom control bar
+persistent_bar:
+  type: custom:persistent_controls
+  position: bottom
+  show_media_controls: true
+  show_quick_actions: true
+  context_entity: sensor.home_context_engine
+  primary_media_entities:
+    - media_player.living_room
+    - media_player.kitchen
+    - media_player.bedroom
+  height: 56px

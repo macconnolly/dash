@@ -1,166 +1,65 @@
-# Pop-up definition for Living Room Control Hub (#living-room-popup)
-# v2.0 - Enhanced with adaptive actions, animations, gestures, and improved UI
-
-type: vertical-stack
-cards:
-  # Dynamic Header with Context-Aware Color and Animation
-  - type: custom:bubble-header
-    title: "Living Room"
-    subtitle: >
-      {{ states('input_boolean.living_room_occupied') | replace('on', 'Occupied') | replace('off', 'Vacant') }} • 
-      {{ now().strftime('%H:%M') }} • 
-      {{ states('sensor.home_context_engine') | title }}
-    icon: "mdi:sofa"
-    styles: |
-      .header-title {
-        font-size: 24px;
-        font-weight: 600;
-        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: fadeIn 0.3s ease-out;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-5px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      
-      .header-subtitle {
-        animation: fadeIn 0.5s ease-out;
-      }
-      
-      ha-icon {
-        color: {{ 
-          states('sensor.home_context_engine') == 'morning' ? '#FF9800' :
-          states('sensor.home_context_engine') == 'day' ? '#FFC107' :
-          states('sensor.home_context_engine') == 'evening' ? '#3F51B5' :
-          states('sensor.home_context_engine') == 'night' ? '#2196F3' :
-          states('sensor.home_context_engine') == 'sleeping' ? '#9C27B0' :
-          states('sensor.home_context_engine') == 'movie' ? '#795548' :
-          'var(--primary-color)'
-        }};
-        animation: pulseScale 2s infinite alternate ease-in-out;
-      }
-      
-      @keyframes pulseScale {
-        from { transform: scale(1); }
-        to { transform: scale(1.1); }
-      }
-
-  # Adaptive Suggested Actions (context-aware) 
-  - type: conditional
-    conditions:
-      - entity: sensor.home_context_engine
-        state_not: unavailable
-    card:
-      type: custom:mushroom-chips-card
+type: custom:unified_popup
+title: "Living Room"
+subtitle: >
+  {% set presence = is_state('binary_sensor.living_room_presence', 'on') %}
+  {% set temp = states('sensor.living_room_temperature') %}
+  {% if presence %}Active{% else %}Vacant{% endif %} • {{ temp }}° • {{ states('sensor.home_context_engine') | title }}
+icon: "mdi:sofa"
+context_entity: sensor.home_context_engine
+show_close_button: true
+sticky_header: false
+mobile_fullscreen: true
+content:
+  type: vertical-stack
+  cards:
+    # Context-aware quick actions
+    - type: custom:mushroom-chips-card
       alignment: center
       chips:
-        # Morning Context Actions
-        - type: conditional
-          conditions:
-            - entity: sensor.home_context_engine
-              state: morning
-          chip:
-            type: action
-            icon: mdi:weather-sunny
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.living_room_morning
-            hold_action:
-              action: call-service
-              service: browser_mod.popup
-              service_data:
-                title: "Morning Dashboard"
-                content:
-                  type: custom:bubble-card
-                  card_type: template
-                  entities:
-                    - sensor.local_temperature
-                    - calendar.personal
-                  template: /dashboards/popups/morning_weather.yaml
-
-        # Day Context Actions
-        - type: conditional
-          conditions:
-            - entity: sensor.home_context_engine
-              state: day
-          chip:
-            type: action
-            icon: mdi:white-balance-sunny
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.living_room_day
-            hold_action:
-              action: navigate
-              navigation_path: /lovelace-bubble/views/day
-
-        # Evening Context Actions
-        - type: conditional
-          conditions:
-            - entity: sensor.home_context_engine
-              state: evening
-          chip:
-            type: action
-            icon: mdi:weather-sunset
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.living_room_evening
-            hold_action:
-              action: navigate
-              navigation_path: /lovelace-bubble/views/evening
-
-        # Movie Context Actions
-        - type: conditional
-          conditions:
-            - entity: sensor.home_context_engine
-              state: movie
-          chip:
-            type: action
-            icon: mdi:movie
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.living_room_movie
-            hold_action:
-              action: navigate
-              navigation_path: /lovelace-bubble/views/movie
-
-        # Night Context Actions
-        - type: conditional
-          conditions:
-            - entity: sensor.home_context_engine
-              state: night
-          chip:
-            type: action
-            icon: mdi:weather-night
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.living_room_night
-            hold_action:
-              action: call-service
-              service: browser_mod.popup
-              service_data:
-                title: "Good Night"
-                content:
-                  type: custom:bubble-card
-                  card_type: template
-                  entities:
-                    - input_boolean.all_lights
-                    - input_boolean.sleep_mode
-                  template: /www/streamline/templates/sleep_mode.yaml
-
-        # Show Calendar (all contexts)
+        # Context-based primary action
+        - type: template
+          icon: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' %}
+              mdi:weather-sunny
+            {% elif context == 'day' %}
+              mdi:white-balance-sunny
+            {% elif context == 'evening' %}
+              mdi:weather-sunset
+            {% elif context == 'night' or context == 'sleeping' %}
+              mdi:weather-night
+            {% elif context == 'movie' %}
+              mdi:movie
+            {% else %}
+              mdi:home
+            {% endif %}
+          content: >
+            {% set context = states('sensor.home_context_engine') | title %}
+            {{ context }} Mode
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: >
+                {% set context = states('sensor.home_context_engine') %}
+                scene.living_room_{{ context }}
+          icon_color: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' %}
+              amber
+            {% elif context == 'day' %}
+              yellow
+            {% elif context == 'evening' %}
+              deep-orange
+            {% elif context == 'night' or context == 'sleeping' %}
+              blue
+            {% elif context == 'movie' %}
+              purple
+            {% else %}
+              grey
+            {% endif %}
+              
+        # Show Calendar
         - type: action
           icon: mdi:calendar-today
           tap_action:
@@ -173,7 +72,7 @@ cards:
                 entities:
                   - calendar.personal
               
-        # Show System Status (all contexts)
+        # System Status
         - type: action
           icon: mdi:home-assistant
           tap_action:
@@ -182,293 +81,182 @@ cards:
             service_data:
               title: "System Status"
               content:
-                type: custom:bubble-card
-                card_type: template
-                template: /dashboards/popups/system_monitor.yaml
+                type: custom:style_adapter
+                card_style: popup
+                title: "System Status"
+                icon: mdi:home-assistant
+                content:
+                  type: entities
+                  entities:
+                    - entity: sensor.processor_use
+                      name: CPU Usage
+                      icon: mdi:cpu-64-bit
+                    - entity: sensor.memory_use
+                      name: Memory Usage
+                      icon: mdi:memory
+                    - entity: sensor.disk_use_percent
+                      name: Disk Usage
+                      icon: mdi:harddisk
+                    - entity: sensor.last_boot
+                      name: Last Boot
+                      icon: mdi:restart
+                    - entity: update.home_assistant_core_update
+                      name: Home Assistant Updates
+                      icon: mdi:home-assistant
 
-  # Room Environment Section with Enhanced Visualizations
-  - type: custom:bubble-grid
-    columns: 2
-    cards:
-      - type: custom:bubble-card
-        card_type: sensor
-        entity: sensor.living_room_temperature
-        name: "Temperature"
-        icon: mdi:thermometer
-        icon_color: >
-          {{ states('sensor.living_room_temperature') | float < 18 
-             ? 'rgba(41, 182, 246, 1)' 
-             : states('sensor.living_room_temperature') | float > 24 
-               ? 'rgba(255, 87, 34, 1)' 
-               : 'rgba(76, 175, 80, 1)' }}
-        tap_action:
-          action: call-service
-          service: browser_mod.popup
-          service_data:
-            title: "Climate Control"
-            content:
-              type: custom:bubble-card
-              card_type: template
-              entities:
-                - climate.living_room
-              template: /www/streamline/templates/climate_hub.yaml
-        styles: |
-          .sensor-value {
-            font-size: 22px;
-            font-weight: bold;
-          }
-          .bubble-icon {
-            animation: pulse 2s infinite alternate ease-in-out;
-          }
-          @keyframes pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.1); }
-          }
-
-      - type: custom:bubble-card
-        card_type: sensor
-        entity: sensor.living_room_humidity
-        name: "Humidity"
-        icon: mdi:water-percent
-        icon_color: >
-          {{ states('sensor.living_room_humidity') | float < 30
-             ? 'rgba(255, 87, 34, 1)'
-             : states('sensor.living_room_humidity') | float > 60
-               ? 'rgba(41, 182, 246, 1)'
-               : 'rgba(76, 175, 80, 1)' }}
-        hold_action:
-          action: more-info
-
-      - type: custom:bubble-card
-        card_type: sensor
-        entity: sensor.living_room_illuminance
-        name: "Light Level"
-        icon: mdi:brightness-6
-        icon_color: >
-          {{ states('sensor.living_room_illuminance') | float < 100
-             ? 'rgba(117, 117, 117, 1)'
-             : states('sensor.living_room_illuminance') | float > 500
-               ? 'rgba(255, 193, 7, 1)'
-               : 'rgba(255, 152, 0, 1)' }}
-        tap_action:
-          action: navigate
-          navigation_path: /lovelace-bubble/light-control
-
-      - type: custom:bubble-card
-        card_type: sensor
-        entity: sensor.living_room_motion
-        name: "Activity"
-        icon: >
-          {{ is_state('sensor.living_room_motion', 'on') 
-             ? 'mdi:run' 
-             : 'mdi:human-handsdown' }}
-        tap_action:
-          action: more-info
-        styles: |
-          .bubble-icon {
-            transform-origin: center;
-            {{ is_state('sensor.living_room_motion', 'on') 
-               ? 'animation: activity-pulse 1s infinite alternate;' 
-               : '' }}
-          }
-          @keyframes activity-pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.2); }
-          }
-
-  # Enhanced Light Control with Adaptive Lighting Integration
-  - type: custom:bubble-card
-    card_type: template
-    entity: light.living_room_lights
-    template: /www/bubble/modules/enhanced-light.yaml
-    variables:
-      entity: light.living_room_lights
-      al_manual_control: input_boolean.living_room_adaptive_lighting_manual_control
-      reset_al_script: script.reset_living_room_adaptive_lighting_manual
-      show_color_temp: true
-      show_rgb: true
-      accent_color: "#4CAF50"
-    gesture_actions:
-      swipe_left:
-        action: call-service
-        service: light.turn_off
-        service_data:
-          entity_id: light.living_room_lights
-      swipe_right:
-        action: call-service
-        service: light.turn_on
-        service_data:
-          entity_id: light.living_room_lights
-          brightness_pct: 100
-      swipe_up:
-        action: call-service
-        service: light.turn_on
-        service_data:
-          entity_id: light.living_room_lights
-          brightness_pct: 50
-          kelvin: 2700
-      swipe_down:
-        action: call-service
-        service: light.turn_on
-        service_data:
-          entity_id: light.living_room_lights
-          brightness_pct: 30
-          kelvin: 2200
-
-  # Media Player with Enhanced Controls
-  - type: conditional
-    conditions:
-      - entity: media_player.living_room_speaker
-        state_not: unavailable
-    card:
-      type: custom:bubble-card
-      card_type: template
-      entity: media_player.living_room_speaker
-      template: /www/streamline/templates/media_player_card.yaml
-      variables:
-        entity_id: media_player.living_room_speaker
-        name: "Living Room Speaker"
-        show_source_list: true
-        show_volume_controls: true
-        artwork_border_radius: 12px
-        show_progress: true
-        show_shuffle: true
-      gesture_actions:
-        swipe_left:
-          action: call-service
-          service: media_player.media_previous_track
-          service_data:
-            entity_id: media_player.living_room_speaker
-        swipe_right:
-          action: call-service
-          service: media_player.media_next_track
-          service_data:
-            entity_id: media_player.living_room_speaker
-        swipe_up:
-          action: call-service
-          service: media_player.volume_up
-          service_data:
-            entity_id: media_player.living_room_speaker
-        swipe_down:
-          action: call-service
-          service: media_player.volume_down
-          service_data:
-            entity_id: media_player.living_room_speaker
-
-  # Scene Shortcuts with Animation Effects
-  - type: horizontal-stack
-    cards:
-      - type: custom:mushroom-template-card
-        primary: "Relax"
-        icon: mdi:sofa
-        tap_action:
-          action: call-service
-          service: scene.turn_on
-          service_data:
-            entity_id: scene.living_room_relax
-        hold_action:
-          action: call-service
-          service: script.turn_on
-          service_data:
-            entity_id: script.start_relaxing_playlist
-        styles:
-          icon:
-            - color: "rgba(156, 39, 176, 0.7)"
-          card:
-            - background: "rgba(156, 39, 176, 0.05)"
-            - border-radius: "12px"
-            - animation: "fade-in 0.4s ease-out"
-      
-      - type: custom:mushroom-template-card
-        primary: "Reading"
-        icon: mdi:book-open-page-variant
-        tap_action:
-          action: call-service
-          service: scene.turn_on
-          service_data:
-            entity_id: scene.living_room_reading
-        styles:
-          icon:
-            - color: "rgba(3, 169, 244, 0.7)"
-          card:
-            - background: "rgba(3, 169, 244, 0.05)"
-            - border-radius: "12px"
-            - animation: "fade-in 0.5s ease-out"
-      
-      - type: custom:mushroom-template-card
-        primary: "Movie"
-        icon: mdi:movie-open
-        tap_action:
-          action: call-service
-          service: scene.turn_on
-          service_data:
-            entity_id: scene.living_room_movie
-        hold_action:
-          action: navigate
-          navigation_path: /lovelace-bubble/views/movie
-        styles:
-          icon:
-            - color: "rgba(233, 30, 99, 0.7)"
-          card:
-            - background: "rgba(233, 30, 99, 0.05)"
-            - border-radius: "12px"
-            - animation: "fade-in 0.6s ease-out"
-
-  # Dynamic Context-Aware Action Panel
-  - type: custom:auto-entities
-    card:
-      type: custom:bubble-grid
+    # Room environment status
+    - type: grid
       columns: 2
-      cards: []
-    filter:
-      include:
-        - entity_id: "script.living_room_*"
-          options:
-            type: custom:mushroom-template-card
-            primary: "{{ state_attr('this.entity_id', 'friendly_name').split('Living Room ')[1] }}"
-            icon: >
-              {% set action = state_attr('this.entity_id', 'friendly_name').split('Living Room ')[1] | lower %}
-              {{ 
-                'clean' in action ? 'mdi:robot-vacuum' :
-                'movie' in action ? 'mdi:movie' :
-                'music' in action ? 'mdi:music' :
-                'relax' in action ? 'mdi:sofa' :
-                'work' in action ? 'mdi:laptop' :
-                'read' in action ? 'mdi:book-open-page-variant' :
-                'party' in action ? 'mdi:party-popper' :
-                'mdi:star'
-              }}
-            tap_action:
-              action: call-service
-              service: script.turn_on
-              service_data:
-                entity_id: this.entity_id
-            styles:
-              icon:
-                - animation: "pulse 2s infinite alternate ease-in-out"
-              card:
-                - animation: "fade-in 0.7s ease-out"
-    sort:
-      method: state
-      reverse: false
+      square: false
+      cards:
+        - type: custom:mushroom-template-card
+          primary: "Temperature"
+          secondary: "{{ states('sensor.living_room_temperature') }}°"
+          icon: mdi:thermometer
+          entity: sensor.living_room_temperature
+          icon_color: >
+            {% set temp = states('sensor.living_room_temperature') | float %}
+            {% if temp < 18 %}
+              blue
+            {% elif temp > 24 %}
+              deep-orange
+            {% else %}
+              green
+            {% endif %}
+          tap_action:
+            action: more-info
+            entity: climate.living_room
 
-  # Bottom Gesture Hint (hidden after first use with local storage)
-  - type: markdown
-    content: >
-      ### Gesture Controls Available:
-      - **Swipe Left/Right**: Previous/Next
-      - **Swipe Up/Down**: Adjust Brightness/Volume
-      - **Double Tap**: Toggle Light/Media
-      - **Long Press**: More Options
-    style: |
-      ha-card {
-        border-radius: 12px;
-        background: rgba(var(--rgb-primary-color), 0.05);
-        margin-top: 8px;
-        opacity: 0.7;
-        animation: fade-in 1s ease-out;
-      }
-      @keyframes fade-in {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 0.7; transform: translateY(0); }
-      }
+        - type: custom:mushroom-template-card
+          primary: "Humidity" 
+          secondary: "{{ states('sensor.living_room_humidity') }}%"
+          icon: mdi:water-percent
+          entity: sensor.living_room_humidity
+          icon_color: >
+            {% set humidity = states('sensor.living_room_humidity') | float %}
+            {% if humidity < 30 %}
+              deep-orange
+            {% elif humidity > 60 %}
+              blue
+            {% else %}
+              green
+            {% endif %}
+          tap_action:
+            action: more-info
+
+        - type: custom:mushroom-template-card
+          primary: "Light Level"
+          secondary: "{{ states('sensor.living_room_illuminance') }} lux"
+          icon: mdi:brightness-6
+          entity: sensor.living_room_illuminance
+          icon_color: >
+            {% set lux = states('sensor.living_room_illuminance') | float %}
+            {% if lux < 100 %}
+              grey
+            {% elif lux > 500 %}
+              yellow
+            {% else %}
+              amber
+            {% endif %}
+          tap_action:
+            action: more-info
+
+        - type: custom:mushroom-template-card 
+          primary: "Activity"
+          secondary: >
+            {% if is_state('binary_sensor.living_room_presence', 'on') %}
+              Active
+            {% else %}
+              Inactive
+            {% endif %}
+          icon: >
+            {% if is_state('binary_sensor.living_room_presence', 'on') %}
+              mdi:run
+            {% else %}
+              mdi:human-handsdown
+            {% endif %}
+          entity: binary_sensor.living_room_presence
+          icon_color: >
+            {% if is_state('binary_sensor.living_room_presence', 'on') %}
+              green
+            {% else %}
+              grey
+            {% endif %}
+          tap_action:
+            action: more-info
+
+    # Light control
+    - type: custom:mushroom-light-card
+      entity: light.living_room_lights
+      name: "Lights"
+      use_light_color: true
+      show_brightness_control: true
+      show_color_control: true
+      show_color_temp_control: true
+      collapsible_controls: false
+  
+    # Media control
+    - type: conditional
+      conditions:
+        - entity: media_player.living_room_speaker
+          state_not: unavailable
+      card:
+        type: custom:mushroom-media-player-card
+        entity: media_player.living_room_speaker
+        name: "Media"
+        fill_container: true
+        use_media_info: true
+        use_media_artwork: true
+        show_volume_control: true
+        volume_controls:
+          - volume_buttons
+          - volume_slider
+        media_controls:
+          - play_pause_stop
+          - previous
+          - next
+        tap_action:
+          action: more-info
+          entity: media_player.living_room_speaker
+
+    # Scene shortcuts
+    - type: custom:mushroom-chips-card
+      alignment: center
+      chips:
+        - type: action
+          icon: mdi:sofa
+          content: "Relax"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.living_room_relax
+          hold_action:
+            action: call-service
+            service: script.turn_on
+            service_data:
+              entity_id: script.start_relaxing_playlist
+          icon_color: purple
+        
+        - type: action
+          icon: mdi:book-open-page-variant
+          content: "Reading"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.living_room_reading
+          icon_color: blue
+        
+        - type: action
+          icon: mdi:movie-open
+          content: "Movie"
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.living_room_movie
+          hold_action:
+            action: navigate
+            navigation_path: /lovelace/movie
+          icon_color: pink

@@ -1,0 +1,269 @@
+template:
+  name: context_room_card
+  description: "Context-aware room card that serves as the primary room summary component"
+  variables:
+    room_name:
+      type: string
+      default: "Living Room"
+      description: "Room name"
+    area_id:
+      type: string
+      default: "living_room"
+      description: "Area identifier (used for entity IDs)"
+    presence_entity:
+      type: string
+      default: "binary_sensor.living_room_presence"
+      description: "Room presence sensor"
+    temperature_entity:
+      type: string
+      default: "sensor.living_room_temperature"
+      description: "Room temperature sensor"
+    light_entity:
+      type: string
+      default: "light.living_room"
+      description: "Main room light"
+    media_entity:
+      type: string
+      default: "media_player.living_room"
+      description: "Room media player"
+    climate_entity:
+      type: string
+      default: "climate.living_room"
+      description: "Room climate entity"
+    icon:
+      type: string
+      default: "mdi:sofa"
+      description: "Icon for the room"
+    adaptive_lighting_switch:
+      type: string
+      default: ""
+      description: "Adaptive lighting switch for this room (optional)"
+    context_relevance:
+      type: number
+      default: 1
+      description: "Room relevance in current context (1-10, with 10 being most relevant)"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context entity to use for styling"
+    show_climate:
+      type: boolean
+      default: true
+      description: "Whether to show climate controls"
+    show_popup:
+      type: boolean
+      default: true
+      description: "Whether to show a popup on tap"
+  template: |
+    # Use our centralized style adapter
+    type: custom:style_adapter
+    card_style: card
+    context_entity: {{ variables.context_entity }}
+    icon: >
+      {% if context == 'away' %}
+        mdi:home-export-outline
+      {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+        mdi:sleep
+      {% elif context == 'movie' and variables.area_id == 'living_room' %}
+        mdi:movie-open
+      {% else %}
+        {{ variables.icon }}
+      {% endif %}
+    title: "{{ variables.room_name }}"
+    subtitle: >
+      {% set presence = is_state(variables.presence_entity, 'on') %}
+      {% set temp = states(variables.temperature_entity) %}
+      {% set adaptive = is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+      {% set media_playing = is_state(variables.media_entity, 'playing') %}
+      {% set media_title = state_attr(variables.media_entity, 'media_title') %}
+      
+      {% if presence %}
+        {% if context == 'sleeping' and variables.area_id != 'bedroom' %}
+          Quiet
+        {% else %}
+          Active
+        {% endif %}
+      {% else %}
+        Vacant
+      {% endif %} • 
+      {{ temp }}° • 
+      {% if is_state(variables.light_entity, 'on') %}
+        {% if adaptive %}Adaptive{% else %}Manual{% endif %} Light
+      {% else %}
+        Lights Off
+      {% endif %}
+      {% if media_playing %} • {{ media_title | truncate(20) }}{% endif %}
+    content:
+      type: conditional
+      conditions:
+        - entity: "{{ variables.presence_entity }}"
+          state: "on"
+      card:
+        type: horizontal-stack
+        cards:
+          # Light indicator
+          - type: custom:mushroom-light-card
+            entity: "{{ variables.light_entity }}"
+            icon_color: >
+              {% set context = states('sensor.home_context_engine') %}
+              {% if context == 'morning' %}
+                amber
+              {% elif context == 'day' %}
+                yellow
+              {% elif context == 'evening' %}
+                deep-orange
+              {% elif context == 'night' or context == 'sleeping' %}
+                blue
+              {% elif context == 'movie' %}
+                purple
+              {% elif context == 'focus' %}
+                cyan
+              {% elif context == 'hosting' %}
+                pink
+              {% else %}
+                auto
+              {% endif %}
+            show_brightness_control: false
+            tap_action:
+              action: toggle
+          
+          # Climate indicator (if enabled)
+          {% if variables.show_climate and variables.climate_entity %}
+          - type: custom:mushroom-climate-card
+            entity: {{ variables.climate_entity }}
+            show_temperature_control: false
+            collapsible_controls: true
+            tap_action:
+              action: more-info
+          {% endif %}
+          
+          # Media indicator (if playing)
+          - type: conditional
+            conditions:
+              - entity: "{{ variables.media_entity }}"
+                state: "playing"
+            card:
+              type: custom:mushroom-media-player-card
+              entity: "{{ variables.media_entity }}"
+              show_volume_control: false
+              media_controls: ["play_pause"]
+              icon_type: icon
+    
+    tap_action:
+      {% if variables.show_popup %}
+      action: call-service
+      service: browser_mod.popup
+      service_data:
+        title: "{{ variables.room_name }}"
+        large: true
+        content:
+          type: custom:unified_popup
+          title: "{{ variables.room_name }}"
+          subtitle: >
+            {% set presence = is_state(variables.presence_entity, 'on') %}
+            {% set temp = states(variables.temperature_entity) %}
+            {% if presence %}
+              Active • {{ temp }}°
+            {% else %}
+              Vacant • {{ temp }}°
+            {% endif %}
+          icon: "{{ variables.icon }}"
+          content:
+            type: vertical-stack
+            cards:
+              # Status section
+              - type: custom:mushroom-template-card
+                primary: Room Status
+                secondary: >
+                  {% set presence = is_state(variables.presence_entity, 'on') %}
+                  {% set light = is_state(variables.light_entity, 'on') %}
+                  {% set media = is_state(variables.media_entity, 'playing') %}
+                  {% set climate = states(variables.climate_entity) %}
+                  
+                  {% if presence %}Room occupied{% else %}Room vacant{% endif %} •
+                  {% if light %}Lights on{% else %}Lights off{% endif %} •
+                  {% if media %}Media playing{% else %}Media idle{% endif %}
+                icon: mdi:information-outline
+              
+              # Lights section
+              - type: custom:mushroom-light-card
+                entity: "{{ variables.light_entity }}"
+                name: Lights
+                use_light_color: true
+                show_brightness_control: true
+                show_color_control: true
+                collapsible_controls: false
+              
+              # Climate section (if enabled)
+              {% if variables.show_climate and variables.climate_entity %}
+              - type: custom:mushroom-climate-card
+                entity: {{ variables.climate_entity }}
+                name: Climate
+                show_temperature_control: true
+                hvac_modes:
+                  - heat
+                  - cool
+                  - heat_cool
+                  - "off"
+              {% endif %}
+              
+              # Media section
+              - type: custom:mushroom-media-player-card
+                entity: "{{ variables.media_entity }}"
+                name: Media
+                use_media_info: true
+                use_media_artwork: true
+                show_volume_control: true
+                volume_controls:
+                  - volume_buttons
+                  - volume_slider
+                media_controls:
+                  - play_pause
+                  - play_stop
+                  - previous
+                  - next
+      {% else %}
+      action: navigate
+      navigation_path: "/lovelace/room/{{ variables.area_id }}"
+      {% endif %}
+    
+    hold_action:
+      action: more-info
+      entity_id: "{{ variables.presence_entity }}"
+
+  card_mod:
+    style: |
+      /* Custom styling for room cards */
+      ha-card {
+        transition: all 0.2s ease;
+      }
+      
+      /* Card border based on presence */
+      ha-card {
+        --indicator-width: 4px;
+        margin-left: var(--indicator-width);
+        width: calc(100% - var(--indicator-width));
+        border-left: var(--indicator-width) solid var(--context-color-light);
+      }
+      
+      /* Highlight active rooms */
+      ha-card:has(.primary.icon[style*="color: var(--rgb-amber)"], 
+                  .primary.icon[style*="color: var(--rgb-blue)"],
+                  .primary.icon[style*="color: var(--rgb-deep-orange)"],
+                  .primary.icon[style*="color: var(--rgb-yellow)"],
+                  .primary.icon[style*="color: var(--rgb-purple)"],
+                  .primary.icon[style*="color: var(--rgb-pink)"],
+                  .primary.icon[style*="color: var(--rgb-cyan)"]) {
+        border-left-color: var(--context-color);
+        box-shadow: 0 2px 8px rgba(var(--rgb-context-color), 0.2);
+      }
+      
+      /* Make all controls at least 44px height for touch */
+      ha-card .controls {
+        min-height: 44px;
+      }
+      
+      /* Ensure proper icon size and touch targets */
+      ha-card .unavailable {
+        opacity: 0.5;
+      }

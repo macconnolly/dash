@@ -1,0 +1,235 @@
+template:
+  name: "media_hub"
+  description: "Mobile-optimized media control hub with responsive layout"
+  variables:
+    title:
+      type: string
+      default: "Media Control"
+      description: "Section title"
+    master_player:
+      type: string
+      default: "media_player.living_room"
+      description: "Primary media player entity"
+    players:
+      type: list
+      default: ["media_player.living_room", "media_player.kitchen", "media_player.bedroom"]
+      description: "List of media player entities"
+    player_names:
+      type: map
+      default:
+        media_player.living_room: "Living Room"
+        media_player.kitchen: "Kitchen"
+        media_player.bedroom: "Bedroom"
+      description: "Map of player entities to display names"
+    player_icons:
+      type: map
+      default:
+        media_player.living_room: "mdi:sofa"
+        media_player.kitchen: "mdi:countertop"
+        media_player.bedroom: "mdi:bed"
+      description: "Map of player entities to icons"
+    show_artwork:
+      type: boolean
+      default: true
+      description: "Show album artwork"
+    compact:
+      type: boolean
+      default: false
+      description: "Use compact layout for mobile"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context entity for styling"
+  template: |
+    # Use our centralized style adapter
+    type: custom:style_adapter
+    card_style: "control"
+    context_entity: {{ variables.context_entity }}
+    title: {{ variables.title }}
+    icon: mdi:speaker-multiple
+    subtitle: >
+      {% set active_count = 0 %}
+      {% for player in variables.players %}
+        {% if is_state(player, 'playing') %}
+          {% set active_count = active_count + 1 %}
+        {% endif %}
+      {% endfor %}
+      {{ active_count }} active player{% if active_count != 1 %}s{% endif %}
+    content:
+      type: vertical-stack
+      cards:
+        # Now Playing Section (conditional)
+        - type: conditional
+          conditions:
+            - entity: "{{ variables.master_player }}"
+              state: "playing"
+          card:
+            type: custom:mushroom-media-player-card
+            entity: "{{ variables.master_player }}"
+            use_media_info: true
+            use_media_artwork: {{ variables.show_artwork }}
+            show_volume_control: true
+            volume_controls:
+              - volume_buttons
+              - volume_slider
+            media_controls:
+              - play_pause_stop
+              - previous
+              - next
+            tap_action:
+              action: more-info
+              entity: "{{ variables.master_player }}"
+            fill_container: true
+            icon_color: >
+              {% if is_state(variables.master_player, 'playing') %}
+                {% set context = states(variables.context_entity) %}
+                {% if context == 'movie' %}
+                  purple
+                {% elif context == 'morning' %}
+                  amber
+                {% elif context == 'evening' %}
+                  deep-orange
+                {% else %}
+                  blue
+                {% endif %}
+              {% else %}
+                auto
+              {% endif %}
+        
+        # Quick Media Actions
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            - type: template
+              icon: mdi:speaker-multiple
+              content: "Group"
+              tap_action:
+                action: call-service
+                service: script.sonos_group_all_speakers
+              icon_color: >
+                {% set context = states(variables.context_entity) %}
+                {% if context == 'movie' %}
+                  purple
+                {% elif context == 'morning' %}
+                  amber
+                {% elif context == 'evening' %}
+                  deep-orange
+                {% else %}
+                  blue
+                {% endif %}
+            
+            - type: template
+              icon: mdi:speaker-off
+              content: "Ungroup"
+              tap_action:
+                action: call-service
+                service: script.sonos_ungroup_all_speakers
+            
+            - type: template
+              icon: mdi:pause-circle
+              content: "Pause All"
+              tap_action:
+                action: call-service
+                service: media_player.media_pause
+                service_data:
+                  entity_id: all
+        
+        # Player Grid - responsive layout
+        - type: custom:layout-card
+          layout_type: grid
+          layout:
+            grid-template-columns: >
+              {% if variables.compact %}
+                repeat(auto-fill, minmax(140px, 1fr))
+              {% else %}
+                repeat(auto-fill, minmax(180px, 1fr))
+              {% endif %}
+            grid-auto-rows: min-content
+            gap: var(--spacing-md, 16px)
+          cards:
+            {% for player in variables.players %}
+            - type: custom:mushroom-media-player-card
+              entity: "{{ player }}"
+              name: >
+                {% if variables.player_names[player] %}
+                  {{ variables.player_names[player] }}
+                {% else %}
+                  {{ player.split('.')[1] | replace('_', ' ') | title }}
+                {% endif %}
+              icon: >
+                {% if variables.player_icons[player] %}
+                  {{ variables.player_icons[player] }}
+                {% else %}
+                  mdi:speaker
+                {% endif %}
+              use_media_info: false
+              fill_container: true
+              show_volume_control: true
+              volume_controls:
+                - volume_slider
+              icon_color: >
+                {% if is_state(player, 'playing') %}
+                  {% set context = states(variables.context_entity) %}
+                  {% if context == 'movie' %}
+                    purple
+                  {% elif context == 'morning' %}
+                    amber
+                  {% elif context == 'evening' %}
+                    deep-orange
+                  {% elif context == 'night' %}
+                    blue
+                  {% else %}
+                    auto
+                  {% endif %}
+                {% else %}
+                  auto
+                {% endif %}
+              tap_action:
+                action: more-info
+                entity: "{{ player }}"
+              media_controls:
+                - play_pause
+              icon_animation: >
+                {% if is_state(player, 'playing') %}
+                  pulse
+                {% else %}
+                  none
+                {% endif %}
+            {% endfor %}
+
+  card_mod:
+    style: |
+      /* Ensure touch-friendly controls */
+      ha-card mushroom-media-player-controls {
+        min-height: 44px;
+      }
+      
+      ha-card .chip {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Styling for active players */
+      ha-card mushroom-media-player-card[style*="--icon-color:"] ha-state-icon {
+        transition: all 0.3s ease;
+      }
+      
+      /* Animation for playing states */
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.9; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.9; }
+      }
+      
+      /* Apply pulse animation to playing devices */
+      ha-card mushroom-media-player-card[animation="pulse"] ha-state-icon {
+        animation: pulse 2s infinite ease-in-out;
+      }
+      
+      /* Mobile artwork optimization */
+      @media (max-width: 600px) {
+        ha-card mushroom-media-player-card[use_media_artwork="true"] img {
+          max-height: 150px;
+          object-fit: contain;
+        }
+      }
