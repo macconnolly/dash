@@ -1,0 +1,465 @@
+template:
+  name: open_floor_plan_popup
+  description: "Unified control popup for open floor plan homes"
+  ext: unified_popup
+  variables:
+    title:
+      type: string
+      default: "Open Area"
+      description: "Title for the open space"
+    rooms:
+      type: list
+      default: ["living_room", "kitchen", "dining_room"]
+      description: "List of rooms in the open floor plan"
+    room_names:
+      type: list
+      default: ["Living Room", "Kitchen", "Dining Room"]
+      description: "Display names for rooms in the open floor plan"
+    presence_entities:
+      type: list
+      default: ["binary_sensor.living_room_presence", "binary_sensor.kitchen_presence", "binary_sensor.dining_room_presence"]
+      description: "Presence sensors for each room"
+    light_entities:
+      type: list
+      default: ["light.living_room", "light.kitchen", "light.dining_room"]
+      description: "Light entities for each room"
+    temperature_entities:
+      type: list
+      default: ["sensor.living_room_temperature", "sensor.kitchen_temperature", "sensor.dining_room_temperature"]
+      description: "Temperature sensors for each room"
+    media_entities:
+      type: list
+      default: ["media_player.living_room", "media_player.kitchen", "media_player.dining_room"]
+      description: "Media players for each room"
+    scene_entities:
+      type: list
+      default: ["scene.open_area_bright", "scene.open_area_warm", "scene.open_area_dim", "scene.open_area_movie"]
+      description: "Scene entities for the open area"
+    scene_names:
+      type: list
+      default: ["Bright", "Warm", "Dim", "Movie"]
+      description: "Names for the scenes"
+    scene_icons:
+      type: list
+      default: ["mdi:brightness-7", "mdi:brightness-6", "mdi:brightness-5", "mdi:movie-outline"]
+      description: "Icons for the scenes"
+    climate_entity:
+      type: string
+      default: "climate.living_room"
+      description: "Primary climate entity for the open area"
+    show_climate:
+      type: boolean
+      default: true
+      description: "Whether to show climate controls"
+    adaptive_lighting_switch:
+      type: string
+      default: "switch.adaptive_lighting_adapt_all_lights"
+      description: "Adaptive lighting switch for the open area"
+    show_individual_rooms:
+      type: boolean
+      default: true
+      description: "Whether to show individual room controls"
+  template: |
+    variables:
+      title: "{{ variables.title }}"
+      subtitle: >
+        {% set presence_count = namespace(value=0) %}
+        {% for presence in variables.presence_entities %}
+          {% if is_state(presence, 'on') %}
+            {% set presence_count.value = presence_count.value + 1 %}
+          {% endif %}
+        {% endfor %}
+        
+        {% set temps = [] %}
+        {% for temp_entity in variables.temperature_entities %}
+          {% set temps = temps + [states(temp_entity) | float] %}
+        {% endfor %}
+        {% set avg_temp = (temps | sum / temps | length) | round(1) %}
+        
+        {% set media_playing = namespace(value=false, count=0) %}
+        {% for media in variables.media_entities %}
+          {% if is_state(media, 'playing') %}
+            {% set media_playing.value = true %}
+            {% set media_playing.count = media_playing.count + 1 %}
+          {% endif %}
+        {% endfor %}
+        
+        {{ avg_temp }}° • {{ presence_count.value }}/{{ variables.rooms | length }} active • 
+        {% if media_playing.value %}
+          {{ media_playing.count }} speaker{{ 's' if media_playing.count > 1 else '' }} active
+        {% else %}
+          No media playing
+        {% endif %}
+      icon: mdi:floor-plan
+    
+    content: |
+      # 1. Status Section
+      - type: custom:mushroom-template-card
+        primary: "{{ variables.title }} Status"
+        secondary: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% set presence_count = namespace(value=0) %}
+          {% for presence in variables.presence_entities %}
+            {% if is_state(presence, 'on') %}
+              {% set presence_count.value = presence_count.value + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% set light_count = namespace(value=0) %}
+          {% for light in variables.light_entities %}
+            {% if is_state(light, 'on') %}
+              {% set light_count.value = light_count.value + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if presence_count.value > 0 %}
+            {% if context == 'movie' %}
+              Movie mode active • {{ light_count.value }} lights on
+            {% elif context == 'morning' %}
+              Morning routine • {{ light_count.value }} lights on
+            {% elif context == 'evening' %}
+              Evening atmosphere • {{ light_count.value }} lights on
+            {% else %}
+              {{ presence_count.value }} active areas • {{ light_count.value }} lights on
+            {% endif %}
+          {% else %}
+            Area vacant • {{ 'No' if light_count.value == 0 else light_count.value }} lights on
+          {% endif %}
+        icon: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% if context == 'movie' %}
+            mdi:movie-open
+          {% elif context == 'morning' %}
+            mdi:weather-sunset-up
+          {% elif context == 'evening' %}
+            mdi:weather-sunset-down
+          {% elif context == 'away' %}
+            mdi:home-export-outline
+          {% else %}
+            mdi:floor-plan
+          {% endif %}
+        entity: "{{ variables.presence_entities[0] }}"
+        tap_action:
+          action: none
+        card_mod:
+          style: |
+            ha-card {
+              margin-top: 8px;
+              margin-bottom: 8px;
+              border-radius: 12px;
+              background: rgba(var(--rgb-primary-color), 0.05);
+            }
+      
+      # 2. Scene Control Section - Large Buttons
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          {% for i in range(0, variables.scene_entities | length) %}
+            {% set scene = variables.scene_entities[i] %}
+            {% set name = variables.scene_names[i] if variables.scene_names[i] is defined else scene.split('.')[1] | replace('_', ' ') | title %}
+            {% set icon = variables.scene_icons[i] if variables.scene_icons[i] is defined else 'mdi:lightbulb' %}
+            - type: custom:button-card
+              icon: "{{ icon }}"
+              name: "{{ name }}"
+              tap_action:
+                action: call-service
+                service: scene.turn_on
+                service_data:
+                  entity_id: "{{ scene }}"
+              styles:
+                card:
+                  - border-radius: 12px
+                  - padding: 12px
+                  - background-color: >
+                      {% if name == 'Bright' %}
+                        rgba(255, 235, 59, 0.1)
+                      {% elif name == 'Warm' %}
+                        rgba(255, 152, 0, 0.1)
+                      {% elif name == 'Dim' %}
+                        rgba(156, 39, 176, 0.1)
+                      {% elif name == 'Movie' %}
+                        rgba(13, 71, 161, 0.1)
+                      {% else %}
+                        rgba(var(--rgb-primary-color), 0.1)
+                      {% endif %}
+                icon:
+                  - color: >
+                      {% if name == 'Bright' %}
+                        rgba(255, 235, 59, 1)
+                      {% elif name == 'Warm' %}
+                        rgba(255, 152, 0, 1)
+                      {% elif name == 'Dim' %}
+                        rgba(156, 39, 176, 1)
+                      {% elif name == 'Movie' %}
+                        rgba(13, 71, 161, 1)
+                      {% else %}
+                        var(--primary-color)
+                      {% endif %}
+                name:
+                  - font-size: 14px
+                  - font-weight: 500
+          {% endfor %}
+      
+      # 3. All Lights Control Section
+      - type: custom:bubble-header
+        title: "All Lights"
+        subtitle: >
+          {% set light_count = namespace(value=0) %}
+          {% for light in variables.light_entities %}
+            {% if is_state(light, 'on') %}
+              {% set light_count.value = light_count.value + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if light_count.value == 0 %}
+            All lights off
+          {% elif light_count.value == variables.light_entities | length %}
+            All lights on
+          {% else %}
+            {{ light_count.value }}/{{ variables.light_entities | length }} lights on
+          {% endif %}
+        icon: mdi:lightbulb-group
+      
+      - type: custom:light-entity-card
+        entity: light.open_area_all_lights  # Requires a group entity
+        persist_features: true
+        brightness: true
+        color_temp: true
+        hide_header: true
+        
+      - type: entities
+        entities:
+          - entity: "{{ variables.adaptive_lighting_switch }}"
+            name: "Adaptive Lighting"
+            secondary_info: "Automatically adjust color temperature"
+            icon: mdi:theme-light-dark
+      
+      # 4. Media Players Section - Sonos control with grouping
+      - type: conditional
+        conditions:
+          - condition: template
+            value_template: >
+              {% for media in variables.media_entities %}
+                {% if is_state(media, 'unavailable') == false %}
+                  true
+                  {% break %}
+                {% endif %}
+              {% endfor %}
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:bubble-header
+              title: "Media Control"
+              subtitle: >
+                {% set playing_count = namespace(value=0) %}
+                {% for media in variables.media_entities %}
+                  {% if is_state(media, 'playing') %}
+                    {% set playing_count.value = playing_count.value + 1 %}
+                  {% endif %}
+                {% endfor %}
+                
+                {% if playing_count.value == 0 %}
+                  No media playing
+                {% elif playing_count.value == 1 %}
+                  1 speaker active
+                {% else %}
+                  {{ playing_count.value }} speakers active
+                {% endif %}
+              icon: mdi:speaker-multiple
+            
+            # Sonos Control Card
+            - type: custom:sonos-card
+              entity: "{{ variables.media_entities[0] }}"
+              compact_view: false
+              speaker_as_dropdown: true
+              hide:
+                select_source: true
+              sonos_grouped: true
+      
+      # 5. Climate Control
+      - type: conditional
+        conditions:
+          - entity: "{{ variables.climate_entity }}"
+            state_not: "unavailable"
+          - condition: template
+            value_template: "{{ variables.show_climate }}"
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:bubble-header
+              title: "Climate"
+              subtitle: >
+                {% set temps = [] %}
+                {% for temp_entity in variables.temperature_entities %}
+                  {% set temps = temps + [states(temp_entity) | float] %}
+                {% endfor %}
+                {% set avg_temp = (temps | sum / temps | length) | round(1) %}
+                
+                Current: {{ avg_temp }}° • Target: {{ state_attr(variables.climate_entity, 'temperature') }}°
+              icon: mdi:thermostat
+            
+            - type: custom:bubble-card
+              card_type: thermostat
+              entity: "{{ variables.climate_entity }}"
+      
+      # 6. Individual Room Controls (conditional)
+      - type: conditional
+        conditions:
+          - condition: template
+            value_template: "{{ variables.show_individual_rooms }}"
+        card:
+          type: vertical-stack
+          cards:
+            - type: custom:bubble-header
+              title: "Individual Rooms"
+              subtitle: "Control each area separately"
+              icon: mdi:home-floor-1
+            
+            - type: grid
+              columns: 3
+              square: false
+              cards:
+                {% for i in range(0, variables.rooms | length) %}
+                  {% set room_id = variables.rooms[i] %}
+                  {% set room_name = variables.room_names[i] if variables.room_names[i] is defined else room_id | replace('_', ' ') | title %}
+                  {% set light = variables.light_entities[i] if variables.light_entities[i] is defined else "light." ~ room_id %}
+                  - type: custom:button-card
+                    icon: >
+                      {% if room_id == 'living_room' %}
+                        mdi:sofa
+                      {% elif room_id == 'kitchen' %}
+                        mdi:countertop
+                      {% elif room_id == 'dining_room' %}
+                        mdi:table-chair
+                      {% else %}
+                        mdi:floor-plan
+                      {% endif %}
+                    name: "{{ room_name }}"
+                    entity: "{{ light }}"
+                    tap_action:
+                      action: call-service
+                      service: browser_mod.popup
+                      service_data:
+                        title: "{{ room_name }}"
+                        content:
+                          type: custom:streamline-card
+                          template: room_popup
+                          variables:
+                            style: "{{ variables.style }}"
+                            room_name: "{{ room_name }}"
+                            temperature_entity: "{{ variables.temperature_entities[i] }}"
+                            presence_entity: "{{ variables.presence_entities[i] }}"
+                            light_entity: "{{ light }}"
+                            media_entity: "{{ variables.media_entities[i] }}"
+                            climate_entity: "{{ variables.climate_entity }}"
+                            icon: >
+                              {% if room_id == 'living_room' %}
+                                mdi:sofa
+                              {% elif room_id == 'kitchen' %}
+                                mdi:countertop
+                              {% elif room_id == 'dining_room' %}
+                                mdi:table-chair
+                              {% else %}
+                                mdi:floor-plan
+                              {% endif %}
+                    styles:
+                      card:
+                        - border-radius: 12px
+                        - padding: 12px
+                        - background-color: >
+                            {% if is_state(light, 'on') %}
+                              rgba(var(--rgb-primary-color), 0.1)
+                            {% else %}
+                              rgba(var(--rgb-gray), 0.05)
+                            {% endif %}
+                      icon:
+                        - color: >
+                            {% if is_state(light, 'on') %}
+                              var(--primary-color)
+                            {% else %}
+                              var(--disabled-text-color)
+                            {% endif %}
+                        - width: 32px
+                        - height: 32px
+                      name:
+                        - font-size: 14px
+                        - font-weight: 500
+                {% endfor %}
+    
+    styles_javascript: |
+      `
+      // Get current states
+      const mediaEntities = ${JSON.stringify(variables.media_entities)} || [];
+      const lightEntities = ${JSON.stringify(variables.light_entities)} || [];
+      
+      // Check if any media is playing
+      const anyMediaPlaying = mediaEntities.some(entity => hass.states[entity]?.state === 'playing');
+      
+      // Apply styling to scene buttons for better interaction
+      const sceneButtons = root.querySelectorAll('.grid button-card');
+      sceneButtons.forEach(btn => {
+        // Add hover effects
+        btn.addEventListener('mouseenter', function() {
+          this.style.transform = 'scale(1.03)';
+          this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        });
+        
+        btn.addEventListener('mouseleave', function() {
+          this.style.transform = 'scale(1)';
+          this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        });
+      });
+      
+      // Special styling for media section when playing
+      if (anyMediaPlaying) {
+        const mediaSection = root.querySelector('sonos-card');
+        if (mediaSection) {
+          // Add subtle animation for playing media
+          if (!document.getElementById('media-active-indicators')) {
+            const style = document.createElement('style');
+            style.id = 'media-active-indicators';
+            style.textContent = `
+              @keyframes pulse-border {
+                0% { border-color: rgba(156, 39, 176, 0.3); }
+                50% { border-color: rgba(156, 39, 176, 0.6); }
+                100% { border-color: rgba(156, 39, 176, 0.3); }
+              }
+            `;
+            document.head.appendChild(style);
+          }
+          
+          // Apply styling to playing media card
+          const mediaCard = mediaSection.closest('ha-card');
+          if (mediaCard) {
+            mediaCard.style.border = '1px solid rgba(156, 39, 176, 0.3)';
+            mediaCard.style.animation = 'pulse-border 2s infinite ease-in-out';
+            mediaCard.style.boxShadow = '0 4px 15px rgba(156, 39, 176, 0.2)';
+          }
+        }
+      }
+      
+      // Make room buttons responsive
+      const mediaQuery = window.matchMedia('(max-width: 500px)');
+      if (mediaQuery.matches) {
+        const grid = root.querySelector('.grid');
+        if (grid) {
+          grid.style.gridTemplateColumns = '1fr 1fr';
+        }
+        
+        // Adjust room buttons for better touch targets
+        const roomButtons = root.querySelectorAll('.grid button-card');
+        roomButtons.forEach(btn => {
+          const card = btn.shadowRoot?.querySelector('.card');
+          if (card) {
+            card.style.minHeight = '80px';
+            card.style.padding = '8px';
+          }
+          
+          const name = btn.shadowRoot?.querySelector('.name');
+          if (name) {
+            name.style.fontSize = '12px';
+          }
+        });
+      }
+      `

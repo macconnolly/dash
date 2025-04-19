@@ -1,0 +1,657 @@
+# Pop-up definition for Bedroom Control Hub (#bedroom-popup)
+# v3.0 - Enhanced with smart blinds control, weather forecast, voice assistant, battery status, and DND mode
+
+type: vertical-stack
+cards:
+  # Dynamic Header with Context-Aware Color and Animation
+  - type: custom:bubble-header
+    title: "Bedroom"
+    subtitle: >
+      {{ states('input_boolean.bedroom_occupied') | replace('on', 'Occupied') | replace('off', 'Vacant') }} • 
+      {{ now().strftime('%H:%M') }} • 
+      {{ states('sensor.home_context_engine') | title }}
+    icon: "mdi:bed"
+    styles: |
+      .header-title {
+        font-size: 24px;
+        font-weight: 600;
+        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: fadeIn 0.3s ease-out;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .header-subtitle {
+        animation: fadeIn 0.5s ease-out;
+      }
+      
+      ha-icon {
+        color: {{ 
+          states('sensor.home_context_engine') == 'morning' ? '#FF9800' :
+          states('sensor.home_context_engine') == 'day' ? '#FFC107' :
+          states('sensor.home_context_engine') == 'evening' ? '#3F51B5' :
+          states('sensor.home_context_engine') == 'night' ? '#2196F3' :
+          states('sensor.home_context_engine') == 'sleeping' ? '#9C27B0' :
+          'var(--primary-color)'
+        }};
+        animation: pulseScale 2s infinite alternate ease-in-out;
+      }
+      
+      @keyframes pulseScale {
+        from { transform: scale(1); }
+        to { transform: scale(1.1); }
+      }
+
+  # Adaptive Suggested Actions (context-aware) 
+  - type: conditional
+    conditions:
+      - entity: sensor.home_context_engine
+        state_not: unavailable
+    card:
+      type: custom:mushroom-chips-card
+      alignment: center
+      chips:
+        # Morning Context Actions
+        - type: conditional
+          conditions:
+            - entity: sensor.home_context_engine
+              state: morning
+          chip:
+            type: action
+            icon: mdi:weather-sunny
+            tap_action:
+              action: call-service
+              service: scene.turn_on
+              service_data:
+                entity_id: scene.bedroom_morning
+            hold_action:
+              action: call-service
+              service: browser_mod.popup
+              service_data:
+                title: "Morning Dashboard"
+                content:
+                  type: custom:bubble-card
+                  card_type: template
+                  entities:
+                    - sensor.local_temperature
+                    - calendar.personal
+                  template: /dashboards/popups/morning_weather.yaml
+                  
+        # Evening Context Actions
+        - type: conditional
+          conditions:
+            - entity: sensor.home_context_engine
+              state: evening
+          chip:
+            type: action
+            icon: mdi:weather-sunset
+            tap_action:
+              action: call-service
+              service: scene.turn_on
+              service_data:
+                entity_id: scene.bedroom_evening
+            hold_action:
+              action: navigate
+              navigation_path: /lovelace-bubble/views/evening
+
+        # Night Context Actions
+        - type: conditional
+          conditions:
+            - entity: sensor.home_context_engine
+              state: night
+          chip:
+            type: action
+            icon: mdi:weather-night
+            tap_action:
+              action: call-service
+              service: scene.turn_on
+              service_data:
+                entity_id: scene.bedroom_night
+            hold_action:
+              action: call-service
+              service: browser_mod.popup
+              service_data:
+                title: "Sleep Mode"
+                content:
+                  type: custom:bubble-card
+                  card_type: template
+                  entities:
+                    - input_boolean.sleep_mode
+                    - input_boolean.all_lights
+                  template: /www/streamline/templates/sleep_mode.yaml
+
+        # Sleep Context Actions
+        - type: conditional
+          conditions:
+            - entity: sensor.home_context_engine
+              state: sleeping
+          chip:
+            type: action
+            icon: mdi:sleep
+            tap_action:
+              action: call-service
+              service: script.turn_on
+              service_data:
+                entity_id: script.bedroom_night_light
+            hold_action:
+              action: call-service
+              service: script.turn_on
+              service_data:
+                entity_id: script.start_sleep_sounds
+
+        # Show Sleep Metrics (all contexts)
+        - type: action
+          icon: mdi:sleep-off
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Sleep Metrics"
+              content:
+                type: custom:sleep-card
+                entities:
+                  - sensor.sleep_quality
+                  - sensor.sleep_duration
+
+        # Alarm Controls
+        - type: action
+          icon: mdi:alarm
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Alarm Controls"
+              content:
+                type: custom:alarm-control-panel
+                entities:
+                  - alarm_control_panel.bedroom_alarm
+                  - input_datetime.alarm_time
+
+  # Room Environment Section with Enhanced Visualizations
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.bedroom_temperature
+        name: "Temperature"
+        icon: mdi:thermometer
+        icon_color: >
+          {{ states('sensor.bedroom_temperature') | float < 18 
+             ? 'rgba(41, 182, 246, 1)' 
+             : states('sensor.bedroom_temperature') | float > 24 
+               ? 'rgba(255, 87, 34, 1)' 
+               : 'rgba(76, 175, 80, 1)' }}
+        tap_action:
+          action: call-service
+          service: browser_mod.popup
+          service_data:
+            title: "Climate Control"
+            content:
+              type: custom:bubble-card
+              card_type: template
+              entities:
+                - climate.bedroom
+              template: /www/streamline/templates/climate_hub.yaml
+        styles: |
+          .sensor-value {
+            font-size: 22px;
+            font-weight: bold;
+          }
+          .bubble-icon {
+            animation: pulse 2s infinite alternate ease-in-out;
+          }
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+          }
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.bedroom_humidity
+        name: "Humidity"
+        icon: mdi:water-percent
+        icon_color: >
+          {{ states('sensor.bedroom_humidity') | float < 30
+             ? 'rgba(255, 87, 34, 1)'
+             : states('sensor.bedroom_humidity') | float > 60
+               ? 'rgba(41, 182, 246, 1)'
+               : 'rgba(76, 175, 80, 1)' }}
+        hold_action:
+          action: more-info
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.bedroom_illuminance
+        name: "Light Level"
+        icon: mdi:brightness-6
+        icon_color: >
+          {{ states('sensor.bedroom_illuminance') | float < 100
+             ? 'rgba(117, 117, 117, 1)'
+             : states('sensor.bedroom_illuminance') | float > 500
+               ? 'rgba(255, 193, 7, 1)'
+               : 'rgba(255, 152, 0, 1)' }}
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace-bubble/light-control
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.bedroom_motion
+        name: "Activity"
+        icon: >
+          {{ is_state('sensor.bedroom_motion', 'on') 
+             ? 'mdi:run' 
+             : 'mdi:human-handsdown' }}
+        tap_action:
+          action: more-info
+        styles: |
+          .bubble-icon {
+            transform-origin: center;
+            {{ is_state('sensor.bedroom_motion', 'on') 
+               ? 'animation: activity-pulse 1s infinite alternate;' 
+               : '' }}
+          }
+          @keyframes activity-pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2); }
+          }
+
+  # Enhanced Light Control with Adaptive Lighting Integration
+  - type: custom:bubble-card
+    card_type: template
+    entity: light.bedroom_lights
+    template: /www/bubble/modules/enhanced-light.yaml
+    variables:
+      entity: light.bedroom_lights
+      al_manual_control: input_boolean.bedroom_adaptive_lighting_manual_control
+      reset_al_script: script.reset_bedroom_adaptive_lighting_manual
+      show_color_temp: true
+      show_rgb: true
+      accent_color: "#673AB7"
+    gesture_actions:
+      swipe_left:
+        action: call-service
+        service: light.turn_off
+        service_data:
+          entity_id: light.bedroom_lights
+      swipe_right:
+        action: call-service
+        service: light.turn_on
+        service_data:
+          entity_id: light.bedroom_lights
+          brightness_pct: 100
+      swipe_up:
+        action: call-service
+        service: light.turn_on
+        service_data:
+          entity_id: light.bedroom_lights
+          brightness_pct: 50
+          kelvin: 2700
+      swipe_down:
+        action: call-service
+        service: light.turn_on
+        service_data:
+          entity_id: light.bedroom_lights
+          brightness_pct: 20
+          kelvin: 2000
+
+  # Smart Blinds Control Section
+  - type: conditional
+    conditions:
+      - entity: cover.bedroom_blinds
+        state_not: unavailable
+    card:
+      type: custom:bubble-card
+      card_type: cover
+      entity: cover.bedroom_blinds
+      name: "Bedroom Blinds"
+      icon: mdi:blinds
+      show_buttons: true
+      show_position: true
+      show_tilt: true
+      styles: |
+        ha-card {
+          border-radius: 12px;
+          transition: all 0.3s ease;
+          overflow: hidden;
+        }
+        ha-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .bubble-card-cover-name {
+          font-weight: 500;
+        }
+        .bubble-cover-position-slider {
+          --paper-slider-active-color: var(--primary-color);
+          --paper-slider-knob-color: var(--primary-color);
+        }
+      gesture_actions:
+        swipe_up:
+          action: call-service
+          service: cover.open_cover
+          service_data:
+            entity_id: cover.bedroom_blinds
+        swipe_down:
+          action: call-service
+          service: cover.close_cover
+          service_data:
+            entity_id: cover.bedroom_blinds
+
+  # Media Player Controls (if available)
+  - type: conditional
+    conditions:
+      - entity: media_player.bedroom_speaker
+        state_not: unavailable
+    card:
+      type: custom:bubble-card
+      card_type: template
+      entity: media_player.bedroom_speaker
+      template: /www/streamline/templates/media_player_card.yaml
+      variables:
+        entity_id: media_player.bedroom_speaker
+        name: "Bedroom Speaker"
+        show_source_list: true
+        show_volume_controls: true
+        artwork_border_radius: 12px
+        show_progress: true
+        show_shuffle: true
+      gesture_actions:
+        swipe_left:
+          action: call-service
+          service: media_player.media_previous_track
+          service_data:
+            entity_id: media_player.bedroom_speaker
+        swipe_right:
+          action: call-service
+          service: media_player.media_next_track
+          service_data:
+            entity_id: media_player.bedroom_speaker
+        swipe_up:
+          action: call-service
+          service: media_player.volume_up
+          service_data:
+            entity_id: media_player.bedroom_speaker
+        swipe_down:
+          action: call-service
+          service: media_player.volume_down
+          service_data:
+            entity_id: media_player.bedroom_speaker
+
+  # Bedroom Scene Shortcuts with Animation Effects
+  - type: horizontal-stack
+    cards:
+      - type: custom:mushroom-template-card
+        primary: "Sleep"
+        icon: mdi:sleep
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.bedroom_sleep
+        hold_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.start_sleep_sounds
+        styles:
+          icon:
+            - color: "rgba(103, 58, 183, 0.7)"
+          card:
+            - background: "rgba(103, 58, 183, 0.05)"
+            - border-radius: "12px"
+            - animation: "fade-in 0.4s ease-out"
+      
+      - type: custom:mushroom-template-card
+        primary: "Reading"
+        icon: mdi:book-open-page-variant
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.bedroom_reading
+        styles:
+          icon:
+            - color: "rgba(3, 169, 244, 0.7)"
+          card:
+            - background: "rgba(3, 169, 244, 0.05)"
+            - border-radius: "12px"
+            - animation: "fade-in 0.5s ease-out"
+      
+      - type: custom:mushroom-template-card
+        primary: "Relaxing"
+        icon: mdi:nature
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.bedroom_relax
+        hold_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.start_relaxing_bedroom_playlist
+        styles:
+          icon:
+            - color: "rgba(76, 175, 80, 0.7)"
+          card:
+            - background: "rgba(76, 175, 80, 0.05)"
+            - border-radius: "12px"
+            - animation: "fade-in 0.6s ease-out"
+
+  # Weather Forecast for Morning Planning
+  - type: conditional
+    conditions:
+      - entity: sensor.home_context_engine
+        state: morning
+      - entity: weather.home
+        state_not: unavailable
+    card:
+      type: custom:weather-card
+      entity: weather.home
+      current: true
+      forecast: true
+      number_of_forecasts: 3
+      name: "Today's Weather"
+      backdrop: true
+      card_mod:
+        style: |
+          ha-card {
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 12px;
+            animation: slide-up 0.5s ease-out;
+          }
+          @keyframes slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+  # Voice Assistant & Quick Controls Row
+  - type: horizontal-stack
+    cards:
+      - type: custom:mushroom-template-card
+        primary: "Voice"
+        icon: mdi:microphone
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: conversation.process
+          target: {}
+          data:
+            agent_id: homeassistant
+        hold_action:
+          action: call-service
+          service: browser_mod.notification
+          service_data:
+            message: "What can I help you with?"
+            duration: 3000
+        double_tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.bedroom_voice_command
+        styles:
+          icon:
+            - color: "rgba(233, 30, 99, 0.7)"
+          card:
+            - background: "rgba(233, 30, 99, 0.05)"
+            - border-radius: "12px"
+            - animation: "fade-in 0.3s ease-out"
+      
+      - type: custom:mushroom-template-card
+        primary: "DND"
+        icon: mdi:do-not-disturb
+        layout: vertical
+        icon_color: >
+          {{ is_state('input_boolean.bedroom_dnd', 'on') 
+             ? 'rgb(233, 30, 99)' 
+             : 'var(--disabled-text-color)' }}
+        tap_action:
+          action: call-service
+          service: input_boolean.toggle
+          service_data:
+            entity_id: input_boolean.bedroom_dnd
+        hold_action:
+          action: call-service
+          service: script.turn_on
+          service_data: 
+            entity_id: script.activate_bedroom_dnd_mode
+        styles:
+          card:
+            - background: >
+                {{ is_state('input_boolean.bedroom_dnd', 'on') 
+                   ? 'rgba(233, 30, 99, 0.05)' 
+                   : 'rgba(var(--rgb-disabled-color), 0.05)' }}
+            - border-radius: "12px"
+            - animation: "fade-in 0.4s ease-out"
+      
+      - type: custom:mushroom-template-card
+        primary: "Bedtime"
+        icon: mdi:bed-clock
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.bedroom_bedtime_routine
+        hold_action:
+          action: call-service
+          service: browser_mod.popup
+          service_data:
+            title: "Bedtime Routine"
+            content:
+              type: custom:bubble-card
+              card_type: template
+              entities:
+                - script.bedroom_bedtime_routine
+                - input_boolean.sleep_mode
+              template: /www/streamline/templates/bedtime_routine.yaml
+        styles:
+          icon:
+            - color: "rgba(103, 58, 183, 0.7)"
+          card:
+            - background: "rgba(103, 58, 183, 0.05)"
+            - border-radius: "12px"
+            - animation: "fade-in 0.5s ease-out"
+  
+  # Battery Status Section for Bedroom Devices
+  - type: conditional
+    conditions:
+      - entity: sensor.bedroom_devices_battery_status
+        state_not: unavailable
+    card:
+      type: custom:auto-entities
+      card:
+        type: entities
+        title: "Bedroom Device Battery Status"
+        show_header_toggle: false
+        styles: |
+          ha-card {
+            border-radius: 12px;
+            margin-top: 12px;
+            animation: fade-in 0.6s ease-out;
+            overflow: hidden;
+          }
+          @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .card-header {
+            padding: 8px 16px;
+            font-weight: bold;
+            background: rgba(var(--rgb-primary-color), 0.1);
+          }
+      filter:
+        include:
+          - entity_id: "*battery*"
+            attributes:
+              room: bedroom
+            state: "< 30"
+        exclude:
+          - state: "unknown"
+          - state: "unavailable"
+      sort:
+        method: state
+        numeric: true
+      show_empty: false
+
+  # Sleep Stats Card (if available)
+  - type: conditional
+    conditions:
+      - entity: sensor.sleep_quality
+        state_not: unavailable
+    card:
+      type: custom:apexcharts-card
+      header:
+        show: true
+        title: Sleep Quality
+        show_states: true
+      graph_span: 7d
+      span:
+        start: day
+        offset: -6d
+      series:
+        - entity: sensor.sleep_quality
+          name: Quality
+          color: var(--primary-color)
+        - entity: sensor.sleep_duration
+          name: Duration
+          color: var(--accent-color)
+          unit: hrs
+      apex_config:
+        chart:
+          animations:
+            enabled: true
+            easing: easeinout
+            speed: 800
+        tooltip:
+          shared: true
+          intersect: false
+
+  # Bottom Gesture Hint (hidden after first use with local storage)
+  - type: markdown
+    content: >
+      ### Gesture Controls Available:
+      - **Swipe Left/Right**: Previous/Next
+      - **Swipe Up/Down**: Adjust Brightness/Volume
+      - **Double Tap**: Toggle Light/Media
+      - **Long Press**: More Options
+    style: |
+      ha-card {
+        border-radius: 12px;
+        background: rgba(var(--rgb-primary-color), 0.05);
+        margin-top: 8px;
+        opacity: 0.7;
+        animation: fade-in 1s ease-out;
+      }
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 0.7; transform: translateY(0); }
+      }

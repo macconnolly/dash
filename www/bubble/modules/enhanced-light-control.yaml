@@ -1,0 +1,618 @@
+module: enhanced_light_control
+name: "Super Enhanced Light Control"
+version: "3.5"
+description: "Advanced light control with scene cycling, color presets, and context awareness"
+editor:
+  - variable: entity
+    name: Light Entity
+    selector:
+      entity:
+        domain: light
+  - variable: name
+    name: Display Name
+    selector:
+      text:
+  - variable: adaptive_entity
+    name: Adaptive Lighting Control Entity
+    selector:
+      entity:
+        domain: input_boolean
+  - variable: area_color
+    name: Area Color
+    selector:
+      color_rgb:
+    default: "rgba(var(--rgb-primary-color), 1)"
+  - variable: favorite_scenes
+    name: Favorite Scenes (comma separated)
+    selector:
+      text:
+    default: "scene.bright,scene.relax_evening,scene.movie,scene.night_light"
+  - variable: favorite_colors
+    name: Favorite Colors (JSON array of [r,g,b])
+    selector:
+      text:
+    default: "[[255,0,0],[0,255,0],[0,0,255],[255,255,255]]"
+  - variable: context_aware
+    name: Context Awareness
+    selector:
+      boolean:
+    default: true
+
+template: |
+  type: custom:bubble-card
+  card_type: light
+  entity: "${variables.entity}"
+  name: "${variables.name || attributes.friendly_name}"
+  double_tap_action:
+    action: call-service
+    service: script.cycle_brightness
+    service_data:
+      entity_id: "${variables.entity}"
+  hold_action:
+    action: more-info
+  sub_button:
+    # Adaptive/Manual Override Button
+    - entity: "${variables.adaptive_entity}"
+      icon: >
+        {{ state === 'on' ? 'mdi:lightbulb-auto-off' : 'mdi:lightbulb-auto' }}
+      color: >
+        {{ state === 'on' ? '#FF9800' : '#8BC34A' }}
+      state_display: >
+        {{ state === 'on' ? 'Manual' : 'Auto' }}
+      tap_action:
+        action: call-service
+        service: >
+          {{ state === 'on' 
+            ? 'script.reset_al_override' 
+            : 'adaptive_lighting.set_manual_control' }}
+        service_data: >
+          {{ state === 'on' 
+            ? {'entity_id': variables.adaptive_entity} 
+            : {'entity_id': variables.entity, 'manual_control': true} }}
+    
+    # Scene Cycling Button (NEW!)
+    - icon: mdi:movie-edit
+      color: "#9C27B0"
+      name: "Scenes"
+      state_display: "Cycle"
+      tap_action:
+        action: call-service
+        service: script.cycle_scenes
+        service_data:
+          entity_id: "${variables.entity}"
+          scenes: "${variables.favorite_scenes}"
+      double_tap_action:
+        action: call-service
+        service: scene.turn_on
+        service_data:
+          entity_id: >
+            ${
+              (() => {
+                const scenes = variables.favorite_scenes.split(',');
+                // Choose a scene based on time of day if context_aware is true
+                if (variables.context_aware && scenes.length > 0) {
+                  const h = new Date().getHours();
+                  if (h >= 5 && h < 10) return scenes.find(s => s.includes('morning')) || scenes[0]; // Morning
+                  if (h >= 10 && h < 17) return scenes.find(s => s.includes('day')) || scenes[0]; // Day
+                  if (h >= 17 && h < 22) return scenes.find(s => s.includes('evening')) || scenes[1] || scenes[0]; // Evening
+                  return scenes.find(s => s.includes('night')) || scenes[scenes.length-1] || scenes[0]; // Night
+                }
+                return scenes[0];
+              })()
+            }
+    
+    # Brightness Level Button
+    - entity: "${variables.entity}"
+      icon: >
+        {% if is_state(entity, 'on') %}
+          {% set bri = state_attr(entity, 'brightness')|int|default(0) %}
+          {% if bri < 65 %}mdi:brightness-2
+          {% elif bri < 128 %}mdi:brightness-4
+          {% elif bri < 192 %}mdi:brightness-6
+          {% else %}mdi:brightness-7{% endif %}
+        {% else %}
+          mdi:brightness-5
+        {% endif %}
+      state_display: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'brightness') %}
+          {{ (state_attr(entity, 'brightness') / 255 * 100) | round }}%
+        {% else %}
+          --
+        {% endif %}
+      tap_action:
+        action: call-service
+        service: script.cycle_brightness
+        service_data:
+          entity_id: "${variables.entity}"
+    
+    # Color Presets Button (NEW!)
+    - entity: "${variables.entity}"
+      icon: mdi:palette-swatch
+      show: ${
+        JSON.stringify(
+          attributes.supported_color_modes && 
+          (attributes.supported_color_modes.includes('rgb') || 
+           attributes.supported_color_modes.includes('xy') || 
+           attributes.supported_color_modes.includes('hs'))
+        )
+      }
+      state_display: "Colors"
+      styles_javascript: |
+        `
+        // Dynamic color background based on current RGB color
+        .bubble-sub-button-icon-container {
+          background: ${
+            (() => {
+              if (state !== 'on' || !attributes.rgb_color) return 'transparent';
+              const [r, g, b] = attributes.rgb_color;
+              return `rgba(${r}, ${g}, ${b}, 0.2)`;
+            })()
+          };
+          transition: background 0.4s ease;
+        }
+        
+        .bubble-sub-button-icon {
+          color: ${
+            (() => {
+              if (state !== 'on' || !attributes.rgb_color) return 'var(--primary-text-color)';
+              const [r, g, b] = attributes.rgb_color;
+              // Choose icon color based on background brightness
+              const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+              return brightness > 128 ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)';
+            })()
+          };
+        }
+        `
+      hold_action:
+        action: fire-dom-event
+        browser_mod:
+          service: browser_mod.popup
+          data:
+            title: "Color Presets for ${variables.name || attributes.friendly_name}"
+            content:
+              type: custom:auto-entities
+              filter:
+                template: >
+                  {% set colors = ${JSON.stringify(variables.favorite_colors || '[[255,0,0],[0,255,0],[0,0,255],[255,255,255]]')} %}
+                  [
+                    {% for color in colors %}
+                    {
+                      "type": "custom:bubble-card",
+                      "card_type": "button",
+                      "icon": "mdi:square-rounded",
+                      "styles": ".bubble-icon { color: rgb({{ color[0] }}, {{ color[1] }}, {{ color[2] }}); } .bubble-icon-container { background: rgba({{ color[0] }}, {{ color[1] }}, {{ color[2] }}, 0.2); }",
+                      "tap_action": {
+                        "action": "call-service",
+                        "service": "light.turn_on",
+                        "service_data": {
+                          "entity_id": "${variables.entity}",
+                          "rgb_color": {{ color }},
+                          "transition": 1
+                        }
+                      }
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                  ]
+              show_empty: false
+              card:
+                type: custom:bubble-grid
+                columns: 4
+    
+    # Context-Aware Lighting Button (NEW!)
+    - name: "Context"
+      icon: >
+        {{ 
+          states('sensor.home_context_engine') == 'morning' ? 'mdi:weather-sunny' :
+          states('sensor.home_context_engine') == 'day' ? 'mdi:white-balance-sunny' :
+          states('sensor.home_context_engine') == 'evening' ? 'mdi:weather-sunset' :
+          states('sensor.home_context_engine') == 'night' ? 'mdi:weather-night' :
+          states('sensor.home_context_engine') == 'movie' ? 'mdi:movie-open' :
+          'mdi:lightbulb-auto'
+        }}
+      show: "${variables.context_aware || true}"
+      styles_javascript: |
+        `
+        // Context-based styling
+        .bubble-sub-button-icon-container {
+          background: ${
+            (() => {
+              const context = hass.states['sensor.home_context_engine']?.state;
+              switch(context) {
+                case 'morning': return designSystem.colors.morning_light;
+                case 'day': return designSystem.colors.day_light;
+                case 'evening': return designSystem.colors.evening_light;
+                case 'night': return designSystem.colors.night_light;
+                case 'movie': return designSystem.colors.living_light;
+                default: return 'rgba(var(--rgb-primary-color), 0.1)';
+              }
+            })()
+          };
+        }
+        
+        .bubble-sub-button-icon {
+          color: ${
+            (() => {
+              const context = hass.states['sensor.home_context_engine']?.state;
+              switch(context) {
+                case 'morning': return designSystem.colors.morning;
+                case 'day': return designSystem.colors.day;
+                case 'evening': return designSystem.colors.evening;
+                case 'night': return designSystem.colors.night;
+                case 'movie': return designSystem.colors.living;
+                default: return 'var(--primary-color)';
+              }
+            })()
+          };
+        }
+        `
+      tap_action:
+        action: call-service
+        service: script.apply_context_lighting
+        service_data:
+          entity_id: "${variables.entity}"
+          context: "{{ states('sensor.home_context_engine') }}"
+  
+  slider:
+    show: true
+    min: 1
+    max: 255
+    step: 1
+    debounce: 200
+    hold_to_adjust: true
+    dbl_tap_default: 128
+  
+  styles_javascript: |
+    `
+    // Base animations
+    ${designSystem.animations.keyframes.spin}
+    ${designSystem.animations.keyframes.pulse}
+    ${designSystem.animations.keyframes.fadeIn}
+    ${designSystem.animations.keyframes.shimmer}
+    
+    // Card background based on state
+    .bubble-button-background {
+      background: ${
+        (() => {
+          if (state !== 'on') return 'transparent';
+          
+          // RGB color handling
+          if (attributes.rgb_color) {
+            const [r, g, b] = attributes.rgb_color;
+            return `radial-gradient(circle, rgba(${r}, ${g}, ${b}, 0.2) 0%, rgba(${r}, ${g}, ${b}, 0.05) 100%)`;
+          }
+          
+          // Color temperature handling
+          if (attributes.color_temp_kelvin) {
+            const kelvin = attributes.color_temp_kelvin;
+            if (kelvin > 4000) return 'radial-gradient(circle, rgba(200, 230, 255, 0.2) 0%, rgba(200, 230, 255, 0.05) 100%)';
+            if (kelvin > 3000) return 'radial-gradient(circle, rgba(255, 244, 229, 0.2) 0%, rgba(255, 244, 229, 0.05) 100%)';
+            return 'radial-gradient(circle, rgba(255, 223, 189, 0.2) 0%, rgba(255, 223, 189, 0.05) 100%)';
+          }
+          
+          // Default
+          return designSystem.functions.stateGradient(
+            state, 
+            variables.area_color || 'var(--primary-color)'
+          );
+        })()
+      };
+      opacity: 1 !important;
+      transition: background 0.4s ease;
+    }
+    
+    // Apply light turn-on animation
+    .bubble-icon-container {
+      position: relative;
+      animation: ${state === 'on' ? 'fadeIn 0.3s ease-out' : 'none'};
+      transition: transform 0.2s ease-out, box-shadow 0.3s ease;
+      
+      ${state === 'on' && attributes.brightness > 200 
+        ? 'box-shadow: 0 0 15px rgba(var(--rgb-primary-color), 0.5);' 
+        : ''}
+    }
+    
+    // HSV Color Ring for RGB lights
+    ${attributes.supported_color_modes && 
+      (attributes.supported_color_modes.includes('hs') || 
+       attributes.supported_color_modes.includes('rgb') || 
+       attributes.supported_color_modes.includes('xy')) && 
+       attributes.rgb_color ? `
+    .bubble-icon-container {
+      background: ${attributes.rgb_color ? 
+        `rgba(${attributes.rgb_color[0]}, ${attributes.rgb_color[1]}, ${attributes.rgb_color[2]}, 0.1)` : 'none'};
+      box-shadow: 0 0 0 ${state === 'on' ? '2px' : '0px'} 
+        rgba(${attributes.rgb_color ? attributes.rgb_color.join(',') : '255,255,255'}, 
+          ${state === 'on' ? '0.5' : '0'});
+    }
+    .bubble-icon {
+      color: ${
+        (() => {
+          if (state !== 'on' || !attributes.rgb_color) return 'var(--primary-text-color)';
+          const [r, g, b] = attributes.rgb_color;
+          // Choose icon color based on background brightness
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+          return brightness > 128 ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+        })()
+      };
+    }
+    ` : ''}
+    
+    // Context-aware icon color
+    ${variables.context_aware ? `
+    .bubble-icon {
+      color: ${
+        (() => {
+          if (state !== 'on') return 'var(--primary-text-color)';
+          if (attributes.rgb_color) {
+            const [r, g, b] = attributes.rgb_color;
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+          }
+          
+          const context = hass.states['sensor.home_context_engine']?.state;
+          switch(context) {
+            case 'morning': return attributes.brightness < 150 ? 'var(--primary-text-color)' : designSystem.colors.morning;
+            case 'day': return attributes.brightness < 150 ? 'var(--primary-text-color)' : designSystem.colors.day;
+            case 'evening': return attributes.brightness < 150 ? 'var(--primary-text-color)' : designSystem.colors.evening;
+            case 'night': return attributes.brightness < 150 ? 'var(--primary-text-color)' : designSystem.colors.night;
+            default: return 'var(--primary-text-color)';
+          }
+        })()
+      };
+    }
+    ` : ''}
+    
+    // Brightness indicator bar with glow for bright lights
+    .bubble-name::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: ${
+        state === 'on' && attributes.brightness
+          ? (attributes.brightness / 255 * 100) + '%'
+          : '0%'
+      };
+      height: 3px;
+      background: linear-gradient(
+        to right, 
+        ${
+          (() => {
+            if (attributes.rgb_color) {
+              const [r, g, b] = attributes.rgb_color;
+              return `rgba(${r}, ${g}, ${b}, 0.5), rgba(${r}, ${g}, ${b}, 0.9)`;
+            }
+            return `${variables.area_color || 'var(--primary-color)'}88, ${variables.area_color || 'var(--primary-color)'}FF`;
+          })()
+        }
+      );
+      border-radius: 2px;
+      transition: width 0.4s ease-out;
+      opacity: ${state === 'on' ? 1 : 0};
+      box-shadow: ${
+        state === 'on' && attributes.brightness > 200 
+          ? '0 0 8px rgba(var(--rgb-primary-color), 0.7)' 
+          : 'none'
+      };
+    }
+    
+    // Sub-button styling
+    .bubble-sub-button-background {
+      transition: all 0.3s ease;
+    }
+    
+    .bubble-sub-button:active .bubble-sub-button-background {
+      transform: scale(0.95);
+    }
+    
+    // Responsive hover effects
+    @media (hover: hover) {
+      ha-card:hover .bubble-icon-container {
+        transform: ${state === 'on' ? 'scale(1.05)' : 'none'};
+      }
+    }
+    `
+enhanced_light:
+  name: "Enhanced Light Control 3.5"
+  version: "3.5.0"
+  description: "Advanced light control with adaptive lighting status indicators and rich interaction"
+  editor:
+    - variable: entity
+      name: Light Entity
+      selector:
+        entity:
+          domain: light
+    - variable: name
+      name: Light Name
+      selector:
+        text:
+    - variable: icon
+      name: Light Icon
+      selector:
+        icon:
+    - variable: al_manual_control
+      name: Adaptive Lighting Manual Control Boolean
+      selector:
+        entity:
+          domain: input_boolean
+    - variable: al_switch
+      name: Adaptive Lighting Switch
+      selector:
+        entity:
+          domain: switch
+    - variable: color
+      name: Custom Color
+      selector:
+        color_rgb:
+    - variable: brightness_script
+      name: Cycle Brightness Script
+      selector:
+        entity:
+          domain: script
+    - variable: reset_al_script
+      name: Reset AL Script
+      selector:
+        entity:
+          domain: script
+          
+  template: |
+    type: custom:bubble-card
+    card_type: light
+    entity: "${variables.entity}"
+    name: "${variables.name || entity_config.name}"
+    icon: "${variables.icon || entity_config.icon}"
+    styles: |
+      /* ===== BASE CARD STYLING ===== */
+      ha-card {
+        transition: ${designSystem.animations.standard};
+        position: relative;
+      }
+      
+      /* ===== STATE-DEPENDENT BACKGROUND ===== */
+      .bubble-button-background {
+        background: ${
+          state === 'on' 
+            ? (variables.color 
+              ? `radial-gradient(circle, ${variables.color.replace('1)', '0.3)')} 0%, ${variables.color.replace('1)', '0.05)')} 100%)`
+              : `radial-gradient(circle, rgba(255,170,95,0.3) 0%, rgba(255,170,95,0.05) 100%)`)
+            : 'none'
+        } !important;
+        opacity: 1 !important;
+        transition: ${designSystem.animations.emphasis};
+      }
+      
+      /* ===== ICON CONTAINER ANIMATION ===== */
+      .bubble-icon-container {
+        transition: ${designSystem.animations.emphasis};
+        transform-origin: center;
+        animation: ${
+          state === 'on' ? 'turnOn 0.5s ease-out' : 'none'
+        };
+        position: relative;
+      }
+      
+      @keyframes turnOn {
+        0% { transform: scale(0.9); opacity: 0.7; filter: saturate(0.5); }
+        50% { transform: scale(1.1); opacity: 1; filter: saturate(1.2); }
+        100% { transform: scale(1); opacity: 1; filter: saturate(1); }
+      }
+      
+      /* ===== ICON COLOR BASED ON COLOR TEMP ===== */
+      .bubble-icon {
+        color: ${
+          state === 'on' && attributes.color_temp_kelvin
+            ? `var(--light-color-temperature-${Math.round(attributes.color_temp_kelvin / 100) * 100})`
+            : 'var(--primary-text-color)'
+        };
+        transition: color 0.5s ease;
+      }
+      
+      /* ===== BRIGHTNESS INDICATOR ===== */
+      .bubble-icon-container::after {
+        content: '';
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 3px;
+        width: ${
+          state === 'on' && attributes.brightness
+            ? (attributes.brightness / 255 * 100) + '%'
+            : '0%'
+        };
+        background: ${
+          variables.color ? variables.color : '${designSystem.colors.secondary}'
+        };
+        border-radius: ${designSystem.border_radius.sm};
+        transition: ${designSystem.animations.standard};
+        opacity: ${state === 'on' ? '1' : '0'};
+      }
+      
+      /* ===== ADAPTIVE LIGHTING BADGE ===== */
+      .bubble-icon-container::before {
+        content: '';
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        top: 0;
+        right: 0;
+        background-color: ${
+          hass.states[variables.al_manual_control]?.state === 'off' && 
+          hass.states[variables.al_switch]?.state === 'on'
+            ? designSystem.colors.adaptive
+            : designSystem.colors.manual
+        };
+        border: 1px solid var(--card-background-color);
+        opacity: ${
+          hass.states[variables.al_switch]?.state === 'on' ? '1' : '0'
+        };
+        transform: scale(${
+          hass.states[variables.al_switch]?.state === 'on' ? '1' : '0'
+        });
+        transition: all 0.3s ease;
+      }
+      
+      /* ===== HOVER BRIGHTNESS DISPLAY ===== */
+      .bubble-icon-container:hover .brightness-label {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      
+      .brightness-label {
+        position: absolute;
+        top: -24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        background: var(--card-background-color);
+        padding: 2px 6px;
+        border-radius: ${designSystem.border_radius.sm};
+        font-size: 12px;
+        opacity: 0;
+        box-shadow: ${designSystem.shadows.subtle};
+        pointer-events: none;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 1;
+      }
+      
+      /* ===== ADAPTIVE/MANUAL STATUS TEXT ===== */
+      .adaptive-status {
+        position: absolute;
+        bottom: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        opacity: 0.6;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+    extra_styles: |
+      /* ===== BRIGHTNESS PERCENTAGE LABEL ===== */
+      <div class="brightness-label" style="display: ${state === 'on' ? 'block' : 'none'}">
+        ${state === 'on' && attributes.brightness
+          ? Math.round(attributes.brightness / 255 * 100) + '%'
+          : ''}
+      </div>
+      
+      /* ===== ADAPTIVE/MANUAL STATUS INDICATOR ===== */
+      <div class="adaptive-status">
+        ${
+          state === 'on'
+            ? (hass.states[variables.al_manual_control]?.state === 'off' && 
+               hass.states[variables.al_switch]?.state === 'on'
+                ? 'Adaptive'
+                : 'Manual')
+            : ''
+        }
+      </div>
+    double_tap_action:
+      action: call-service
+      service: "${variables.brightness_script ? variables.brightness_script : 'script.cycle_brightness'}"
+      service_data:
+        entity_id: "${variables.entity}"
+    hold_action:
+      action: more-info
+    tap_action:
+      action: toggle
+    release_action:
+      action: none

@@ -1,0 +1,82 @@
+# /dashboards/views/away.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Away Mode"
+    subtitle: "Home status while you're out"
+    icon: mdi:home-export-outline
+  
+  # Home Security Status
+  - type: custom:bubble-card
+    card_type: entity
+    entity: binary_sensor.overall_presence # Assuming this tracks overall security
+    name: "Home Security"
+    icon: mdi:shield-home
+    state_display: >
+      {{ 'Secure' if is_state(entity, 'off') 
+         else 'Motion Detected' }}
+    styles_javascript: |
+      `
+      ${designSystem.animations.keyframes.pulse}
+      .bubble-icon {
+        color: ${
+          state === 'off' ? designSystem.colors.success : designSystem.colors.warning
+        };
+        animation: ${state === 'on' ? 'pulse 1.5s infinite' : 'none'};
+      }
+      `
+  
+  # Temperature Overview
+  - type: custom:bubble-card
+    card_type: sensor
+    entity: sensor.dining_room_temperature # Using dining room as proxy for home temp
+    name: "Home Temperature"
+    icon: mdi:home-thermometer-outline
+    state_display: >
+      {{ states(entity) }}°
+  
+  # Quick Return Actions
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "I'm Home"
+        icon: mdi:home-import-outline
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on # Assuming this triggers 'home' context
+          service_data:
+            entity_id: input_boolean.home_occupied
+        styles: |
+          .bubble-icon-container {
+            background: rgba(76, 175, 80, 0.15); # Success color
+          }
+      
+      - name: "Prepare Return"
+        icon: mdi:hvac
+        tap_action:
+          action: call-service
+          service: script.prepare_home_return # Assuming this script exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(33, 150, 243, 0.15); # Info color
+          }
+  
+  # HVAC Status (Compact)
+  - type: custom:bubble-card
+    card_type: thermostat
+    entity: climate.dining_room
+    compact: true
+    styles_javascript: |
+      `
+      // Dynamic thermostat styling based on HVAC state
+      .round-temp-sensor-container {
+        transition: box-shadow 1s ease;
+        box-shadow: ${
+          (() => {
+            const hvacAction = hass.states['climate.dining_room'].attributes.hvac_action;
+            if (hvacAction === 'heating') return '0 0 10px rgba(255, 112, 67, 0.4)'; // Heat color
+            if (hvacAction === 'cooling') return '0 0 10px rgba(41, 182, 246, 0.4)'; // Cool color
+            return 'none';
+          })()
+        };
+      }
+      `

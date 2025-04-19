@@ -1,0 +1,142 @@
+# ======================================================
+# CONTEXT ENGINE - The brain of the adaptive dashboard
+# ======================================================
+
+template:
+  - trigger:
+      - platform: time_pattern
+        seconds: "/10" # Increased frequency for responsiveness
+      - platform: state
+        entity_id:
+          - binary_sensor.living_room_presence
+          - binary_sensor.kitchen_presence
+          - binary_sensor.dining_room_presence
+          - binary_sensor.couch_presence
+          - binary_sensor.overall_presence
+          - binary_sensor.walkway_presence # Added based on inferred needs
+          - input_boolean.home_occupied
+          - input_boolean.good_night_active
+          - input_boolean.guest_mode_active
+          - input_boolean.movie_mode_active
+          - binary_sensor.iphone_12_pro_focus
+          - media_player.living_room
+          - media_player.kitchen
+          - media_player.dining_room
+          - media_player.master_bedroom
+          - media_player.sun_house
+          - climate.dining_room
+          - weather.home_2
+          - light.living_room # Added relevant lights
+          - light.kitchen_main_lights
+          - light.dining_room_spot_lights
+          - light.master_bedroom_table_lamps
+          - input_boolean.al_manual_control_non_hue
+          - input_boolean.al_manual_control_kitchen_island
+          - input_boolean.al_manual_control_master_adapt
+          - input_boolean.al_manual_control_track_lights
+          - input_boolean.al_manual_control_hue_adapt
+    sensor:
+      # Renamed from ha_context for clarity, using new logic
+      - name: home_context_engine 
+        unique_id: home_context_engine # Keep original unique_id if preferred
+        state: >
+          {% set h = now().hour %}
+          {% set m = now().minute %}
+          {% set day_phase = state_attr('sun.sun', 'elevation') > 0 %}
+          
+          {% if is_state('input_boolean.home_occupied', 'off') %}
+            away
+          {% elif is_state('input_boolean.good_night_active', 'on') %}
+            sleeping
+          {% elif is_state('input_boolean.movie_mode_active', 'on') %}
+            movie
+          {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+            hosting
+          {% elif is_state('binary_sensor.iphone_12_pro_focus', 'on') %}
+            focus
+          {% elif h >= 5 and h < 10 %}
+            morning
+          {% elif h >= 17 and h < 22 %}
+            evening
+          {% elif h >= 22 or h < 5 %}
+            night
+          {% else %}
+            day
+          {% endif %}
+        attributes:
+          metadata: >
+            {% set weather_entity = 'weather.home_2' %}
+            {% set climate_entity = 'climate.dining_room' %}
+            {% set media_active = false %}
+            {% for entity_id in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom'] %}
+              {% if is_state(entity_id, 'playing') %}
+                {% set media_active = true %}
+              {% endif %}
+            {% endfor %}
+            
+            {
+              "time_of_day": "{{ 'morning' if now().hour >= 5 and now().hour < 10 else 'day' if now().hour >= 10 and now().hour < 17 else 'evening' if now().hour >= 17 and now().hour < 22 else 'night' }}",
+              "day_of_week": "{{ now().weekday() }}",
+              "is_weekend": "{{ now().weekday() >= 5 }}",
+              "weather": "{{ states(weather_entity) }}",
+              "temperature": "{{ state_attr(weather_entity, 'temperature') }}",
+              "is_rainy": "{{ states(weather_entity) in ['rainy', 'pouring', 'lightning', 'lightning-rainy'] }}",
+              "climate_mode": "{{ state_attr(climate_entity, 'hvac_mode') }}",
+              "climate_action": "{{ state_attr(climate_entity, 'hvac_action') }}",
+              "media_active": "{{ media_active }}",
+              "active_areas": [
+                {% if is_state('binary_sensor.living_room_presence', 'on') %}"living_room"{% if is_state('binary_sensor.kitchen_presence', 'on') or is_state('binary_sensor.dining_room_presence', 'on') %},{% endif %}{% endif %}
+                {% if is_state('binary_sensor.kitchen_presence', 'on') %}"kitchen"{% if is_state('binary_sensor.dining_room_presence', 'on') %},{% endif %}{% endif %}
+                {% if is_state('binary_sensor.dining_room_presence', 'on') %}"dining_room"{% endif %}
+              ]
+            }
+      
+      # New sensor replacing light_integrity
+      - name: adaptive_lighting_status
+        unique_id: adaptive_lighting_status # Added unique_id
+        state: >
+          {% set manual_groups = namespace(count=0, list=[]) %}
+          {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+            {% if is_state(entity_id, 'on') %}
+              {% set manual_groups.count = manual_groups.count + 1 %}
+              {% set manual_groups.list = manual_groups.list + [entity_id] %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if manual_groups.count == 0 %}
+            fully_adaptive
+          {% elif manual_groups.count >= 4 %}
+            mostly_manual
+          {% else %}
+            partially_manual
+          {% endif %}
+        attributes:
+          manual_count: >
+            {% set count = namespace(value=0) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set count.value = count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ count.value }}
+          manual_groups: >
+            {% set groups = namespace(list=[]) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set groups.list = groups.list + [entity_id] %}
+              {% endif %}
+            {% endfor %}
+            {{ groups.list | join(',') }}
+          adaptive_lights: >
+            {% set al_info = namespace(current_values={}) %}
+            {% if states('sensor.adaptive_lighting_color_temperature_k') is not none %}
+              {% set al_info.current_values = al_info.current_values | combine(
+                {'color_temp': states('sensor.adaptive_lighting_color_temperature_k')|int,
+                 'brightness': states('sensor.adaptive_lighting_brightness')|int,
+                 'sun_position': states('sensor.adaptive_lighting_sun_position')|float}
+              ) %}
+            {% endif %}
+            {{ al_info.current_values | to_json }}
+
+# Note: Removed previous light_integrity and sonos_status sensors as they are superseded
+# Note: Removed previous room-specific, system state, time, and activity context engines as they are superseded by the new structure

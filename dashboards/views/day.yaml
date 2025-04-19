@@ -1,0 +1,64 @@
+# /dashboards/views/day.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-grid
+    columns: 3
+    cards:
+      # Living Room Card using Streamline Template
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Living Room"
+          icon: "mdi:sofa"
+          light_group: "light.living_room"
+          presence: "binary_sensor.living_room_presence"
+          temperature: "sensor.living_room_temperature"
+          media_player: "media_player.living_room"
+          adaptive_control: "input_boolean.al_manual_control_track_lights" # Adjust if needed
+          color: "rgba(103, 58, 183, 1)" # Living room color
+      
+      # Kitchen Card using Streamline Template
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Kitchen"
+          icon: "mdi:countertop"
+          light_group: "light.kitchen_main_lights"
+          presence: "binary_sensor.kitchen_presence"
+          temperature: "sensor.kitchen_temperature"
+          media_player: "media_player.kitchen"
+          adaptive_control: "input_boolean.al_manual_control_kitchen_island" # Adjust if needed
+          color: "rgba(0, 150, 136, 1)" # Kitchen color
+      
+      # Dining Room Card using Streamline Template
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Dining Room"
+          icon: "mdi:table-chair"
+          light_group: "light.dining_room_spot_lights"
+          presence: "binary_sensor.dining_room_presence"
+          temperature: "sensor.dining_room_temperature"
+          media_player: "media_player.dining_room"
+          adaptive_control: "input_boolean.al_manual_control_non_hue" # Adjust if needed
+          color: "rgba(255, 87, 34, 1)" # Dining room color
+  
+  # Hub Controls using Streamline Templates
+  - type: horizontal-stack
+    cards:
+      - type: custom:streamline-card
+        template: climate_control_hub # Using Streamline template
+        variables:
+          title: "Climate Hub"
+          # Default entities are likely correct, add overrides if needed
+          # entity: "climate.dining_room"
+          # fan: "fan.hvac_fan"
+          # energy_today: "sensor.hvac_energy_today"
+          
+      - type: custom:streamline-card
+        template: media_control_hub # Using Streamline template
+        variables:
+          title: "Media Hub"
+          # Default players map likely needs adjustment based on your actual entities
+          # master_player: "media_player.living_room"
+          # players: ...

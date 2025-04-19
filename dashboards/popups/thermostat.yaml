@@ -1,0 +1,109 @@
+# Pop-up definition for Thermostat Control (#thermostat-control)
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: thermostat
+    entity: climate.dining_room # Assuming this entity exists
+    name: "Dining Room Climate" # Changed name for clarity
+    compact: false
+    styles: |
+      /* Enhance thermostat visualization - referencing design system */
+      .round-temp-sensor-container {
+        transition: all 0.5s ease;
+        box-shadow: ${
+          (() => {
+            const hvacAction = hass.states['climate.dining_room'].attributes.hvac_action;
+            /* Using design system colors indirectly via RGBA values from guide */
+            if (hvacAction === 'heating') return '0 0 20px rgba(255,150,64,0.5)'; /* Amber-like */
+            if (hvacAction === 'cooling') return '0 0 20px rgba(64,150,255,0.5)'; /* Blue-like */
+            return 'none';
+          })()
+        };
+      }
+
+  - type: custom:bubble-header
+    name: Quick Controls
+
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Heat"
+        icon: mdi:fire
+        color: "rgba(255,150,64,1)" # Amber-like
+        tap_action:
+          action: call-service
+          service: climate.set_hvac_mode
+          service_data:
+            entity_id: climate.dining_room
+            hvac_mode: heat
+      - name: "Cool"
+        icon: mdi:snowflake
+        color: "rgba(64,150,255,1)" # Blue-like
+        tap_action:
+          action: call-service
+          service: climate.set_hvac_mode
+          service_data:
+            entity_id: climate.dining_room
+            hvac_mode: cool
+      - name: "Auto"
+        icon: mdi:autorenew
+        tap_action:
+          action: call-service
+          service: climate.set_hvac_mode
+          service_data:
+            entity_id: climate.dining_room
+            hvac_mode: heat_cool
+      - name: "Off"
+        icon: mdi:power
+        tap_action:
+          action: call-service
+          service: climate.set_hvac_mode
+          service_data:
+            entity_id: climate.dining_room
+            hvac_mode: 'off' # Ensure 'off' is quoted
+
+  - type: custom:bubble-header
+    name: Temperature Control
+
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card # Changed from bubble-button for consistency
+        card_type: button
+        name: "-1°"
+        icon: mdi:minus
+        tap_action:
+          action: call-service
+          service: script.decrease_thermostat_temp # Script from package file
+          service_data:
+            entity_id: climate.dining_room
+            delta: 1
+
+      - type: custom:bubble-card # Changed from bubble-button for consistency
+        card_type: button
+        name: "+1°"
+        icon: mdi:plus
+        tap_action:
+          action: call-service
+          service: script.increase_thermostat_temp # Script from package file
+          service_data:
+            entity_id: climate.dining_room
+            delta: 1
+
+  - type: custom:bubble-header
+    name: Environment
+
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card # Changed from bubble-sensor
+        card_type: sensor
+        entity: sensor.dining_room_temperature # Assuming this sensor exists
+        name: "Current"
+        icon: mdi:thermometer
+
+      - type: custom:bubble-card # Changed from bubble-sensor
+        card_type: sensor
+        entity: sensor.dining_room_humidity # Assuming this sensor exists
+        name: "Humidity"
+        icon: mdi:water-percent

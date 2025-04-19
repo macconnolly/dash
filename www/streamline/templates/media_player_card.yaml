@@ -1,0 +1,22 @@
+template:
+  name: media_player_card
+  variables:
+    entity:  {type:string}
+    name:    {type:string, default: Player}
+    color:   {type:string, default: var(--primary-color)}
+    show_controls: {type:boolean, default: true}
+    show_volume:  {type:boolean, default: false}
+  template: |
+    type: custom:bubble-card
+    card_type: media-player
+    entity: "{{entity}}"
+    name: "{{name}}"
+    compact: "{{ not variables.show_controls }}"
+    volume_statistic: "{{variables.show_volume}}"
+    artwork_border: false
+    styles_javascript: |
+      `
+      .artwork{border-radius:12px;
+        box-shadow:0 4px 12px rgba(0,0,0,.2)}
+      .media-title,.media-artist{color:${variables.color}}
+      `

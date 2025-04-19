@@ -1,0 +1,224 @@
+# Package for Sleep Mode and Related Automations
+
+input_boolean:
+  good_night_active:
+    name: Good Night Active
+    initial: false
+    icon: mdi:weather-night
+  # Helper for Bathroom->Kitchen logic
+  living_room_vacant_long_enough:
+    name: Living Room Vacant Long Enough
+    initial: false
+    icon: mdi:timer-sand-empty
+
+input_datetime:
+  sonos_alarm_time:
+    name: Sonos Alarm Time
+    has_date: false
+    has_time: true
+    icon: mdi:alarm
+
+script:
+  initiate_sleep_mode:
+    alias: Initiate Sleep Mode
+    icon: mdi:bed
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.good_night_active
+        alias: "Activate Good Night Indicator"
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.dining_room
+        data:
+          temperature: 66
+        alias: "Set Thermostat to 66°F"
+      - service: light.turn_on
+        target:
+          area_id: master_bedroom
+        data:
+          brightness_pct: 10
+        alias: "Dim Master Bedroom Lights"
+      - service: light.turn_off
+        target:
+          area_id:
+            - living_room
+            - kitchen
+            - dining_room
+            - office
+            - entryway
+        data:
+          transition: 2
+        alias: "Turn Off Common Area Lights"
+      - service: notify.mobile_app_YOUR_PHONE_ID # <<<--- REPLACE
+        data:
+          message: "Set Sonos alarm time?"
+          title: "Sonos Alarm"
+          data:
+            actions:
+              - action: URI
+                title: "Choose Time"
+                uri: "/lovelace/alarm_settings" # <<<--- REPLACE
+              - action: SET_SONOS_ALARM_FROM_HELPER
+                title: "Set Alarm Now"
+              - action: SKIP_SONOS_ALARM
+                title: "Skip Alarm"
+            entity_id: input_datetime.sonos_alarm_time
+        alias: "Prompt for Sonos Alarm Time"
+    mode: single
+
+  set_sonos_alarm_from_input:
+    alias: Set Sonos Alarm from Input Helper
+    icon: mdi:alarm-check
+    sequence:
+      # --- Placeholder: Replace with your actual Sonos service call ---
+      - service: notify.persistent_notification
+        data:
+          message: "Placeholder: Add Sonos alarm setting service call here using time from input_datetime.sonos_alarm_time"
+          title: "Sonos Alarm Action Needed"
+      - service: notify.mobile_app_YOUR_PHONE_ID # <<<--- REPLACE
+        data:
+          message: "Sonos alarm set for {{ states('input_datetime.sonos_alarm_time') }}"
+    mode: single
+
+automation:
+  - alias: Reset Good Night Active Daily
+    id: reset_good_night_active_daily # Ensure unique ID
+    trigger:
+      - platform: time
+        at: '12:00:00' # This specifies 12:00 PM (noon)
+    condition: []
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.good_night_active
+    mode: single
+
+  - alias: Handle Sonos Alarm Notification Action
+    id: handle_sonos_alarm_notification_action # Ensure unique ID
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: SET_SONOS_ALARM_FROM_HELPER
+    condition: []
+    action:
+      - service: script.turn_on
+        target:
+          entity_id: script.set_sonos_alarm_from_input
+        alias: "Run Set Sonos Alarm Script"
+    mode: single
+
+  - alias: Trigger Sleep Mode Automatically
+    id: trigger_sleep_mode_automatically # Ensure unique ID
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.living_room_overall_presence
+        to: 'off'
+        for:
+          seconds: 15
+        alias: "Living Room Presence Off for 15 Seconds"
+    condition:
+      - condition: time
+        after: '21:00:00'
+        alias: "After 9:00 PM"
+      - condition: state
+        entity_id: person.mac_connolly # Verify this entity
+        state: 'home'
+        alias: "Mac Connolly is Home"
+      - condition: template
+        value_template: "{{ not is_state('media_player.apple_tv', 'playing') }}"
+        alias: "Apple TV is Not Playing"
+      - condition: state
+        entity_id: input_boolean.good_night_active
+        state: 'off'
+        alias: "Good Night Mode Not Already Active"
+    action:
+      - service: script.turn_on
+        target:
+          entity_id: script.initiate_sleep_mode
+        alias: "Run Initiate Sleep Mode Script"
+    mode: single
+
+  - alias: Trigger Sleep Mode via ZEN32 Button 5
+    id: trigger_sleep_mode_zen32_b5 # Ensure unique ID
+    trigger:
+      # --- PLACEHOLDER: Replace with your specific ZEN32 Button 5 event data ---
+    condition:
+      - condition: state
+        entity_id: input_boolean.good_night_active
+        state: 'off'
+        alias: "Good Night Mode Not Already Active"
+    action:
+      - service: script.turn_on
+        target:
+          entity_id: script.initiate_sleep_mode
+        alias: "Run Initiate Sleep Mode Script"
+    mode: single
+
+  # --- Automations for Bathroom->Kitchen Sonos Grouping ---
+  - alias: Set Living Room Vacant Flag
+    id: set_living_room_vacant_flag # Ensure unique ID
+    description: Turns on a flag if living room presence is off for 2 minutes
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.living_room_overall_presence
+        to: 'off'
+        for:
+          minutes: 2
+    condition: []
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.living_room_vacant_long_enough
+    mode: single
+
+  - alias: Clear Living Room Vacant Flag
+    id: clear_living_room_vacant_flag # Ensure unique ID
+    description: Turns off the vacant flag immediately when living room presence is detected
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.living_room_overall_presence
+        to: 'on'
+    condition: []
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.living_room_vacant_long_enough
+    mode: single
+
+  - alias: Group Kitchen Sonos to Bath on Return
+    id: group_kitchen_sonos_to_bath_on_return # Ensure unique ID & Updated Alias
+    description: If bath was playing while LR was vacant, group kitchen to bath when LR becomes occupied
+    trigger:
+      # Trigger when presence returns
+      - platform: state
+        entity_id: binary_sensor.living_room_overall_presence
+        to: 'on'
+    condition:
+      # Check if the vacant flag is on (meaning presence was off for >2 mins)
+      - condition: state
+        entity_id: input_boolean.living_room_vacant_long_enough
+        state: 'on'
+      # Check if the bathroom Sonos is currently playing
+      - condition: state
+        entity_id: media_player.bath # Corrected entity ID
+        state: 'playing'
+    action:
+      # Join kitchen to bath (bath becomes master)
+      - service: media_player.join
+        data:
+          master: media_player.bath # Corrected: Bath is master
+          group_members:
+            - media_player.kitchen # Corrected: Kitchen joins
+        target:
+          # Target the master for the join command
+          entity_id: media_player.bath # Corrected: Target Bath
+      # Optional: Notify that grouping happened
+      - service: notify.persistent_notification
+        data:
+          message: "Grouped Kitchen Sonos to Bath." # Updated message
+          title: "Sonos Auto Group"
+    mode: single
+
+# Note: Night Light automations created from the blueprint are not included here.

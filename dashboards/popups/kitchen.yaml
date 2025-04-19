@@ -1,0 +1,11 @@
+# Pop-up definition for Kitchen (#kitchen-popup)
+# Placeholder - Content to be added based on guide/requirements
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Kitchen Details"
+    icon: mdi:countertop
+  - type: markdown
+    content: "Kitchen controls and sensors will be displayed here."
+    # Add relevant kitchen sensors, lights, appliances etc.

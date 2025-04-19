@@ -1,0 +1,83 @@
+# /dashboards/views/focus.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Work Focus"
+    subtitle: "Minimizing distractions"
+    icon: mdi:do-not-disturb
+  
+  # Focus Mode Controls
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Exit Focus"
+        icon: mdi:cancel
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_off # Assuming focus mode is tied to the input_boolean via automation
+          service_data:
+            entity_id: input_boolean.focus_mode_active # Or trigger the iOS focus mode off directly if possible
+        styles: |
+          .bubble-icon-container {
+            background: rgba(158, 158, 158, 0.1); # Inactive color
+          }
+      - name: "White Noise"
+        icon: mdi:waves
+        tap_action:
+          action: call-service
+          service: script.play_white_noise # Assuming this script exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(3, 169, 244, 0.15); # Info color
+          }
+      - name: "Pomodoro Timer" # Example - Requires timer integration
+        icon: mdi:timer-sand
+        tap_action:
+          action: call-service 
+          service: timer.start
+          service_data:
+            entity_id: timer.pomodoro # Assuming a timer entity exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 152, 0, 0.15); # Warning color
+          }
+
+  # Minimal Status Overview
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.time # Simple time display
+        name: "Current Time"
+        icon: mdi:clock-outline
+        
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.dining_room_temperature # Ambient temperature
+        name: "Room Temp"
+        icon: mdi:thermometer
+        state_display: >
+          {{ states(entity) }}°
+
+  # Minimal Media Control (if white noise is playing)
+  - type: conditional
+    conditions:
+      - entity: media_player.master_bedroom # Assuming white noise plays here
+        state: "playing"
+      - condition: template # Check if white noise playlist is likely active
+        value_template: "{{ state_attr('media_player.master_bedroom', 'media_playlist') == 'White Noise Playlist Name or URI' }}" # Replace with actual playlist identifier if available
+    card:
+      type: custom:streamline-card
+      template: media_player_card
+      variables:
+        entity: media_player.master_bedroom
+        name: "Focus Sound"
+        show_controls: true
+        show_volume: true
+        color: "rgba(3, 169, 244, 1)" # Info color
+
+  # Optional: Task List Integration (Example)
+  # - type: custom:bubble-header
+  #   title: "Today's Tasks"
+  # - type: todo-list # Requires a todo list integration
+  #   entity: todo.my_tasks

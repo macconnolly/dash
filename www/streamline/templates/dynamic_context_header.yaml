@@ -1,0 +1,1106 @@
+template:
+  name: dynamic_context_header
+  description: "Context-aware dynamic header that adapts to home state"
+  base: base_card
+  variables:
+    title:
+      type: string
+      default: "Home"
+      description: "Main title text"
+    subtitle:
+      type: string
+      default: ""
+      description: "Optional subtitle text (will override auto-generated)"
+    weather_entity:
+      type: string
+      default: "weather.home"
+      description: "Weather entity"
+    temperature_entity:
+      type: string
+      default: "sensor.outdoor_temperature"
+      description: "Outdoor temperature sensor"
+    time_entity:
+      type: string
+      default: "sensor.time"
+      description: "Time sensor"
+    date_entity:
+      type: string
+      default: "sensor.date"
+      description: "Date sensor"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Home context entity"
+    show_weather:
+      type: boolean
+      default: true
+      description: "Show weather information"
+    show_quick_actions:
+      type: boolean
+      default: true
+      description: "Show quick action buttons"
+    show_context_indicator:
+      type: boolean
+      default: true
+      description: "Show animated context indicator"
+    avatar_url:
+      type: string
+      default: ""
+      description: "Optional URL for avatar image"
+    animation_enabled:
+      type: boolean
+      default: true
+      description: "Enable animation effects"
+    style_variant:
+      type: string
+      default: "bubble"
+      description: "Style variant (bubble or streamline)"
+    use_design_system:
+      type: boolean
+      default: true
+      description: "Use design system colors and styles"
+    accent_color:
+      type: string
+      default: ""
+      description: "Optional custom accent color (overrides context-based color)"
+    card_template:
+      type: string
+      default: "default"
+      description: "Card template style (default, compact, expanded)"
+    enable_glassy_effect:
+      type: boolean
+      default: false
+      description: "Enable glass morphism effect on header"
+    show_system_status:
+      type: boolean
+      default: false
+      description: "Show system status indicators"
+  template: |
+    {% set render_variant = variables.style_variant | default('bubble') %}
+    
+    {% if render_variant == 'streamline' %}
+    type: custom:streamline-card
+    view_layout:
+      position: header
+    card_style: {{ variables.card_template | default('default') }}
+    {% else %}
+    type: custom:bubble-card
+    card_type: custom
+    {% endif %}
+    
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          primary: >
+            {% set context = states(variables.context_entity) %}
+            {% if variables.title %}
+              {{ variables.title }}
+            {% else %}
+              {% if context == 'morning' %}
+                Good Morning
+              {% elif context == 'day' %}
+                Good Day
+              {% elif context == 'evening' %}
+                Good Evening
+              {% elif context == 'night' %}
+                Good Night
+              {% elif context == 'sleeping' %}
+                Sleep Well
+              {% elif context == 'away' %}
+                Away Mode
+              {% elif context == 'movie' %}
+                Movie Time
+              {% elif context == 'focus' %}
+                Focus Mode
+              {% elif context == 'hosting' %}
+                Hosting Mode
+              {% else %}
+                Home
+              {% endif %}
+            {% endif %}
+          secondary: >
+            {% if variables.subtitle %}
+              {{ variables.subtitle }}
+            {% else %}
+              {% set context = states(variables.context_entity) %}
+              {% set temp = states(variables.temperature_entity) %}
+              {% set time = states(variables.time_entity) %}
+              {% set date = states(variables.date_entity) %}
+              {% set forecast = state_attr(variables.weather_entity, 'forecast')[0] if state_attr(variables.weather_entity, 'forecast') else {} %}
+              {% set condition = states(variables.weather_entity) %}
+              
+              {% if context == 'morning' %}
+                {{ time }} • {{ condition }} {{ temp }}° • Rise and shine!
+              {% elif context == 'day' %}
+                {{ time }} • {{ condition }} {{ temp }}° • Have a productive day
+              {% elif context == 'evening' %}
+                {{ time }} • {{ condition }} {{ temp }}° • Time to unwind
+              {% elif context == 'night' %}
+                {{ time }} • {{ condition }} {{ temp }}° • Winding down
+              {% elif context == 'sleeping' %}
+                {{ time }} • {{ forecast.condition if forecast else condition }} tomorrow • Rest well
+              {% elif context == 'away' %}
+                {{ time }} • Security active • Energy saving mode
+              {% elif context == 'movie' %}
+                {{ time }} • Lights dimmed • Entertainment mode
+              {% elif context == 'focus' %}
+                {{ time }} • Do not disturb active • Deep work mode
+              {% elif context == 'hosting' %}
+                {{ time }} • {{ condition }} {{ temp }}° • Welcome guests!
+              {% else %}
+                {{ time }} • {{ date }} • {{ condition }} {{ temp }}°
+              {% endif %}
+            {% endif %}
+          icon: >
+            {% set context = states(variables.context_entity) %}
+            {% if context == 'morning' %}
+              mdi:weather-sunset-up
+            {% elif context == 'day' %}
+              mdi:white-balance-sunny
+            {% elif context == 'evening' %}
+              mdi:weather-sunset-down
+            {% elif context == 'night' %}
+              mdi:weather-night
+            {% elif context == 'sleeping' %}
+              mdi:sleep
+            {% elif context == 'away' %}
+              mdi:home-export-outline
+            {% elif context == 'movie' %}
+              mdi:movie-open
+            {% elif context == 'focus' %}
+              mdi:head-cog
+            {% elif context == 'hosting' %}
+              mdi:account-group
+            {% else %}
+              mdi:home
+            {% endif %}
+          entity: "{{ variables.context_entity }}"
+          icon_color: >
+            {% if variables.accent_color %}
+              {{ variables.accent_color }}
+            {% else %}
+              {% set context = states(variables.context_entity) %}
+              {% if context == 'morning' %}
+                amber
+              {% elif context == 'day' %}
+                yellow
+              {% elif context == 'evening' %}
+                deep-orange
+              {% elif context == 'night' or context == 'sleeping' %}
+                blue
+              {% elif context == 'movie' %}
+                purple
+              {% elif context == 'focus' %}
+                cyan
+              {% elif context == 'hosting' %}
+                pink
+              {% elif context == 'away' %}
+                gray
+              {% else %}
+                primary
+              {% endif %}
+            {% endif %}
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Home Context"
+              content:
+                type: {% if variables.style_variant == 'streamline' %}custom:streamline-card{% else %}custom:bubble-card{% endif %}
+                {% if variables.style_variant != 'streamline' %}card_type: custom{% endif %}
+                card:
+                  type: vertical-stack
+                  cards:
+                    - type: {% if variables.style_variant == 'streamline' %}custom:streamline-header{% else %}custom:bubble-header{% endif %}
+                      title: "Home Context"
+                      subtitle: "Adjust your home's current operating mode"
+                      icon: mdi:home-assistant
+                    - type: entities
+                      entities:
+                        - entity: "{{ variables.context_entity }}"
+                          type: custom:multiple-entity-row
+                          name: Current Context
+                          icon: mdi:home-assistant
+                          show_state: true
+                        - type: section
+                          label: "Available Contexts"
+                        - type: button
+                          name: Morning
+                          icon: mdi:weather-sunset-up
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: morning
+                        - type: button
+                          name: Day
+                          icon: mdi:white-balance-sunny
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: day
+                        - type: button
+                          name: Evening
+                          icon: mdi:weather-sunset-down
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: evening
+                        - type: button
+                          name: Night
+                          icon: mdi:weather-night
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: night
+                        - type: section
+                          label: "Special Modes"
+                        - type: button
+                          name: Sleep
+                          icon: mdi:sleep
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: sleeping
+                        - type: button
+                          name: Away
+                          icon: mdi:home-export-outline
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: away
+                        - type: button
+                          name: Movie
+                          icon: mdi:movie-open
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: movie
+                        - type: button
+                          name: Focus
+                          icon: mdi:head-cog
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: focus
+                        - type: button
+                          name: Hosting
+                          icon: mdi:account-group
+                          action_name: Activate
+                          tap_action:
+                            action: call-service
+                            service: input_select.select_option
+                            target:
+                              entity_id: input_select.home_context
+                            data:
+                              option: hosting
+                        - type: section
+                          label: "Statistics"
+                        - entity: sensor.context_transition_count_today
+                          type: custom:multiple-entity-row
+                          name: Transitions Today
+                          icon: mdi:swap-horizontal
+                          show_state: true
+                        - entity: sensor.most_frequent_context_today
+                          type: custom:multiple-entity-row
+                          name: Most Frequent Today
+                          show_state: true
+                        - entity: sensor.context_duration
+                          type: custom:multiple-entity-row
+                          name: Current Duration
+                          icon: mdi:clock-outline
+                          show_state: true
+
+        # Context indicator - animated indicator showing current context
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_context_indicator }}"
+          card:
+            type: custom:mushroom-template-card
+            primary: ""
+            secondary: ""
+            icon: ""
+            layout: horizontal
+            entity: "{{ variables.context_entity }}"
+            icon_color: >
+              {% if variables.accent_color %}
+                {{ variables.accent_color }}
+              {% else %}
+                {% set context = states(variables.context_entity) %}
+                {% if context == 'morning' %}
+                  amber
+                {% elif context == 'day' %}
+                  yellow
+                {% elif context == 'evening' %}
+                  deep-orange
+                {% elif context == 'night' or context == 'sleeping' %}
+                  blue
+                {% elif context == 'movie' %}
+                  purple
+                {% elif context == 'focus' %}
+                  cyan
+                {% elif context == 'hosting' %}
+                  pink
+                {% elif context == 'away' %}
+                  gray
+                {% else %}
+                  primary
+                {% endif %}
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card {
+                  box-shadow: none;
+                  background: transparent;
+                  height: 8px;
+                  --mush-icon-size: 8px;
+                }
+                mushroom-shape {
+                  {% if variables.animation_enabled %}
+                  animation: pulse 2s infinite;
+                  {% endif %}
+                  --shape-color: var(--icon-color);
+                }
+                @keyframes pulse {
+                  0% { transform: scale(0.95); opacity: 0.6; }
+                  50% { transform: scale(1.05); opacity: 0.9; }
+                  100% { transform: scale(0.95); opacity: 0.6; }
+                }
+                
+        # Conditional weather card with improved styling
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_weather }}"
+          card:
+            type: {% if variables.style_variant == 'streamline' %}custom:streamline-card{% else %}custom:bubble-card{% endif %}
+            {% if variables.style_variant != 'streamline' %}card_type: custom{% endif %}
+            card:
+              type: custom:mushroom-template-card
+              icon: >
+                {% set condition = states(variables.weather_entity) %}
+                {% if condition == 'clear-night' %}
+                  mdi:weather-night
+                {% elif condition == 'cloudy' %}
+                  mdi:weather-cloudy
+                {% elif condition == 'fog' %}
+                  mdi:weather-fog
+                {% elif condition == 'hail' %}
+                  mdi:weather-hail
+                {% elif condition == 'lightning' %}
+                  mdi:weather-lightning
+                {% elif condition == 'lightning-rainy' %}
+                  mdi:weather-lightning-rainy
+                {% elif condition == 'partlycloudy' %}
+                  mdi:weather-partly-cloudy
+                {% elif condition == 'pouring' %}
+                  mdi:weather-pouring
+                {% elif condition == 'rainy' %}
+                  mdi:weather-rainy
+                {% elif condition == 'snowy' %}
+                  mdi:weather-snowy
+                {% elif condition == 'snowy-rainy' %}
+                  mdi:weather-snowy-rainy
+                {% elif condition == 'sunny' %}
+                  mdi:weather-sunny
+                {% elif condition == 'windy' %}
+                  mdi:weather-windy
+                {% elif condition == 'windy-variant' %}
+                  mdi:weather-windy-variant
+                {% else %}
+                  mdi:weather-cloudy
+                {% endif %}
+              primary: >
+                {{ states(variables.temperature_entity) }}° {{ states(variables.weather_entity) | title }}
+              secondary: >
+                {% set forecast = state_attr(variables.weather_entity, 'forecast')[0] if state_attr(variables.weather_entity, 'forecast') else {} %}
+                {% if forecast %}
+                  {{ forecast.condition | title }} tomorrow, {{ forecast.temperature }}°
+                {% else %}
+                  {{ states(variables.date_entity) }}
+                {% endif %}
+              tap_action:
+                action: more-info
+                entity: "{{ variables.weather_entity }}"
+              layout: horizontal
+              entity: "{{ variables.weather_entity }}"
+              styles:
+                icon:
+                  color: >-
+                    {% set temp = states(variables.temperature_entity) | float %}
+                    {% if temp < 10 %}
+                      rgba(33, 150, 243, 1)
+                    {% elif temp > 28 %}
+                      rgba(255, 87, 34, 1)
+                    {% elif temp > 20 %}
+                      rgba(255, 152, 0, 1)
+                    {% else %}
+                      rgba(76, 175, 80, 1)
+                    {% endif %}
+              card_mod:
+                style: |
+                  ha-card {
+                    {% if variables.enable_glassy_effect %}
+                    backdrop-filter: blur(10px);
+                    background: rgba(var(--rgb-card-background-color, 255, 255, 255), 0.5);
+                    {% else %}
+                    background: var(--card-background-color);
+                    {% endif %}
+                    {% if variables.style_variant == 'streamline' %}
+                    border-radius: 8px;
+                    {% else %}
+                    border-radius: 16px;
+                    {% endif %}
+                    transition: all 0.3s ease;
+                    margin-top: 8px;
+                  }
+                  mushroom-state-info {
+                    font-weight: 500;
+                  }
+                
+        # System status indicators (optional)
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_system_status }}"
+          card:
+            type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                entity: binary_sensor.updater
+                show_icon: true
+                show_name: false
+                aspect_ratio: 1/1
+                styles:
+                  card:
+                    - width: 36px
+                    - height: 36px
+                    - border-radius: 50%
+                    - background-color: "{{ 'rgba(255, 152, 0, 0.1)' if is_state('binary_sensor.updater', 'on') else 'rgba(76, 175, 80, 0.1)' }}"
+                  icon:
+                    - color: "{{ 'rgba(255, 152, 0, 1)' if is_state('binary_sensor.updater', 'on') else 'rgba(76, 175, 80, 1)' }}"
+                    - width: 20px
+                    - height: 20px
+                state:
+                  - value: "on"
+                    icon: mdi:update
+                    styles:
+                      card:
+                        - animation: pulse 2s infinite
+                  - value: "off"
+                    icon: mdi:check-circle
+              
+              - type: custom:button-card
+                entity: sensor.processor_use
+                show_icon: true
+                show_name: false
+                aspect_ratio: 1/1
+                icon: mdi:chip
+                styles:
+                  card:
+                    - width: 36px
+                    - height: 36px
+                    - border-radius: 50%
+                    - background-color: >
+                        {% set cpu = states('sensor.processor_use') | float(0) %}
+                        {% if cpu > 80 %}
+                          rgba(255, 59, 48, 0.1)
+                        {% elif cpu > 50 %}
+                          rgba(255, 152, 0, 0.1)
+                        {% else %}
+                          rgba(76, 175, 80, 0.1)
+                        {% endif %}
+                  icon:
+                    - color: >
+                        {% set cpu = states('sensor.processor_use') | float(0) %}
+                        {% if cpu > 80 %}
+                          rgba(255, 59, 48, 1)
+                        {% elif cpu > 50 %}
+                          rgba(255, 152, 0, 1)
+                        {% else %}
+                          rgba(76, 175, 80, 1)
+                        {% endif %}
+                    - width: 20px
+                    - height: 20px
+                
+              - type: custom:button-card
+                entity: sensor.memory_use
+                show_icon: true
+                show_name: false
+                aspect_ratio: 1/1
+                icon: mdi:memory
+                styles:
+                  card:
+                    - width: 36px
+                    - height: 36px
+                    - border-radius: 50%
+                    - background-color: >
+                        {% set mem = states('sensor.memory_use') | float(0) %}
+                        {% if mem > 80 %}
+                          rgba(255, 59, 48, 0.1)
+                        {% elif mem > 50 %}
+                          rgba(255, 152, 0, 0.1)
+                        {% else %}
+                          rgba(76, 175, 80, 0.1)
+                        {% endif %}
+                  icon:
+                    - color: >
+                        {% set mem = states('sensor.memory_use') | float(0) %}
+                        {% if mem > 80 %}
+                          rgba(255, 59, 48, 1)
+                        {% elif mem > 50 %}
+                          rgba(255, 152, 0, 1)
+                        {% else %}
+                          rgba(76, 175, 80, 1)
+                        {% endif %}
+                    - width: 20px
+                    - height: 20px
+                
+              - type: custom:button-card
+                entity: sensor.disk_use_percent
+                show_icon: true
+                show_name: false
+                aspect_ratio: 1/1
+                icon: mdi:harddisk
+                styles:
+                  card:
+                    - width: 36px
+                    - height: 36px
+                    - border-radius: 50%
+                    - background-color: >
+                        {% set disk = states('sensor.disk_use_percent') | float(0) %}
+                        {% if disk > 80 %}
+                          rgba(255, 59, 48, 0.1)
+                        {% elif disk > 50 %}
+                          rgba(255, 152, 0, 0.1)
+                        {% else %}
+                          rgba(76, 175, 80, 0.1)
+                        {% endif %}
+                  icon:
+                    - color: >
+                        {% set disk = states('sensor.disk_use_percent') | float(0) %}
+                        {% if disk > 80 %}
+                          rgba(255, 59, 48, 1)
+                        {% elif disk > 50 %}
+                          rgba(255, 152, 0, 1)
+                        {% else %}
+                          rgba(76, 175, 80, 1)
+                        {% endif %}
+                    - width: 20px
+                    - height: 20px
+                
+        # Conditional quick actions row with improved styling
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_quick_actions }}"
+          card:
+            type: horizontal-stack
+            cards:
+              # Dynamic context-relevant action buttons
+              - type: custom:button-card
+                icon: >
+                  {% set context = states(variables.context_entity) %}
+                  {% if context == 'morning' %}
+                    mdi:coffee
+                  {% elif context == 'day' %}
+                    mdi:home-assistant
+                  {% elif context == 'evening' %}
+                    mdi:sofa
+                  {% elif context == 'night' or context == 'sleeping' %}
+                    mdi:sleep
+                  {% elif context == 'away' %}
+                    mdi:shield-home
+                  {% elif context == 'movie' %}
+                    mdi:movie-open
+                  {% elif context == 'focus' %}
+                    mdi:do-not-disturb
+                  {% elif context == 'hosting' %}
+                    mdi:account-group
+                  {% else %}
+                    mdi:home-automation
+                  {% endif %}
+                name: >
+                  {% set context = states(variables.context_entity) %}
+                  {% if context == 'morning' %}
+                    Coffee
+                  {% elif context == 'day' %}
+                    Home
+                  {% elif context == 'evening' %}
+                    Relax
+                  {% elif context == 'night' %}
+                    Sleep
+                  {% elif context == 'sleeping' %}
+                    Sleep
+                  {% elif context == 'away' %}
+                    Security
+                  {% elif context == 'movie' %}
+                    Movie
+                  {% elif context == 'focus' %}
+                    Focus
+                  {% elif context == 'hosting' %}
+                    Party
+                  {% else %}
+                    Auto
+                  {% endif %}
+                tap_action:
+                  action: call-service
+                  service: >
+                    {% set context = states(variables.context_entity) %}
+                    {% if context == 'morning' %}
+                      script.morning_routine
+                    {% elif context == 'day' %}
+                      script.day_routine
+                    {% elif context == 'evening' %}
+                      script.evening_routine
+                    {% elif context == 'night' or context == 'sleeping' %}
+                      script.sleep_routine
+                    {% elif context == 'away' %}
+                      script.away_routine
+                    {% elif context == 'movie' %}
+                      script.movie_routine
+                    {% elif context == 'focus' %}
+                      script.focus_routine
+                    {% elif context == 'hosting' %}
+                      script.hosting_routine
+                    {% else %}
+                      script.auto_routine
+                    {% endif %}
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: >
+                        {% if variables.style_variant == 'streamline' %}
+                          8px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - transition: all 0.3s ease
+                    - background-color: >
+                        {% set context = states(variables.context_entity) %}
+                        {% if context == 'morning' %}
+                          rgba(255, 152, 0, 0.1)
+                        {% elif context == 'day' %}
+                          rgba(255, 235, 59, 0.1)
+                        {% elif context == 'evening' %}
+                          rgba(255, 87, 34, 0.1)
+                        {% elif context == 'night' or context == 'sleeping' %}
+                          rgba(13, 71, 161, 0.1)
+                        {% elif context == 'away' %}
+                          rgba(76, 175, 80, 0.1)
+                        {% elif context == 'movie' %}
+                          rgba(156, 39, 176, 0.1)
+                        {% elif context == 'focus' %}
+                          rgba(33, 150, 243, 0.1)
+                        {% elif context == 'hosting' %}
+                          rgba(233, 30, 99, 0.1)
+                        {% else %}
+                          rgba(158, 158, 158, 0.1)
+                        {% endif %}
+                  icon:
+                    - color: >
+                        {% set context = states(variables.context_entity) %}
+                        {% if context == 'morning' %}
+                          rgba(255, 152, 0, 1)
+                        {% elif context == 'day' %}
+                          rgba(255, 235, 59, 1)
+                        {% elif context == 'evening' %}
+                          rgba(255, 87, 34, 1)
+                        {% elif context == 'night' or context == 'sleeping' %}
+                          rgba(13, 71, 161, 1)
+                        {% elif context == 'away' %}
+                          rgba(76, 175, 80, 1)
+                        {% elif context == 'movie' %}
+                          rgba(156, 39, 176, 1)
+                        {% elif context == 'focus' %}
+                          rgba(33, 150, 243, 1)
+                        {% elif context == 'hosting' %}
+                          rgba(233, 30, 99, 1)
+                        {% else %}
+                          rgba(158, 158, 158, 1)
+                        {% endif %}
+                  name:
+                    - font-size: 12px
+                    - color: var(--primary-text-color)
+                    - margin-top: 4px
+                state:
+                  - value: "on"
+                    styles:
+                      card:
+                        - opacity: 1
+                  - value: "off"
+                    styles:
+                      card:
+                        - opacity: 0.9
+              
+              # All Lights button with improved styling
+              - type: custom:button-card
+                icon: mdi:lightbulb-group
+                name: Lights
+                tap_action:
+                  action: call-service
+                  service: browser_mod.popup
+                  service_data:
+                    title: Lighting Controls
+                    content:
+                      type: vertical-stack
+                      cards:
+                        - type: {% if variables.style_variant == 'streamline' %}custom:streamline-header{% else %}custom:bubble-header{% endif %}
+                          title: "Lighting Controls"
+                          subtitle: "Control all home lighting"
+                        - type: entities
+                          entities:
+                            - entity: light.all_lights
+                              name: All Lights
+                              secondary_info: brightness_pct
+                            - entity: switch.adaptive_lighting_adapt_all_lights
+                              name: Adaptive Lighting
+                              secondary_info: last-changed
+                            - type: section
+                              label: "Room Lights"
+                            - entity: light.living_room
+                              name: Living Room
+                              secondary_info: brightness_pct
+                            - entity: light.kitchen
+                              name: Kitchen
+                              secondary_info: brightness_pct  
+                            - entity: light.bedroom
+                              name: Bedroom
+                              secondary_info: brightness_pct
+                            - entity: light.bathroom
+                              name: Bathroom
+                              secondary_info: brightness_pct
+                            - type: section
+                              label: "Scenes"
+                            - type: button
+                              name: Bright
+                              icon: mdi:brightness-7
+                              tap_action:
+                                action: call-service
+                                service: scene.turn_on
+                                data:
+                                  entity_id: scene.bright
+                            - type: button
+                              name: Cozy
+                              icon: mdi:brightness-6
+                              tap_action:
+                                action: call-service
+                                service: scene.turn_on
+                                data:
+                                  entity_id: scene.cozy
+                            - type: button
+                              name: Dim
+                              icon: mdi:brightness-5
+                              tap_action:
+                                action: call-service
+                                service: scene.turn_on
+                                data:
+                                  entity_id: scene.dim
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: >
+                        {% if variables.style_variant == 'streamline' %}
+                          8px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - transition: all 0.3s ease
+                    - background-color: rgba(255, 235, 59, 0.1)
+                  icon:
+                    - color: rgba(255, 235, 59, 1)
+                  name:
+                    - font-size: 12px
+                    - color: var(--primary-text-color)
+                    - margin-top: 4px
+              
+              # Climate button with improved styling
+              - type: custom:button-card
+                icon: mdi:thermostat
+                name: Climate
+                tap_action:
+                  action: call-service
+                  service: browser_mod.popup
+                  service_data:
+                    title: Climate Controls
+                    content:
+                      type: vertical-stack
+                      cards:
+                        - type: {% if variables.style_variant == 'streamline' %}custom:streamline-header{% else %}custom:bubble-header{% endif %}
+                          title: "Climate Controls"
+                          subtitle: "Manage home temperature"
+                        - type: custom:climate-hub
+                          entities:
+                            - climate.living_room
+                            - climate.bedroom
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: >
+                        {% if variables.style_variant == 'streamline' %}
+                          8px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - transition: all 0.3s ease
+                    - background-color: rgba(33, 150, 243, 0.1)
+                  icon:
+                    - color: rgba(33, 150, 243, 1)
+                  name:
+                    - font-size: 12px
+                    - color: var(--primary-text-color)
+                    - margin-top: 4px
+              
+              # Media button with improved styling
+              - type: custom:button-card
+                icon: mdi:cast-audio
+                name: Media
+                tap_action:
+                  action: call-service
+                  service: browser_mod.popup
+                  service_data:
+                    title: Media Controls
+                    content:
+                      type: vertical-stack
+                      cards:
+                        - type: {% if variables.style_variant == 'streamline' %}custom:streamline-header{% else %}custom:bubble-header{% endif %}
+                          title: "Media Controls"
+                          subtitle: "Manage music and media"
+                        - type: custom:media-hub
+                          entities:
+                            - media_player.living_room
+                            - media_player.bedroom
+                            - media_player.kitchen
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: >
+                        {% if variables.style_variant == 'streamline' %}
+                          8px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - transition: all 0.3s ease
+                    - background-color: rgba(156, 39, 176, 0.1)
+                  icon:
+                    - color: rgba(156, 39, 176, 1)
+                  name:
+                    - font-size: 12px
+                    - color: var(--primary-text-color)
+                    - margin-top: 4px
+                
+              # Status button (with avatar if provided) with improved styling
+              - type: custom:button-card
+                icon: >
+                  {% if variables.avatar_url %}
+                    {{ variables.avatar_url }}
+                  {% else %}
+                    mdi:information-outline
+                  {% endif %}
+                name: Status
+                tap_action:
+                  action: call-service
+                  service: browser_mod.popup
+                  service_data:
+                    title: System Status
+                    content:
+                      type: custom:auto-entities
+                      card:
+                        type: entities
+                        title: System Status
+                      filter:
+                        include:
+                          - entity_id: sensor.system*
+                          - entity_id: sensor.memory*
+                          - entity_id: sensor.processor*
+                          - entity_id: sensor.disk*
+                styles:
+                  card:
+                    - padding: 8px
+                    - border-radius: >
+                        {% if variables.style_variant == 'streamline' %}
+                          8px
+                        {% else %}
+                          12px
+                        {% endif %}
+                    - transition: all 0.3s ease
+                    - background-color: rgba(76, 175, 80, 0.1)
+                  icon:
+                    - color: rgba(76, 175, 80, 1)
+                    {% if variables.avatar_url %}
+                    - border-radius: 50%
+                    - background-size: cover
+                    - width: 24px
+                    - height: 24px
+                    - background-image: url({{ variables.avatar_url }})
+                    - box-shadow: 0px 0px 4px 0px rgba(0,0,0,0.3)
+                    {% endif %}
+                  name:
+                    - font-size: 12px
+                    - color: var(--primary-text-color)
+                    - margin-top: 4px
+    styles_javascript: |
+      `
+      // Check if design system should be used
+      const useDesignSystem = ${variables.use_design_system} !== false;
+      
+      // Import design system components if enabled
+      ${useDesignSystem ? `
+        // Import keyframes for animations
+        ${designSystem.animations.keyframes.fadeIn}
+        ${designSystem.animations.keyframes.pulse}
+        ${designSystem.animations.keyframes.breathe}
+        ${designSystem.animations.keyframes.shimmer}
+        
+        // Define constants from design system
+        const dsColors = designSystem.colors;
+        const dsTypography = designSystem.typography;
+        const dsBorderRadius = designSystem.border_radius;
+        const dsShadows = designSystem.shadows;
+        const dsAnimations = designSystem.animations;
+      ` : ''}
+      
+      // Current context and styling constants
+      const context = hass.states['${variables.context_entity}']?.state || 'day';
+      const styleVariant = '${variables.style_variant}' || 'bubble';
+      const animationEnabled = ${variables.animation_enabled} !== false;
+      const glassyEffect = ${variables.enable_glassy_effect} === true;
+      
+      // Get context-specific styling
+      function getContextColor(opacity = 1) {
+        // If design system is enabled, use color values from there
+        if (useDesignSystem) {
+          switch(context) {
+            case 'morning': 
+              return opacity < 1 ? dsColors.secondary_transparent : dsColors.secondary;
+            case 'day': 
+              return opacity < 1 ? dsColors.primary_transparent : dsColors.primary;
+            case 'evening': 
+              return opacity < 1 ? dsColors.dining_transparent : dsColors.dining;
+            case 'night': 
+            case 'sleeping': 
+              return opacity < 1 ? dsColors.bedroom_transparent : dsColors.bedroom;
+            case 'movie': 
+              return opacity < 1 ? dsColors.living_room_transparent : dsColors.living_room;
+            case 'focus': 
+              return opacity < 1 ? dsColors.info_transparent : dsColors.info;
+            case 'hosting': 
+              return opacity < 1 ? dsColors.success_transparent : dsColors.success;
+            case 'away': 
+              return opacity < 1 ? dsColors.away_transparent : dsColors.away;
+            default: 
+              return opacity < 1 ? dsColors.primary_transparent : dsColors.primary;
+          }
+        } else {
+          // Fallback colors if design system disabled
+          switch(context) {
+            case 'morning': return opacity < 1 ? 'rgba(255, 152, 0, ' + opacity + ')' : 'rgba(255, 152, 0, 1)';
+            case 'day': return opacity < 1 ? 'rgba(255, 235, 59, ' + opacity + ')' : 'rgba(255, 235, 59, 1)';
+            case 'evening': return opacity < 1 ? 'rgba(255, 87, 34, ' + opacity + ')' : 'rgba(255, 87, 34, 1)';
+            case 'night': 
+            case 'sleeping': return opacity < 1 ? 'rgba(13, 71, 161, ' + opacity + ')' : 'rgba(13, 71, 161, 1)';
+            case 'movie': return opacity < 1 ? 'rgba(156, 39, 176, ' + opacity + ')' : 'rgba(156, 39, 176, 1)';
+            case 'focus': return opacity < 1 ? 'rgba(33, 150, 243, ' + opacity + ')' : 'rgba(33, 150, 243, 1)';
+            case 'hosting': return opacity < 1 ? 'rgba(233, 30, 99, ' + opacity + ')' : 'rgba(233, 30, 99, 1)';
+            case 'away': return opacity < 1 ? 'rgba(158, 158, 158, ' + opacity + ')' : 'rgba(158, 158, 158, 1)';
+            default: return opacity < 1 ? 'var(--primary-color, rgba(80, 155, 245, ' + opacity + '))' : 'var(--primary-color, rgba(80, 155, 245, 1))';
+          }
+        }
+      }
+      
+      // Card styling
+      const cardStyle = styleVariant === 'bubble' ? {
+        borderRadius: useDesignSystem ? dsBorderRadius.lg : '16px',
+        overflow: 'hidden',
+        transition: useDesignSystem ? dsAnimations.standard : 'all 0.3s ease',
+        boxShadow: useDesignSystem ? dsShadows.subtle : '0 2px 4px rgba(0,0,0,0.1)'
+      } : {
+        borderRadius: useDesignSystem ? dsBorderRadius.md : '8px',
+        overflow: 'hidden',
+        transition: useDesignSystem ? dsAnimations.standard : 'all 0.3s ease',
+        boxShadow: useDesignSystem ? dsShadows.none : 'none'
+      };
+      
+      // Apply glass morphism if enabled
+      if (glassyEffect) {
+        cardStyle.backdropFilter = 'blur(10px)';
+        cardStyle.backgroundColor = 'rgba(var(--rgb-card-background-color, 255, 255, 255), 0.5)';
+      }
+      
+      // Apply animations if enabled
+      if (animationEnabled && useDesignSystem) {
+        cardStyle.animation = 'fadeIn 0.5s ease-out';
+      }
+      
+      // Apply card styling
+      const card = root.querySelector('ha-card');
+      if (card) {
+        Object.assign(card.style, cardStyle);
+      }
+      
+      // Apply background accent color based on context
+      const contextColor = getContextColor(0.05);
+      if (card) {
+        card.style.background = contextColor;
+      }
+      
+      // Add responsive styling for smaller screens
+      const mediaQuery = window.matchMedia('(max-width: 600px)');
+      if (mediaQuery.matches) {
+        const buttons = root.querySelectorAll('.horizontal-stack-card ha-card');
+        buttons.forEach(btn => {
+          btn.style.padding = '4px';
+          const name = btn.querySelector('.info .name');
+          if (name) {
+            name.style.fontSize = '10px';
+          }
+        });
+      }
+      
+      // Add hover effects for interactive elements
+      const interactiveElements = root.querySelectorAll('.horizontal-stack-card ha-card');
+      interactiveElements.forEach(el => {
+        el.addEventListener('mouseenter', function() {
+          this.style.transform = 'translateY(-2px)';
+          this.style.boxShadow = useDesignSystem ? dsShadows.medium : '0 4px 8px rgba(0,0,0,0.15)';
+        });
+        
+        el.addEventListener('mouseleave', function() {
+          this.style.transform = 'translateY(0)';
+          this.style.boxShadow = useDesignSystem ? dsShadows.subtle : '0 2px 4px rgba(0,0,0,0.1)';
+        });
+      });
+      `

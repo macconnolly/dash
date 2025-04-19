@@ -1,0 +1,96 @@
+# /dashboards/views/movie.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Movie Mode"
+    subtitle: "Optimized for entertainment"
+    icon: mdi:movie-open
+  
+  # Movie Mode Controls
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Exit Movie Mode"
+        icon: mdi:movie-off
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_off # Turns off movie mode context
+          service_data:
+            entity_id: input_boolean.movie_mode_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(158, 158, 158, 0.1); # Inactive color
+          }
+      
+      - name: "Dim Lights"
+        icon: mdi:brightness-4
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.movie_lights # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(103, 58, 183, 0.15); # Living room color
+          }
+      
+      - name: "Pause Media"
+        icon: mdi:pause-circle
+        tap_action:
+          action: call-service
+          service: media_player.media_pause
+          service_data:
+            entity_id: media_player.living_room # Assuming living room is primary movie player
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 152, 0, 0.15); # Warning color
+          }
+  
+  # Media Controls using Streamline Template
+  - type: custom:streamline-card
+    template: media_player_card
+    variables:
+      entity: media_player.living_room # Assuming primary movie player
+      name: "Living Room Media"
+      show_controls: true
+      show_volume: true
+      color: "rgba(103, 58, 183, 1)" # Living room color
+  
+  # Light Controls - Limited during movie time using Enhanced Light Module
+  - type: custom:bubble-header
+    title: "Ambient Lights"
+    
+  - type: custom:bubble-grid
+    columns: 3
+    cards:
+      - type: custom:bubble-card
+        card_type: module
+        module: enhanced_light
+        variables:
+          entity: light.living_room_corner_accent
+          name: "Corner Accent"
+          adaptive_entity: input_boolean.al_manual_control_hue_adapt # Adjust if needed
+          area_color: "rgba(103, 58, 183, 1)"
+          show_brightness: true # Allow brightness adjustment
+          show_color_temp: false # Hide color temp during movie
+      
+      - type: custom:bubble-card
+        card_type: module
+        module: enhanced_light
+        variables:
+          entity: light.living_room_credenza_light
+          name: "Credenza"
+          adaptive_entity: input_boolean.al_manual_control_hue_adapt # Adjust if needed
+          area_color: "rgba(103, 58, 183, 1)"
+          show_brightness: true
+          show_color_temp: false
+      
+      - type: custom:bubble-card
+        card_type: module
+        module: enhanced_light
+        variables:
+          entity: light.entryway_lamp
+          name: "Entryway"
+          adaptive_entity: input_boolean.al_manual_control_non_hue # Adjust if needed
+          area_color: "rgba(158, 158, 158, 1)" # Neutral color
+          show_brightness: true
+          show_color_temp: false

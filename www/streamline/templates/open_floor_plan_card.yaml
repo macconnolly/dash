@@ -1,0 +1,569 @@
+template:
+  name: open_floor_plan_card
+  description: "Smart card for open floor plan homes that handles multiple connected rooms as a unified space"
+  variables:
+    style:
+      type: string
+      default: "bubble"
+      description: "Style to use (bubble or streamline)"
+    title:
+      type: string
+      default: "Open Area"
+      description: "Title for the open space"
+    rooms:
+      type: list
+      default: ["living_room", "kitchen", "dining_room"]
+      description: "List of rooms in the open floor plan"
+    room_names:
+      type: list
+      default: ["Living Room", "Kitchen", "Dining Room"]
+      description: "Display names for rooms in the open floor plan"
+    presence_entities:
+      type: list
+      default: ["binary_sensor.living_room_presence", "binary_sensor.kitchen_presence", "binary_sensor.dining_room_presence"]
+      description: "Presence sensors for each room"
+    light_entities:
+      type: list
+      default: ["light.living_room", "light.kitchen", "light.dining_room"]
+      description: "Light entities for each room"
+    temperature_entities:
+      type: list
+      default: ["sensor.living_room_temperature", "sensor.kitchen_temperature", "sensor.dining_room_temperature"]
+      description: "Temperature sensors for each room"
+    media_entities:
+      type: list
+      default: ["media_player.living_room", "media_player.kitchen", "media_player.dining_room"]
+      description: "Media players for each room"
+    scene_entities:
+      type: list
+      default: ["scene.open_area_bright", "scene.open_area_warm", "scene.open_area_dim", "scene.open_area_movie"]
+      description: "Scene entities for the open area"
+    scene_names:
+      type: list
+      default: ["Bright", "Warm", "Dim", "Movie"]
+      description: "Names for the scenes"
+    scene_icons:
+      type: list
+      default: ["mdi:brightness-7", "mdi:brightness-6", "mdi:brightness-5", "mdi:movie-outline"]
+      description: "Icons for the scenes"
+    climate_entity:
+      type: string
+      default: "climate.living_room"
+      description: "Primary climate entity for the open area"
+    show_climate:
+      type: boolean
+      default: true
+      description: "Whether to show climate controls"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context sensor for the dashboard"
+    adaptive_lighting_switch:
+      type: string
+      default: "switch.adaptive_lighting_adapt_all_lights"
+      description: "Adaptive lighting switch for the open area"
+  template: |
+    {% set style_variant = variables.style | default('bubble') %}
+    {% set context = states(variables.context_entity) %}
+    
+    {% if style_variant == 'bubble' %}
+    type: custom:bubble-card
+    card_type: custom
+    {% else %}
+    type: custom:streamline-card
+    {% endif %}
+    
+    card:
+      type: vertical-stack
+      cards:
+        # Header Card with Custom Title & Status
+        - type: custom:mushroom-template-card
+          primary: "{{ variables.title }}"
+          secondary: >
+            {% set presence_count = namespace(value=0) %}
+            {% for presence in variables.presence_entities %}
+              {% if is_state(presence, 'on') %}
+                {% set presence_count.value = presence_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            
+            {% set temps = [] %}
+            {% for temp_entity in variables.temperature_entities %}
+              {% set temps = temps + [states(temp_entity) | float] %}
+            {% endfor %}
+            {% set avg_temp = (temps | sum / temps | length) | round(1) %}
+            
+            {% set light_count = namespace(value=0) %}
+            {% for light in variables.light_entities %}
+              {% if is_state(light, 'on') %}
+                {% set light_count.value = light_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            
+            {% set media_playing = namespace(value=false, title="") %}
+            {% for media in variables.media_entities %}
+              {% if is_state(media, 'playing') %}
+                {% set media_playing.value = true %}
+                {% set media_playing.title = state_attr(media, 'media_title') | default('Music') %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if presence_count.value > 0 %}
+              {{ presence_count.value }} active areas
+            {% else %}
+              Vacant
+            {% endif %} • 
+            {{ avg_temp }}° • 
+            {% if light_count.value > 0 %}
+              {{ light_count.value }} lights on
+            {% else %}
+              All lights off
+            {% endif %}
+            {% if media_playing.value %} • Playing: {{ media_playing.title | truncate(20) }}{% endif %}
+            
+          icon: >
+            {% set presence_count = namespace(value=0) %}
+            {% for presence in variables.presence_entities %}
+              {% if is_state(presence, 'on') %}
+                {% set presence_count.value = presence_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            
+            {% set media_playing = namespace(value=false) %}
+            {% for media in variables.media_entities %}
+              {% if is_state(media, 'playing') %}
+                {% set media_playing.value = true %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if media_playing.value %}
+              mdi:music-note
+            {% elif presence_count.value > 0 %}
+              mdi:sofa-outline
+            {% elif context == 'away' %}
+              mdi:home-export-outline
+            {% elif context == 'sleeping' %}
+              mdi:sleep
+            {% elif context == 'movie' %}
+              mdi:movie-open
+            {% else %}
+              mdi:floor-plan
+            {% endif %}
+          icon_color: >
+            {% set media_playing = namespace(value=false) %}
+            {% for media in variables.media_entities %}
+              {% if is_state(media, 'playing') %}
+                {% set media_playing.value = true %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if media_playing.value %}
+              purple
+            {% elif context == 'morning' %}
+              amber
+            {% elif context == 'day' %}
+              yellow
+            {% elif context == 'evening' %}
+              deep-orange
+            {% elif context == 'night' or context == 'sleeping' %}
+              blue
+            {% elif context == 'movie' %}
+              purple
+            {% elif context == 'focus' %}
+              cyan
+            {% elif context == 'hosting' %}
+              green
+            {% else %}
+              primary
+            {% endif %}
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "{{ variables.title }}"
+              content:
+                type: custom:streamline-card
+                template: open_floor_plan_popup
+                variables:
+                  style: "{{ variables.style }}"
+                  title: "{{ variables.title }}"
+                  rooms: {{ variables.rooms }}
+                  room_names: {{ variables.room_names }}
+                  presence_entities: {{ variables.presence_entities }}
+                  light_entities: {{ variables.light_entities }}
+                  temperature_entities: {{ variables.temperature_entities }}
+                  media_entities: {{ variables.media_entities }}
+                  scene_entities: {{ variables.scene_entities }}
+                  scene_names: {{ variables.scene_names }}
+                  scene_icons: {{ variables.scene_icons }}
+                  climate_entity: "{{ variables.climate_entity }}"
+                  show_climate: {{ variables.show_climate }}
+                  adaptive_lighting_switch: "{{ variables.adaptive_lighting_switch }}"
+        
+        # Light Control Scenes - Quick Access Section
+        - type: horizontal-stack
+          cards:
+            {% for i in range(0, variables.scene_entities | length) %}
+              {% if i < 4 %}
+                {% set scene = variables.scene_entities[i] %}
+                {% set name = variables.scene_names[i] if variables.scene_names[i] is defined else scene.split('.')[1] | replace('_', ' ') | title %}
+                {% set icon = variables.scene_icons[i] if variables.scene_icons[i] is defined else 'mdi:lightbulb' %}
+                - type: custom:button-card
+                  icon: "{{ icon }}"
+                  name: "{{ name }}"
+                  tap_action:
+                    action: call-service
+                    service: scene.turn_on
+                    service_data:
+                      entity_id: "{{ scene }}"
+                  styles:
+                    card:
+                      - padding: 8px
+                      - border-radius: "{{ '8px' if style_variant == 'streamline' else '12px' }}"
+                      - background-color: >
+                          {% if name == 'Bright' %}
+                            rgba(255, 235, 59, 0.1)
+                          {% elif name == 'Warm' %}
+                            rgba(255, 152, 0, 0.1)
+                          {% elif name == 'Dim' %}
+                            rgba(156, 39, 176, 0.1)
+                          {% elif name == 'Movie' %}
+                            rgba(13, 71, 161, 0.1)
+                          {% else %}
+                            rgba(var(--rgb-primary-color), 0.1)
+                          {% endif %}
+                    icon:
+                      - color: >
+                          {% if name == 'Bright' %}
+                            rgba(255, 235, 59, 1)
+                          {% elif name == 'Warm' %}
+                            rgba(255, 152, 0, 1)
+                          {% elif name == 'Dim' %}
+                            rgba(156, 39, 176, 1)
+                          {% elif name == 'Movie' %}
+                            rgba(13, 71, 161, 1)
+                          {% else %}
+                            var(--primary-color)
+                          {% endif %}
+                    name:
+                      - font-size: 12px
+                      - color: var(--primary-text-color)
+                      - margin-top: 4px
+              {% endif %}
+            {% endfor %}
+            
+        # Active Media Players Row
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: >
+                {% for media in variables.media_entities %}
+                  {% if is_state(media, 'playing') %}
+                    true
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+          card:
+            type: horizontal-stack
+            cards:
+              {% for i in range(0, variables.media_entities | length) %}
+                {% set media = variables.media_entities[i] %}
+                {% set room = variables.room_names[i] if variables.room_names[i] is defined else media.split('.')[1] | replace('_', ' ') | title %}
+                - type: conditional
+                  conditions:
+                    - entity: "{{ media }}"
+                      state: "playing"
+                  card:
+                    type: custom:mini-media-player
+                    entity: "{{ media }}"
+                    name: "{{ room }}"
+                    artwork: cover
+                    artwork_border: true
+                    hide:
+                      power: true
+                      source: true
+                      volume: true
+                      controls: false
+                    tap_action:
+                      action: call-service
+                      service: media_player.media_play_pause
+                      data:
+                        entity_id: "{{ media }}"
+                    hold_action:
+                      action: more-info
+              {% endfor %}
+      
+    chip:
+      # All Lights Chip
+      - type: template
+        icon: >
+          {% set all_on = true %}
+          {% set any_on = false %}
+          {% for light in variables.light_entities %}
+            {% if is_state(light, 'off') %}
+              {% set all_on = false %}
+            {% else %}
+              {% set any_on = true %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if all_on %}
+            mdi:lightbulb-group
+          {% elif any_on %}
+            mdi:lightbulb-multiple
+          {% else %}
+            mdi:lightbulb-group-off
+          {% endif %}
+        content: >
+          {% set on_count = namespace(value=0) %}
+          {% for light in variables.light_entities %}
+            {% if is_state(light, 'on') %}
+              {% set on_count.value = on_count.value + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if on_count.value == 0 %}
+            All Off
+          {% elif on_count.value == variables.light_entities | length %}
+            All On
+          {% else %}
+            {{ on_count.value }} On
+          {% endif %}
+        styles:
+          icon:
+            color: >
+              {% set on_count = namespace(value=0) %}
+              {% for light in variables.light_entities %}
+                {% if is_state(light, 'on') %}
+                  {% set on_count.value = on_count.value + 1 %}
+                {% endif %}
+              {% endfor %}
+              
+              {% if on_count.value > 0 %}
+                rgba(255, 235, 59, 1)
+              {% else %}
+                var(--disabled-text-color)
+              {% endif %}
+        tap_action:
+          action: call-service
+          service: light.toggle
+          service_data:
+            entity_id: >
+              {% set entities = [] %}
+              {% for light in variables.light_entities %}
+                {% set entities = entities + [light] %}
+              {% endfor %}
+              {{ entities }}
+      
+      # Media Control Chip - Shows when any media is active
+      - type: conditional
+        conditions:
+          - condition: template
+            value_template: >
+              {% for media in variables.media_entities %}
+                {% if is_state(media, 'playing') %}
+                  true
+                  {% break %}
+                {% endif %}
+              {% endfor %}
+        chip:
+          type: template
+          icon: mdi:speaker-multiple
+          content: >
+            {% set playing_count = namespace(value=0) %}
+            {% for media in variables.media_entities %}
+              {% if is_state(media, 'playing') %}
+                {% set playing_count.value = playing_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if playing_count.value == 1 %}
+              Playing
+            {% else %}
+              {{ playing_count.value }} Active
+            {% endif %}
+          styles:
+            icon:
+              color: "rgba(3, 169, 244, 1)"
+          tap_action:
+            action: call-service
+            service: media_player.media_play_pause
+            service_data:
+              entity_id: >
+                {% set playing_entities = [] %}
+                {% for media in variables.media_entities %}
+                  {% if is_state(media, 'playing') %}
+                    {% set playing_entities = playing_entities + [media] %}
+                  {% endif %}
+                {% endfor %}
+                {{ playing_entities }}
+          hold_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Sonos Control"
+              content:
+                type: custom:vertical-stack-in-card
+                cards:
+                  - type: custom:mushroom-title-card
+                    title: "Sonos Multi-Room Control"
+                    subtitle: "Control all your speakers together"
+                  - type: custom:sonos-card
+                    entity: "{{ variables.media_entities[0] }}"
+                    
+      # Temperature Chip - Shows average temp with coloring
+      - type: template
+        icon: mdi:thermometer
+        content: >
+          {% set temps = [] %}
+          {% for temp_entity in variables.temperature_entities %}
+            {% set temps = temps + [states(temp_entity) | float] %}
+          {% endfor %}
+          {{ (temps | sum / temps | length) | round(1) }}°
+        styles:
+          icon:
+            color: >
+              {% set temps = [] %}
+              {% for temp_entity in variables.temperature_entities %}
+                {% set temps = temps + [states(temp_entity) | float] %}
+              {% endfor %}
+              {% set avg_temp = (temps | sum / temps | length) | round(1) %}
+              
+              {% if avg_temp < 18 %}
+                rgba(41, 182, 246, 1)
+              {% elif avg_temp > 24 %}
+                rgba(255, 87, 34, 1)
+              {% else %}
+                rgba(76, 175, 80, 1)
+              {% endif %}
+        tap_action:
+          action: more-info
+          entity: "{{ variables.climate_entity }}"
+      
+      # Adaptive Lighting Chip
+      - type: template
+        icon: >
+          {% if is_state(variables.adaptive_lighting_switch, 'on') %}
+            mdi:brightness-auto
+          {% else %}
+            mdi:brightness-6
+          {% endif %}
+        content: >
+          {% if is_state(variables.adaptive_lighting_switch, 'on') %}
+            Auto
+          {% else %}
+            Manual
+          {% endif %}
+        styles:
+          icon:
+            color: >
+              {% if is_state(variables.adaptive_lighting_switch, 'on') %}
+                rgba(255, 167, 38, 1)
+              {% else %}
+                var(--disabled-text-color)
+              {% endif %}
+        tap_action:
+          action: toggle
+          entity: "{{ variables.adaptive_lighting_switch }}"
+  
+  styles_javascript: |
+    `
+    // Get context and open area details
+    const context = hass.states['${variables.context_entity}']?.state || 'day';
+    const styleVariant = '${variables.style}' || 'bubble';
+    const roomList = ${JSON.stringify(variables.rooms)} || [];
+    const lightEntities = ${JSON.stringify(variables.light_entities)} || [];
+    const presenceEntities = ${JSON.stringify(variables.presence_entities)} || [];
+    const mediaEntities = ${JSON.stringify(variables.media_entities)} || [];
+    
+    // Check for active status
+    const anyRoomOccupied = presenceEntities.some(entity => hass.states[entity]?.state === 'on');
+    const anyLightOn = lightEntities.some(entity => hass.states[entity]?.state === 'on');
+    const anyMediaPlaying = mediaEntities.some(entity => hass.states[entity]?.state === 'playing');
+    
+    // Helper function to get context-based color
+    function getContextColor(opacity = 1) {
+      switch(context) {
+        case 'morning': return opacity < 1 ? `rgba(255, 152, 0, ${opacity})` : 'rgba(255, 152, 0, 1)';
+        case 'day': return opacity < 1 ? `rgba(255, 235, 59, ${opacity})` : 'rgba(255, 235, 59, 1)';
+        case 'evening': return opacity < 1 ? `rgba(255, 87, 34, ${opacity})` : 'rgba(255, 87, 34, 1)';
+        case 'night': 
+        case 'sleeping': return opacity < 1 ? `rgba(13, 71, 161, ${opacity})` : 'rgba(13, 71, 161, 1)';
+        case 'movie': return opacity < 1 ? `rgba(156, 39, 176, ${opacity})` : 'rgba(156, 39, 176, 1)';
+        case 'focus': return opacity < 1 ? `rgba(33, 150, 243, ${opacity})` : 'rgba(33, 150, 243, 1)';
+        case 'hosting': return opacity < 1 ? `rgba(233, 30, 99, ${opacity})` : 'rgba(233, 30, 99, 1)';
+        default: return opacity < 1 ? `rgba(var(--rgb-primary-color), ${opacity})` : 'var(--primary-color)';
+      }
+    }
+    
+    // Apply styling to card
+    const card = root.querySelector('ha-card');
+    if (card) {
+      // Card styling based on style variant
+      card.style.borderRadius = styleVariant === 'bubble' ? '16px' : '8px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'all 0.3s ease';
+      
+      // Special styling based on status
+      if (anyMediaPlaying) {
+        // Media playing styling - subtle music visualization effect
+        card.style.boxShadow = '0 4px 15px rgba(156, 39, 176, 0.4)';
+        card.style.borderLeft = '3px solid rgba(156, 39, 176, 1)';
+        
+        // Add subtle pulse animation
+        if (!document.getElementById('media-visualization')) {
+          const style = document.createElement('style');
+          style.id = 'media-visualization';
+          style.textContent = `
+            @keyframes gentle-pulse {
+              0% { box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3); }
+              50% { box-shadow: 0 4px 20px rgba(156, 39, 176, 0.5); }
+              100% { box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        card.style.animation = 'gentle-pulse 4s infinite ease-in-out';
+      } 
+      else if (anyRoomOccupied && anyLightOn) {
+        // Room occupied with lights on - context-aware styling
+        card.style.borderLeft = `3px solid ${getContextColor()}`;
+        card.style.background = `linear-gradient(135deg, ${getContextColor(0.1)}, transparent 70%)`;
+      }
+      else if (anyRoomOccupied) {
+        // Room occupied styling
+        card.style.borderLeft = '3px solid rgba(76, 175, 80, 1)';
+      }
+      else {
+        // Default styling
+        card.style.borderLeft = '3px solid var(--divider-color)';
+      }
+    }
+    
+    // Style the scene buttons
+    const sceneButtons = root.querySelectorAll('.horizontal-stack-card ha-card');
+    sceneButtons.forEach(btn => {
+      btn.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+      });
+      
+      btn.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+      });
+    });
+    
+    // Make card responsive
+    const mediaQuery = window.matchMedia('(max-width: 460px)');
+    if (mediaQuery.matches) {
+      // Adjust scene buttons on mobile
+      sceneButtons.forEach(btn => {
+        btn.style.padding = '6px';
+        const name = btn.querySelector('.info .name');
+        if (name) {
+          name.style.fontSize = '10px';
+        }
+      });
+    }
+    `

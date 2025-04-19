@@ -1,0 +1,119 @@
+# Design System Module - bubble-modules.yaml
+design_system:
+  name: "Hyper Adaptive Dashboard System"
+  version: "4.0"
+  creator: "Mac Connolly"
+  description: |
+    A comprehensive design system for an advanced Bubble Card dashboard
+    that adapts to user context and provides intuitive micro-interactions.
+
+  colors:
+    primary: "rgba(80, 155, 245, 1)"       # Bright blue
+    secondary: "rgba(245, 166, 35, 1)"     # Warm amber
+    success: "rgba(76, 217, 100, 1)"       # Green
+    danger: "rgba(255, 59, 48, 1)"         # Red
+    warning: "rgba(255, 204, 0, 1)"        # Yellow
+    info: "rgba(90, 200, 250, 1)"          # Light blue
+    inactive: "rgba(142, 142, 147, 0.5)"   # Gray
+    background: "var(--card-background-color)"
+    text: "var(--primary-text-color)"
+    shadow: "rgba(0, 0, 0, 0.1)"
+    living_room: "rgba(121, 85, 195, 0.8)" # Purple
+    kitchen: "rgba(76, 175, 80, 0.8)"      # Green
+    dining: "rgba(244, 81, 30, 0.8)"       # Orange
+    bedroom: "rgba(0, 137, 123, 0.8)"      # Teal
+    away: "rgba(158, 158, 158, 0.8)"       # Gray
+    adaptive: "rgba(156, 204, 101, 0.8)"   # Light green
+    manual: "rgba(255, 152, 0, 0.8)"       # Dark amber
+
+  animations:
+    standard: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+    emphasis: "all 0.45s cubic-bezier(0.3, 0.7, 0.4, 1.5)"
+    subtle: "all 0.2s ease-out"
+
+  spacing:
+    xxs: "2px"
+    xs: "4px"
+    sm: "8px"
+    md: "16px"
+    lg: "24px"
+    xl: "32px"
+    xxl: "48px"
+
+  border_radius:
+    sm: "4px"
+    md: "8px"
+    lg: "16px"
+    circle: "50%"
+
+  shadows:
+    subtle: "0 2px 4px ${colors.shadow}"
+    medium: "0 4px 8px ${colors.shadow}"
+    pronounced: "0 8px 16px ${colors.shadow}"
+    inset: "inset 0 2px 4px ${colors.shadow}"
+
+  typography:
+    title: "font-size: 20px; font-weight: 600; line-height: 1.2;"
+    subtitle: "font-size: 16px; font-weight: 500; line-height: 1.4;"
+    body: "font-size: 14px; font-weight: 400; line-height: 1.5;"
+    caption: "font-size: 12px; font-weight: 400; line-height: 1.4; opacity: 0.7;"
+
+  # Common component styles
+  components:
+    badge:
+      base: |
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color);
+        z-index: 1;
+
+      positions:
+        top_right: "top: -3px; right: -3px;"
+        top_left: "top: -3px; left: -3px;"
+        bottom_right: "bottom: -3px; right: -3px;"
+        bottom_left: "bottom: -3px; left: -3px;"
+
+    active_indicator:
+      pulse: |
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.8; }
+        }
+        animation: pulse 2s infinite;
+
+      glow: |
+        box-shadow: 0 0 8px 2px ${colors.primary};
+        transition: box-shadow 0.3s ease;
+
+    adaptive_badge: |
+      .adaptive-badge {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        top: 0;
+        right: 0;
+        background-color: ${colors.adaptive};
+        border: 1px solid var(--card-background-color);
+        opacity: var(--adaptive-opacity, 0);
+        transform: scale(var(--adaptive-scale, 0));
+        transition: all 0.3s ease;
+      }
+
+    manual_badge: |
+      .manual-badge {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        bottom: 0;
+        right: 0;
+        background-color: ${colors.manual};
+        border: 1px solid var(--card-background-color);
+        opacity: var(--manual-opacity, 0);
+        transform: scale(var(--manual-scale, 0));
+        transition: all 0.3s ease;
+      }

@@ -1,0 +1,325 @@
+# ======================================================
+# DESIGN SYSTEM MODULE
+# ======================================================
+# This module provides a comprehensive design system for
+# Bubble Card v2.5.0+ with future compatibility for v3.5+
+#
+# Author: Mac Connolly
+# Version: 4.0
+# Last Updated: April 18, 2025
+# ======================================================
+
+design_system:
+  name: "Hyper Adaptive Dashboard System"
+  version: "4.0"
+  creator: "Mac Connolly"
+  description: |
+    A comprehensive design system for an intelligent,
+    context-aware dashboard that adapts to your home.
+  
+  # ======================================================
+  # COLOR SYSTEM
+  # ======================================================
+  colors:
+    # Primary palette
+    primary: "rgba(80, 155, 245, 1)"       # Bright blue - for interactive elements
+    primary_light: "rgba(150, 195, 255, 1)" # Lighter blue - for hover states
+    primary_dark: "rgba(50, 120, 200, 1)"  # Darker blue - for active states
+    primary_transparent: "rgba(80, 155, 245, 0.15)" # Background for cards
+    
+    # Secondary palette
+    secondary: "rgba(245, 166, 35, 1)"     # Warm amber - for accent elements
+    secondary_light: "rgba(255, 190, 75, 1)" # Lighter amber - for hover states
+    secondary_dark: "rgba(215, 140, 15, 1)" # Darker amber - for active states
+    secondary_transparent: "rgba(245, 166, 35, 0.15)" # Background for cards
+    
+    # Semantic states
+    success: "rgba(76, 217, 100, 1)"       # Green - for success states
+    success_transparent: "rgba(76, 217, 100, 0.15)" # Background for success cards
+    warning: "rgba(255, 204, 0, 1)"        # Yellow - for warning states
+    warning_transparent: "rgba(255, 204, 0, 0.15)" # Background for warning cards
+    danger: "rgba(255, 59, 48, 1)"         # Red - for error states
+    danger_transparent: "rgba(255, 59, 48, 0.15)" # Background for danger cards
+    info: "rgba(90, 200, 250, 1)"          # Light blue - for info states
+    info_transparent: "rgba(90, 200, 250, 0.15)" # Background for info cards
+    
+    # Neutral tones
+    background: "var(--card-background-color)" # Card background
+    text: "var(--primary-text-color)"      # Primary text
+    text_secondary: "var(--secondary-text-color)" # Secondary text
+    disabled: "rgba(142, 142, 147, 0.5)"   # Disabled state
+    divider: "rgba(0, 0, 0, 0.1)"          # Divider lines
+    shadow: "rgba(0, 0, 0, 0.1)"           # Shadows
+    
+    # Room-specific colors
+    living_room: "rgba(121, 85, 195, 0.8)" # Purple
+    living_room_transparent: "rgba(121, 85, 195, 0.15)"   # Background for living room cards
+    kitchen: "rgba(76, 175, 80, 0.8)"        # Green
+    kitchen_transparent: "rgba(76, 175, 80, 0.15)" # Background for kitchen cards
+    dining: "rgba(244, 81, 30, 0.8)"         # Orange
+    dining_transparent: "rgba(244, 81, 30, 0.15)"  # Background for dining room cards
+    bedroom: "rgba(0, 137, 123, 0.8)"        # Teal
+    bedroom_transparent: "rgba(0, 137, 123, 0.15)"  # Background for bedroom cards
+    sun_house: "rgba(255, 152, 0, 1)"      # Bright orange
+    sun_house_transparent: "rgba(255, 152, 0, 0.15)" # Background for sun house cards
+    
+    # System state colors
+    adaptive: "rgba(156, 204, 101, 1)"     # Light green - for adaptive lighting
+    adaptive_transparent: "rgba(156, 204, 101, 0.15)" # Background for adaptive cards
+    manual: "rgba(255, 152, 0, 1)"         # Dark amber - for manual control
+    manual_transparent: "rgba(255, 152, 0, 0.15)" # Background for manual cards
+    away: "rgba(158, 158, 158, 1)"         # Gray - for away mode
+    away_transparent: "rgba(158, 158, 158, 0.15)" # Background for away cards
+    
+    # Temperature colors
+    cold: "rgba(64, 150, 255, 1)"          # Cool blue
+    cold_transparent: "rgba(64, 150, 255, 0.15)" # Background for cold cards
+    warm: "rgba(255, 150, 64, 1)"          # Warm orange
+    warm_transparent: "rgba(255, 150, 64, 0.15)" # Background for warm cards
+  
+  # ======================================================
+  # SPACING SYSTEM
+  # ======================================================
+  spacing:
+    xxs: "2px"    # Extra extra small - minimal separation
+    xs: "4px"     # Extra small - tight separation
+    sm: "8px"     # Small - standard element spacing
+    md: "16px"    # Medium - container padding
+    lg: "24px"    # Large - section spacing
+    xl: "32px"    # Extra large - page spacing
+    xxl: "48px"   # Extra extra large - large separation
+  
+  # ======================================================
+  # TYPOGRAPHY SYSTEM
+  # ======================================================
+  typography:
+    title: "font-family: var(--primary-font-family); font-size: 20px; font-weight: 600; line-height: 1.2;"
+    subtitle: "font-family: var(--primary-font-family); font-size: 16px; font-weight: 500; line-height: 1.4;"
+    body: "font-family: var(--primary-font-family); font-size: 14px; font-weight: 400; line-height: 1.5;"
+    caption: "font-family: var(--primary-font-family); font-size: 12px; font-weight: 400; line-height: 1.4; opacity: 0.7;"
+    small: "font-family: var(--primary-font-family); font-size: 10px; font-weight: 400; line-height: 1.4; opacity: 0.6;"
+    stats: "font-family: var(--primary-font-family); font-size: 28px; font-weight: 700; line-height: 1.2;"
+    metric: "font-family: var(--primary-font-family); font-size: 24px; font-weight: 500; line-height: 1.1;"
+  
+  # ======================================================
+  # BORDER RADIUS SYSTEM
+  # ======================================================
+  border_radius:
+    none: "0"
+    xs: "2px"     # Minimal rounding
+    sm: "4px"     # Subtle rounding
+    md: "8px"     # Standard rounding
+    lg: "16px"    # Significant rounding
+    xl: "24px"    # Heavy rounding
+    round: "9999px" # Pill shape
+    circle: "50%" # Perfect circle
+  
+  # ======================================================
+  # SHADOW SYSTEM
+  # ======================================================
+  shadows:
+    none: "none"
+    subtle: "0 2px 4px ${colors.shadow}"
+    medium: "0 4px 8px ${colors.shadow}"
+    pronounced: "0 8px 16px ${colors.shadow}"
+    layered: "0 1px 1px rgba(0,0,0,0.04), 0 2px 2px rgba(0,0,0,0.04), 0 4px 4px rgba(0,0,0,0.04), 0 8px 8px rgba(0,0,0,0.04)"
+    inset: "inset 0 2px 4px ${colors.shadow}"
+    focus: "0 0 0 3px ${colors.primary_transparent}"
+  
+  # ======================================================
+  # ANIMATION SYSTEM
+  # ======================================================
+  animations:
+    standard: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+    emphasis: "all 0.45s cubic-bezier(0.3, 0.7, 0.4, 1.5)"
+    subtle: "all 0.2s ease-out"
+    quick: "all 0.15s ease-out"
+    slow: "all 0.6s ease-in-out"
+    
+    keyframes:
+      pulse: |
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.8; }
+        }
+      
+      spin: |
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      
+      fadeIn: |
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: scale(0.95); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      
+      shimmer: |
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+      
+      breathe: |
+        @keyframes breathe {
+          0% { box-shadow: 0 0 0 0 rgba(var(--rgb-primary-color), 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(var(--rgb-primary-color), 0); }
+          100% { box-shadow: 0 0 0 0 rgba(var(--rgb-primary-color), 0); }
+        }
+  
+  # ======================================================
+  # RESPONSIVE BREAKPOINTS
+  # ======================================================
+  breakpoints:
+    xs: "320px"   # Small phones
+    sm: "480px"   # Large phones
+    md: "768px"   # Tablets
+    lg: "1024px"  # Laptops
+    xl: "1280px"  # Desktops
+    xxl: "1920px" # Large screens
+  
+  # ======================================================
+  # Z-INDEX SCALE
+  # ======================================================
+  z_index:
+    base: "1"
+    low: "10"
+    medium: "100"
+    high: "1000"
+    maximum: "9999"
+  
+  # ======================================================
+  # COMPONENT STYLES - COMMON
+  # ======================================================
+  components:
+    badge:
+      base: |
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color);
+        z-index: 1;
+      
+      positions:
+        top_right: "top: -3px; right: -3px;"
+        top_left: "top: -3px; left: -3px;"
+        bottom_right: "bottom: -3px; right: -3px;"
+        bottom_left: "bottom: -3px; left: -3px;"
+    
+    active_indicator:
+      pulse: |
+        animation: pulse 2s infinite;
+      
+      glow: |
+        box-shadow: 0 0 8px 2px ${colors.primary};
+        transition: box-shadow 0.3s ease;
+      
+      halo: |
+        &::after {
+          content: '';
+          position: absolute;
+          top: -4px;
+          left: -4px;
+          right: -4px;
+          bottom: -4px;
+          border-radius: 50%;
+          background: transparent;
+          border: 2px solid ${colors.primary};
+          opacity: 0.5;
+        }
+    
+    # ======================================================
+    # LIGHTING COMPONENT STYLES
+    # ======================================================
+    adaptive_badge: |
+      .adaptive-badge {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        top: 0;
+        right: 0;
+        background-color: ${colors.adaptive};
+        border: 1px solid var(--card-background-color);
+        opacity: var(--adaptive-opacity, 0);
+        transform: scale(var(--adaptive-scale, 0));
+        transition: all 0.3s ease;
+      }
+    
+    manual_badge: |
+      .manual-badge {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        bottom: 0;
+        right: 0;
+        background-color: ${colors.manual};
+        border: 1px solid var(--card-background-color);
+        opacity: var(--manual-opacity, 0);
+        transform: scale(var(--manual-scale, 0));
+        transition: all 0.3s ease;
+      }
+    
+    # ======================================================
+    # UTILITY FUNCTIONS
+    # ======================================================
+    functions:
+      # Function to create gradients based on state and color
+      stateGradient: |
+        function(state, baseColor) {
+          if (baseColor === undefined) baseColor = 'var(--primary-color)';
+          if (state === 'on') {
+            return `radial-gradient(circle, ${baseColor.replace('1)', '0.3)')} 0%, ${baseColor.replace('1)', '0.05)')} 100%)`;
+          } else {
+            return 'none';
+          }
+        }
+      
+      # Function to convert color temperature to RGB
+      colorTempToRGB: |
+        function(temp) {
+          // Temperature bounds
+          const tempMin = 2000;
+          const tempMax = 6500;
+          // Constrain temp to bounds
+          temp = Math.max(tempMin, Math.min(tempMax, temp));
+          
+          let r, g, b;
+          
+          // Approximate RGB values based on temperature
+          if (temp <= 3000) {  // Warm
+            r = 255;
+            g = Math.round(160 + (temp - 2000) / 1000 * 20);
+            b = Math.round(100 + (temp - 2000) / 1000 * 40);
+          } else if (temp <= 4000) {  // Neutral
+            r = Math.round(255 - (temp - 3000) / 1000 * 30);
+            g = Math.round(180 + (temp - 3000) / 1000 * 20);
+            b = Math.round(140 + (temp - 3000) / 1000 * 60);
+          } else {  // Cool
+            r = Math.round(225 - (temp - 4000) / 2500 * 75);
+            g = Math.round(200 + (temp - 4000) / 2500 * 30);
+            b = Math.round(200 + (temp - 4000) / 2500 * 55);
+          }
+          
+          return `rgb(${r}, ${g}, ${b})`;
+        }
+      
+      # Function to convert HVAC state to color
+      hvacStateToColor: |
+        function(state) {
+          switch(state) {
+            case 'heating': return '${colors.warm}';
+            case 'cooling': return '${colors.cold}';
+            default: return 'var(--primary-color)';
+          }
+        }
+      
+      # Function to create opacity color
+      createOpacityColor: |
+        function(color, opacity) {
+          return color.replace(/rgba?\(([^)]+)\)/, `rgba($1, ${opacity})`);
+        }

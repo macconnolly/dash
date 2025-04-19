@@ -1,0 +1,250 @@
+template:
+  name: room_popup
+  description: "Room control popup that works with both Bubble Card and Streamline Card"
+  ext: unified_popup
+  variables:
+    room_name:
+      type: string
+      default: "Room"
+      description: "Name of the room"
+    temperature_entity:
+      type: string
+      default: ""
+      description: "Temperature entity for the room"
+    presence_entity:
+      type: string
+      default: ""
+      description: "Presence detection entity for the room"
+    light_entity:
+      type: string
+      default: ""
+      description: "Primary light entity for the room"
+    media_entity:
+      type: string
+      default: ""
+      description: "Media player entity for the room"
+    climate_entity:
+      type: string
+      default: ""
+      description: "Climate control entity for the room"
+    adaptive_lighting_entity:
+      type: string
+      default: ""
+      description: "Adaptive lighting switch entity for the room"
+    icon:
+      type: string
+      default: "mdi:door"
+      description: "Icon representing the room"
+    sections:
+      type: list
+      default: ["status", "light", "climate", "media"]
+      description: "Sections to display in the popup"
+  template: |
+    variables:
+      title: "{{ variables.room_name }}"
+      subtitle: >
+        {% if variables.temperature_entity and variables.presence_entity %}
+          {% set temp = states(variables.temperature_entity) %}
+          {% if is_state(variables.presence_entity, 'on') %}Occupied{% else %}Vacant{% endif %} • {{ temp }}°
+        {% elif variables.temperature_entity %}
+          {{ states(variables.temperature_entity) }}°
+        {% elif variables.presence_entity %}
+          {% if is_state(variables.presence_entity, 'on') %}Occupied{% else %}Vacant{% endif %}
+        {% endif %}
+      icon: "{{ variables.icon }}"
+    
+    content: |
+      # Status Section - shows current room status
+      {% if "status" in variables.sections %}
+      - type: custom:mushroom-template-card
+        primary: "{{ variables.room_name }} Status"
+        secondary: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% if variables.presence_entity and is_state(variables.presence_entity, 'on') %}
+            {% if variables.media_entity and is_state(variables.media_entity, 'playing') %}
+              Active • Media playing
+            {% elif variables.light_entity and is_state(variables.light_entity, 'on') %}
+              Lights on • {% if state_attr(variables.light_entity, 'brightness') %}{{ (state_attr(variables.light_entity, 'brightness') / 255 * 100) | round }}%{% else %}On{% endif %}
+            {% else %}
+              Occupied • Lights off
+            {% endif %}
+          {% else %}
+            {% if variables.light_entity and is_state(variables.light_entity, 'on') %}
+              Vacant • Lights on
+            {% else %}
+              Vacant • Inactive
+            {% endif %}
+          {% endif %}
+        icon: >
+          {% if variables.presence_entity and is_state(variables.presence_entity, 'on') %}
+            {% if variables.media_entity and is_state(variables.media_entity, 'playing') %}
+              mdi:account-music
+            {% elif variables.light_entity and is_state(variables.light_entity, 'on') %}
+              mdi:account-check
+            {% else %}
+              mdi:account
+            {% endif %}
+          {% else %}
+            {% if variables.light_entity and is_state(variables.light_entity, 'on') %}
+              mdi:lightbulb-on-outline
+            {% else %}
+              mdi:account-off-outline
+            {% endif %}
+          {% endif %}
+        entity: >
+          {% if variables.presence_entity %}
+            {{ variables.presence_entity }}
+          {% elif variables.light_entity %}
+            {{ variables.light_entity }}
+          {% else %}
+            none
+          {% endif %}
+      {% endif %}
+      
+      # Light Controls Section
+      {% if "light" in variables.sections and variables.light_entity %}
+      - type: custom:bubble-header
+        title: "Light Controls"
+        subtitle: >
+          {% if is_state(variables.light_entity, 'on') %}
+            {% if variables.adaptive_lighting_entity and is_state(variables.adaptive_lighting_entity, 'on') %}
+              Adaptive Lighting active
+            {% else %}
+              Manual control • {{ (state_attr(variables.light_entity, 'brightness') / 255 * 100) | round }}%
+            {% endif %}
+          {% else %}
+            Currently off
+          {% endif %}
+        icon: mdi:lightbulb
+      
+      - type: custom:light-entity-card
+        entity: "{{ variables.light_entity }}"
+        fluid_width: true
+      
+      # Adaptive Lighting Toggle (if available)
+      {% if variables.adaptive_lighting_entity %}
+      - type: custom:mushroom-entity-card
+        entity: "{{ variables.adaptive_lighting_entity }}"
+        name: "Adaptive Lighting"
+        icon: mdi:brightness-auto
+        tap_action:
+          action: toggle
+      {% endif %}
+      {% endif %}
+      
+      # Climate Controls Section
+      {% if "climate" in variables.sections and variables.climate_entity %}
+      - type: custom:bubble-header
+        title: "Climate Controls"
+        icon: mdi:thermostat
+        subtitle: >
+          {% set hvac_action = state_attr(variables.climate_entity, 'hvac_action') %}
+          {% set temp = state_attr(variables.climate_entity, 'current_temperature') %}
+          {% set target = state_attr(variables.climate_entity, 'temperature') %}
+          {{ states(variables.climate_entity) | title }} • {{ temp }}° → {{ target }}°
+      
+      - type: custom:bubble-card
+        card_type: thermostat
+        entity: "{{ variables.climate_entity }}"
+      {% endif %}
+      
+      # Media Controls Section
+      {% if "media" in variables.sections and variables.media_entity %}
+      - type: custom:bubble-header
+        title: "Media Controls"
+        icon: mdi:speaker
+        subtitle: >
+          {% if is_state(variables.media_entity, 'playing') %}
+            Playing: {{ state_attr(variables.media_entity, 'media_title') | default('Unknown') }}
+          {% elif is_state(variables.media_entity, 'paused') %}
+            Paused: {{ state_attr(variables.media_entity, 'media_title') | default('Unknown') }}
+          {% else %}
+            {{ states(variables.media_entity) | title }}
+          {% endif %}
+          
+      - type: custom:mini-media-player
+        entity: "{{ variables.media_entity }}"
+        artwork: cover
+        hide:
+          power: true
+          volume: false
+          controls: false
+        info: short
+        shortcuts:
+          columns: 3
+          buttons:
+            - icon: mdi:play-pause
+              type: service
+              id: media_player.media_play_pause
+              data:
+                entity_id: "{{ variables.media_entity }}"
+            - icon: mdi:skip-previous
+              type: service
+              id: media_player.media_previous_track
+              data:
+                entity_id: "{{ variables.media_entity }}"
+            - icon: mdi:skip-next
+              type: service
+              id: media_player.media_next_track
+              data:
+                entity_id: "{{ variables.media_entity }}"
+      {% endif %}
+  
+  styles_javascript: |
+    `
+    // Get room status for enhanced styling
+    const roomName = '${variables.room_name}';
+    const presenceEntity = '${variables.presence_entity}';
+    const lightEntity = '${variables.light_entity}';
+    const mediaEntity = '${variables.media_entity}';
+    
+    // Current states
+    const isOccupied = presenceEntity && hass.states[presenceEntity]?.state === 'on';
+    const lightOn = lightEntity && hass.states[lightEntity]?.state === 'on';
+    const mediaPlaying = mediaEntity && hass.states[mediaEntity]?.state === 'playing';
+    
+    // Add animations if not already present
+    if (!document.getElementById('room-popup-animations')) {
+      const style = document.createElement('style');
+      style.id = 'room-popup-animations';
+      style.textContent = `
+        @keyframes gentle-pulse {
+          0% { box-shadow: 0 2px 8px rgba(var(--rgb-primary-color), 0.2); }
+          50% { box-shadow: 0 4px 12px rgba(var(--rgb-primary-color), 0.3); }
+          100% { box-shadow: 0 2px 8px rgba(var(--rgb-primary-color), 0.2); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Apply additional styling for active rooms
+    const card = root.querySelector('ha-card');
+    if (card && (isOccupied || lightOn || mediaPlaying)) {
+      card.style.animation = 'gentle-pulse 4s infinite ease-in-out';
+      
+      // Special styling for media playing
+      if (mediaPlaying) {
+        card.style.boxShadow = '0 4px 12px rgba(156, 39, 176, 0.3)';
+      } 
+      // Special styling for occupied with lights on
+      else if (isOccupied && lightOn) {
+        card.style.boxShadow = '0 4px 12px rgba(255, 152, 0, 0.3)';
+      }
+    }
+    
+    // Make card responsive
+    const mediaQuery = window.matchMedia('(max-width: 460px)');
+    if (mediaQuery.matches) {
+      // Adjust padding
+      const content = card.querySelector('.card-content');
+      if (content) {
+        content.style.padding = '12px';
+      }
+      
+      // Make buttons more tappable
+      const buttons = root.querySelectorAll('ha-card button');
+      buttons.forEach(button => {
+        button.style.minHeight = '48px';
+      });
+    }
+    `

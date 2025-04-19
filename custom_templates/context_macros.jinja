@@ -1,0 +1,278 @@
+{# context_macros.jinja - Reusable Jinja functions for Context Engine #}
+
+{# Determine the primary home context based on multiple factors #}
+{% macro determine_primary_context() %}
+  {% if is_state('input_boolean.good_night_active', 'on') %}
+    Sleep Mode
+  {% elif is_state('input_boolean.home_occupied', 'off') %}
+    Away Mode
+  {% elif is_state('input_boolean.movie_mode_active', 'on') %}
+    Movie Mode
+  {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+    Guest Mode
+  {% elif is_state('binary_sensor.iphone_12_pro_focus', 'on') and states('sensor.iphone_12_pro_focus_mode') == 'Work' %}
+    Focus Mode
+  {% elif now().hour >= 6 and now().hour < 10 %}
+    Morning Mode
+  {% elif now().hour >= 17 and now().hour < 22 %}
+    Evening Mode
+  {% else %}
+    Day Mode
+  {% endif %}
+{% endmacro %}
+
+{# Get appropriate icon for context state #}
+{% macro get_context_icon(context) %}
+  {% if context == 'Sleep Mode' %}
+    mdi:sleep
+  {% elif context == 'Away Mode' %}
+    mdi:home-export-outline
+  {% elif context == 'Movie Mode' %}
+    mdi:movie-open
+  {% elif context == 'Guest Mode' %}
+    mdi:account-group
+  {% elif context == 'Focus Mode' %}
+    mdi:briefcase
+  {% elif context == 'Morning Mode' %}
+    mdi:weather-sunny
+  {% elif context == 'Evening Mode' %}
+    mdi:weather-sunset
+  {% else %}
+    mdi:home
+  {% endif %}
+{% endmacro %}
+
+{# Time of day determination #}
+{% macro get_time_of_day() %}
+  {% if now().hour < 6 %}
+    Night
+  {% elif now().hour < 9 %}
+    Morning
+  {% elif now().hour < 12 %}
+    Late Morning
+  {% elif now().hour < 17 %}
+    Afternoon
+  {% elif now().hour < 22 %}
+    Evening
+  {% else %}
+    Night
+  {% endif %}
+{% endmacro %}
+
+{# Is today a workday? #}
+{% macro is_workday() %}
+  {% if now().weekday() >= 5 %}
+    false
+  {% elif now().strftime('%Y-%m-%d') in states('sensor.holidays') | default('') %}
+    false
+  {% else %}
+    true
+  {% endif %}
+{% endmacro %}
+
+{# Determine lighting mode based on manual control status #}
+{% macro get_light_mode(room) %}
+  {% set manual_control_entity = 'input_boolean.al_manual_control_' ~ room | replace(' ', '_') | lower %}
+  {% set al_switch_entity = 'switch.adaptive_lighting_' ~ room | replace(' ', '_') | lower %}
+  
+  {% if is_state(manual_control_entity, 'on') %}
+    Manual
+  {% elif is_state(al_switch_entity, 'on') %}
+    Adaptive
+  {% else %}
+    Standard
+  {% endif %}
+{% endmacro %}
+
+{# Room context determination #}
+{% macro determine_room_context(room, presence_state, secondary_presence, media_state, light_state) %}
+  {% if is_state(presence_state, 'off') %}
+    Vacant
+  {% elif is_state(media_state, 'playing') %}
+    {% if 'TV' in state_attr(media_state, 'friendly_name') | default('') %}
+      Watching
+    {% else %}
+      Listening
+    {% endif %}
+  {% elif room == 'kitchen' and now().hour >= 6 and now().hour < 10 %}
+    Breakfast
+  {% elif room == 'kitchen' and now().hour >= 11 and now().hour < 14 %}
+    Lunch
+  {% elif room == 'kitchen' and now().hour >= 17 and now().hour < 20 %}
+    Dinner
+  {% elif room == 'dining room' and now().hour >= 6 and now().hour < 10 %}
+    Breakfast
+  {% elif room == 'dining room' and now().hour >= 11 and now().hour < 14 %}
+    Lunch
+  {% elif room == 'dining room' and now().hour >= 17 and now().hour < 20 %}
+    Dinner
+  {% elif is_state(light_state, 'on') %}
+    Active
+  {% else %}
+    Idle
+  {% endif %}
+{% endmacro %}
+
+{# Bedroom context is special due to sleep states #}
+{% macro determine_bedroom_context() %}
+  {% if is_state('input_boolean.good_night_active', 'on') %}
+    Sleeping
+  {% elif is_state('binary_sensor.master_bedroom_presence', 'on') %}
+    {% if is_state('media_player.master_bedroom', 'playing') %}
+      Listening
+    {% elif now().hour >= 22 or now().hour < 7 %}
+      Relaxing
+    {% else %}
+      Active
+    {% endif %}
+  {% else %}
+    Vacant
+  {% endif %}
+{% endmacro %}
+
+{# Living room activity determination based on context clues #}
+{% macro determine_living_room_activity() %}
+  {% if is_state('media_player.living_room', 'playing') %}
+    {% if 'TV' in state_attr('media_player.living_room', 'friendly_name') | default('') %}
+      Watching TV
+    {% else %}
+      Listening to Music
+    {% endif %}
+  {% elif is_state('input_boolean.living_room_occupied', 'on') %}
+    {% if is_state('input_boolean.movie_mode_active', 'on') %}
+      Movie Time
+    {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+      Entertaining
+    {% elif now().hour >= 17 and now().hour < 22 %}
+      Evening Relaxation
+    {% else %}
+      Occupied
+    {% endif %}
+  {% else %}
+    Vacant
+  {% endif %}
+{% endmacro %}
+
+{# Kitchen activity determination based on context clues #}
+{% macro determine_kitchen_activity() %}
+  {% if is_state('input_boolean.kitchen_occupied', 'on') %}
+    {% if now().hour >= 6 and now().hour < 10 %}
+      Breakfast Time
+    {% elif now().hour >= 11 and now().hour < 14 %}
+      Lunch Time
+    {% elif now().hour >= 17 and now().hour < 20 %}
+      Dinner Time
+    {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+      Entertaining
+    {% else %}
+      Cooking
+    {% endif %}
+  {% else %}
+    Vacant
+  {% endif %}
+{% endmacro %}
+
+{# Dining room activity determination based on context clues #}
+{% macro determine_dining_room_activity() %}
+  {% if is_state('input_boolean.dining_room_occupied', 'on') %}
+    {% if now().hour >= 6 and now().hour < 10 %}
+      Breakfast
+    {% elif now().hour >= 11 and now().hour < 14 %}
+      Lunch
+    {% elif now().hour >= 17 and now().hour < 20 %}
+      Dinner
+    {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+      Entertaining
+    {% else %}
+      Active
+    {% endif %}
+  {% else %}
+    Vacant
+  {% endif %}
+{% endmacro %}
+
+{# Get temperature comfort assessment #}
+{% macro get_temp_comfort(temperature, target_temperature) %}
+  {% set diff = (temperature - target_temperature) | abs %}
+  {% if diff <= 0.5 %}
+    Ideal
+  {% elif diff <= 1.5 %}
+    Comfortable
+  {% elif temperature > target_temperature + 1.5 %}
+    Warm
+  {% elif temperature < target_temperature - 1.5 %}
+    Cool
+  {% else %}
+    Acceptable
+  {% endif %}
+{% endmacro %}
+
+{# Format temperature display with trend indicator #}
+{% macro format_temp_with_trend(temperature, previous_temperature) %}
+  {% set trend = temperature - previous_temperature %}
+  {{ temperature | round(1) }}°
+  {% if trend > 0.5 %}
+    ↑
+  {% elif trend < -0.5 %}
+    ↓
+  {% else %}
+    ↔
+  {% endif %}
+{% endmacro %}
+
+{# Get appropriate media display text #}
+{% macro get_media_display(media_player_entity) %}
+  {% if is_state(media_player_entity, 'playing') %}
+    {% if state_attr(media_player_entity, 'media_artist') and state_attr(media_player_entity, 'media_title') %}
+      {{ state_attr(media_player_entity, 'media_artist') }} - {{ state_attr(media_player_entity, 'media_title') }}
+    {% elif state_attr(media_player_entity, 'media_title') %}
+      {{ state_attr(media_player_entity, 'media_title') }}
+    {% else %}
+      Playing
+    {% endif %}
+  {% elif is_state(media_player_entity, 'paused') %}
+    Paused
+  {% elif is_state(media_player_entity, 'idle') %}
+    Idle
+  {% else %}
+    Off
+  {% endif %}
+{% endmacro %}
+
+{# Get human-readable time until a date/time #}
+{% macro time_until(timestamp) %}
+  {% set seconds = (as_timestamp(timestamp) - as_timestamp(now())) | int %}
+  {% if seconds < 0 %}
+    Passed
+  {% elif seconds < 60 %}
+    {{ seconds }}s
+  {% elif seconds < 3600 %}
+    {{ (seconds / 60) | int }}m
+  {% elif seconds < 86400 %}
+    {{ (seconds / 3600) | int }}h {{ ((seconds % 3600) / 60) | int }}m
+  {% else %}
+    {{ (seconds / 86400) | int }}d {{ ((seconds % 86400) / 3600) | int }}h
+  {% endif %}
+{% endmacro %}
+
+{# Format HVAC status with icon #}
+{% macro format_hvac_status(climate_entity) %}
+  {% set action = state_attr(climate_entity, 'hvac_action') | default('unknown') %}
+  {% if action == 'heating' %}
+    <ha-icon icon="mdi:fire"></ha-icon> Heating
+  {% elif action == 'cooling' %}
+    <ha-icon icon="mdi:snowflake"></ha-icon> Cooling
+  {% elif action == 'idle' %}
+    <ha-icon icon="mdi:thermostat"></ha-icon> Idle
+  {% else %}
+    <ha-icon icon="mdi:hvac-off"></ha-icon> Off
+  {% endif %}
+{% endmacro %}
+
+{# Determine if Adaptive Lighting is the primary control mechanism for a room #}
+{% macro is_adaptive_lighting_primary(room) %}
+  {% set manual_control_entity = 'input_boolean.al_manual_control_' ~ room | replace(' ', '_') | lower %}
+  {% set al_switch_entity = 'switch.adaptive_lighting_' ~ room | replace(' ', '_') | lower %}
+  
+  {{ is_state(manual_control_entity, 'off') and is_state(al_switch_entity, 'on') }}
+{% endmacro %}

@@ -1,0 +1,118 @@
+# /dashboards/views/hosting.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Hosting Guests"
+    subtitle: "Making your guests feel welcome"
+    icon: mdi:account-group
+  
+  # Quick Hosting Actions / Scenes
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Welcome"
+        icon: mdi:party-popper
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.hosting_welcome # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 87, 34, 0.15); # Dining color
+          }
+      - name: "Dinner Party"
+        icon: mdi:silverware-fork-knife
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.dinner_party # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(103, 58, 183, 0.15); # Living color
+          }
+      - name: "Relaxed Mood"
+        icon: mdi:music-note
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.hosting_relax # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(3, 169, 244, 0.15); # Bedroom color (Blue)
+          }
+      - name: "Exit Hosting"
+        icon: mdi:door-closed
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_off
+          service_data:
+            entity_id: input_boolean.guest_mode_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(158, 158, 158, 0.1); # Inactive color
+          }
+
+  # Main Area Overviews
+  - type: custom:bubble-grid
+    columns: 3
+    cards:
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Living Room"
+          icon: "mdi:sofa"
+          light_group: "light.living_room"
+          presence: "binary_sensor.living_room_presence"
+          temperature: "sensor.living_room_temperature"
+          media_player: "media_player.living_room"
+          adaptive_control: "input_boolean.al_manual_control_track_lights" 
+          color: "rgba(103, 58, 183, 1)" 
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Kitchen"
+          icon: "mdi:countertop"
+          light_group: "light.kitchen_main_lights"
+          presence: "binary_sensor.kitchen_presence"
+          temperature: "sensor.kitchen_temperature"
+          media_player: "media_player.kitchen"
+          adaptive_control: "input_boolean.al_manual_control_kitchen_island" 
+          color: "rgba(0, 150, 136, 1)" 
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Dining Room"
+          icon: "mdi:table-chair"
+          light_group: "light.dining_room_spot_lights"
+          presence: "binary_sensor.dining_room_presence"
+          temperature: "sensor.dining_room_temperature"
+          media_player: "media_player.dining_room"
+          adaptive_control: "input_boolean.al_manual_control_non_hue" 
+          color: "rgba(255, 87, 34, 1)" 
+
+  # Media Hub for easy music control
+  - type: custom:streamline-card
+    template: media_control_hub
+    variables:
+      title: "Guest Music Control"
+      # Override default players if needed for guest context
+
+  # Simplified Climate Info
+  - type: custom:bubble-card
+    card_type: sensor
+    entity: sensor.dining_room_temperature # Main temp sensor
+    name: "Home Temperature"
+    icon: mdi:home-thermometer-outline
+    state_display: >
+      {{ states(entity) }}°
+    sub_button:
+      - entity: climate.dining_room
+        attribute: hvac_action
+        icon: >
+          {% if state == 'heating' %} mdi:fire
+          {% elif state == 'cooling' %} mdi:snowflake
+          {% else %} mdi:fan-off {% endif %}
+        state_display: >
+          {{ state | title }}

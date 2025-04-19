@@ -1,0 +1,78 @@
+alias: Scene Controller 1
+description: ""
+use_blueprint:
+  path: zooz_enhanced_no_led.yaml
+  input:
+    zen32_device: 247ad942944bb8099c33d574b3822be0
+    button_1_hold_helper: input_boolean.good_night_active
+    button_1_hold_operation: toggle
+    button_1_hold_value: ""
+    button_1_hold_action: []
+    button_2_press_action:
+      - data:
+          brightness_step_pct: 15
+        target:
+          entity_id: >
+            {{ expand(['light.al_group_non_hue', 'light.al_group_track_lights',
+            'light.al_group_hue_adapt', 'light.kitchen_island_pendants'])
+               | selectattr('state', 'eq', 'on')
+               | map(attribute='entity_id') | list }}
+        action: light.turn_on
+    button_2_hold_action:
+      - target:
+          entity_id: input_boolean.scene_controller_b2_holding
+        action: input_boolean.turn_on
+        data: {}
+      - target:
+          entity_id: script.scene_controller_gradual_brighten
+        action: script.turn_on
+        data: {}
+    button_2_release_action:
+      - target:
+          entity_id: input_boolean.scene_controller_b2_holding
+        action: input_boolean.turn_off
+        data: {}
+    button_3_hold_action:
+      - target:
+          entity_id: input_boolean.scene_controller_b3_holding
+        action: input_boolean.turn_on
+        data: {}
+      - target:
+          entity_id: script.scene_controller_gradual_dim
+        action: script.turn_on
+        data: {}
+    button_3_release_action:
+      - target:
+          entity_id: input_boolean.scene_controller_b3_holding
+        action: input_boolean.turn_off
+        data: {}
+    button_3_press_action:
+      - target:
+          entity_id: script.reset_active_manual_control
+        action: script.turn_on
+        data: {}
+    button_3_double_action:
+      - target:
+          entity_id: script.reset_active_manual_control
+        action: script.turn_on
+        data: {}
+    button_4_press_action:
+      - data:
+          brightness_step_pct: -15
+        target:
+          entity_id: >
+            {{ expand(['light.al_group_non_hue', 'light.al_group_track_lights',
+            'light.al_group_hue_adapt', 'light.kitchen_island_pendants'])
+               | selectattr('state', 'eq', 'on')
+               | map(attribute='entity_id') | list }}
+        action: light.turn_on
+    button_5_hold_action:
+      - target:
+          entity_id: scene.all_common_off
+        action: scene.turn_on
+        data: {}
+
+    button_5_press_action:
+      - service: script.turn_on
+        target:
+          entity_id: script.button_5_press_action

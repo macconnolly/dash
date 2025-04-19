@@ -1,0 +1,90 @@
+# /dashboards/views/sleeping.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Good Night Mode"
+    subtitle: "House in sleep state"
+    icon: mdi:sleep
+  
+  # Quick Sleep Actions
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Wake Up"
+        icon: mdi:weather-sunset-up
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_off
+          service_data:
+            entity_id: input_boolean.good_night_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 167, 38, 0.15); # Morning color
+          }
+      
+      - name: "Night Light"
+        icon: mdi:lightbulb-night
+        tap_action:
+          action: call-service
+          service: light.turn_on
+          service_data:
+            entity_id: light.living_room_corner_accent # Or a dedicated night light entity
+            brightness: 20
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 235, 59, 0.15); # Day color (low brightness)
+          }
+      
+      - name: "All Off"
+        icon: mdi:lightbulb-off-outline
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.all_off # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(158, 158, 158, 0.1); # Inactive color
+          }
+  
+  # Home Security Status
+  - type: custom:bubble-card
+    card_type: entity
+    entity: binary_sensor.overall_presence # Assuming this tracks overall security
+    name: "Home Security"
+    icon: mdi:shield-home
+    state_display: >
+      {{ 'Secure' if is_state(entity, 'off') 
+         else 'Motion Detected' }}
+    styles_javascript: |
+      `
+      ${designSystem.animations.keyframes.pulse}
+      .bubble-icon {
+        color: ${
+          state === 'off' ? designSystem.colors.success : designSystem.colors.warning
+        };
+        animation: ${state === 'on' ? 'pulse 1.5s infinite' : 'none'};
+      }
+      `
+  
+  # Simple Bedroom Control using Streamline Template
+  - type: custom:streamline-card
+    template: smart_room_card
+    variables:
+      area: "Bedroom"
+      icon: "mdi:bed"
+      light_group: "light.master_bedroom_table_lamps"
+      presence: "binary_sensor.iphone_12_pro_focus" # Check if dedicated presence exists
+      temperature: "sensor.master_bedroom_temperature"
+      media_player: "media_player.master_bedroom"
+      adaptive_control: "input_boolean.al_manual_control_master_adapt" # Adjust if needed
+      color: "rgba(3, 169, 244, 1)" # Bedroom color
+  
+  # Minimalist Media Controls for White Noise using Streamline Template
+  - type: custom:streamline-card
+    template: media_player_card
+    variables:
+      entity: media_player.master_bedroom
+      name: "White Noise"
+      show_controls: true # Show basic controls
+      show_volume: false # Hide volume slider for simplicity
+      color: "rgba(3, 169, 244, 1)" # Bedroom color

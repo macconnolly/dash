@@ -1,0 +1,878 @@
+# Home Assistant Package for System Monitoring & Control
+
+template:
+  # --- Adaptive Lighting Sensors (Using Hue Adapt as reference) ---
+  - sensor:
+      - name: "Adaptive Lighting Brightness"
+        unique_id: adaptive_lighting_brightness_pct_monitor
+        unit_of_measurement: "%"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'brightness_pct') | float(0) | round(1) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Color Temperature K"
+        unique_id: adaptive_lighting_color_temp_k_monitor
+        unit_of_measurement: "K"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'color_temp_kelvin') | int(2700) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Color Temp Mired"
+        unique_id: adaptive_lighting_color_temp_mired_monitor
+        unit_of_measurement: "mired"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'color_temp_mired') | int(370) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Sun Position"
+        unique_id: adaptive_lighting_sun_position_monitor
+        unit_of_measurement: "°"
+        icon: mdi:sun-angle
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'sun_position') | float(0) | round(1) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Force RGB Status"
+        unique_id: adaptive_lighting_force_rgb_monitor
+        icon: mdi:palette
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'force_rgb_color') }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Take Over Control Status"
+        unique_id: adaptive_lighting_take_over_control_monitor
+        icon: mdi:hand-back-right
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'take_over_control') }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+  # --- HVAC Sensors ---
+  - sensor:
+      - name: "HVAC Cooling Duration Today"
+        unique_id: hvac_cooling_duration_today
+        unit_of_measurement: "min"
+        icon: mdi:snowflake-thermometer
+        state: "{{ states('sensor.hvac_cooling_time_today') | float(0) | round(1) }}" # Example base sensor
+        availability: "{{ states('sensor.hvac_cooling_time_today') not in ['unavailable', 'unknown'] }}"
+
+      - name: "HVAC Heating Duration Today"
+        unique_id: hvac_heating_duration_today
+        unit_of_measurement: "min"
+        icon: mdi:fire-thermometer
+        state: "{{ states('sensor.hvac_heating_time_today') | float(0) | round(1) }}" # Example base sensor
+        availability: "{{ states('sensor.hvac_heating_time_today') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Dining Room Temperature Difference"
+        unique_id: dining_room_temp_difference
+        unit_of_measurement: "°C" # Assuming Celsius, adjust if needed
+        icon: mdi:thermometer-chevron-up
+        state: >
+          {% set current = states('sensor.dining_room_temperature') | float(none) %}
+          {% set setpoint = state_attr('climate.dining_room','temperature') | float(none) %}
+          {% if current is not none and setpoint is not none %}
+            {{ (current - setpoint) | round(1) }}
+          {% else %}
+            unknown
+          {% endif %}
+        availability: >
+          {{ states('sensor.dining_room_temperature') not in ['unavailable', 'unknown'] and
+             states('climate.dining_room') not in ['unavailable', 'unknown'] }}
+
+  # --- Occupancy Sensors ---
+  - sensor:
+      - name: "Living Room Occupancy Duration Today"
+        unique_id: living_room_occupancy_duration_today
+        unit_of_measurement: "min"
+        icon: mdi:walk
+        state: "{{ states('sensor.living_room_occupancy_time_today') | float(0) | round(1) }}" # Example base sensor
+        availability: "{{ states('sensor.living_room_occupancy_time_today') not in ['unavailable', 'unknown'] }}"
+
+  # --- Dashboard Context & Summary Sensors ---
+  - sensor:
+      - name: "Current Dashboard Context"
+        unique_id: current_dashboard_context
+        icon: mdi:view-dashboard-variant-outline
+        state: >
+          {% if is_state('input_boolean.good_night_active', 'on') %}
+            Good Night
+          {% elif is_state('input_boolean.home_occupied', 'off') %}
+            Away
+          {% elif is_state('input_boolean.movie_mode_active', 'on') %}
+            Movie Night
+          {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+            Hosting Guests
+          {% elif is_state('binary_sensor.iphone_12_pro_focus', 'on') and states('binary_sensor.iphone_12_pro_focus') == 'Work' %} # Adjust entity/state if needed
+            Work Focus
+          {% elif now().hour >= 6 and now().hour < 9 %}
+            Morning Routine
+          {% elif now().hour >= 18 and now().hour < 22 %}
+            Evening Relax
+          {% else %}
+            Default Daytime
+          {% endif %}
+
+      - name: "Living Room Lights Summary"
+        unique_id: living_room_lights_summary
+        icon: mdi:lightbulb-group-outline
+        state: >
+          {% set lights_in_area = expand(['light.al_group_track_lights', 'light.al_group_hue_adapt'])
+                                   | selectattr('attributes.entity_id', 'defined')
+                                   | map(attribute='attributes.entity_id') | sum(start=[]) 
+                                   | unique | list %}
+          {% set living_room_entities = expand(['light.living_room_spot_lights', 'light.couch_lamp', 'light.credenza_light', 'light.living_room_floor_lamp', 'light.entry_lamp']) | map(attribute='entity_id') | list %}
+          {% set relevant_lights = expand(lights_in_area) | selectattr('entity_id', 'in', living_room_entities) | list %}
+          {% set lights_on = relevant_lights | selectattr('state', 'eq', 'on') | list %}
+          {% set count_on = lights_on | count %}
+          {% set count_total = relevant_lights | count %}
+          {% if count_on == 0 %}
+            All Off
+          {% else %}
+            {% set brightness_list = lights_on | map(attribute='attributes.brightness') | select('number') | list %}
+            {% set avg_brightness = (brightness_list | sum / brightness_list | count * 2.55) | round(0) if brightness_list | count > 0 else 0 %}
+            {{ count_on }}/{{ count_total }} On @ {{ avg_brightness }}%
+          {% endif %}
+
+      - name: "Kitchen Lights Summary"
+        unique_id: kitchen_lights_summary
+        icon: mdi:lightbulb-outline
+        state: >
+          {% set lights_in_area = expand(['light.al_group_non_hue', 'light.kitchen_island_pendants'])
+                                   | selectattr('attributes.entity_id', 'defined')
+                                   | map(attribute='attributes.entity_id') | sum(start=[]) 
+                                   | unique | list %}
+          {% set kitchen_entities = expand(['light.kitchen_main_lights', 'light.kitchen_island_pendants']) | map(attribute='entity_id') | list %}
+          {% set relevant_lights = expand(lights_in_area) | selectattr('entity_id', 'in', kitchen_entities) | list %}
+          {% set lights_on = relevant_lights | selectattr('state', 'eq', 'on') | list %}
+          {% set count_on = lights_on | count %}
+          {% set count_total = relevant_lights | count %}
+          {% if count_on == 0 %}
+            All Off
+          {% else %}
+            {% set brightness_list = lights_on | map(attribute='attributes.brightness') | select('number') | list %}
+            {% set avg_brightness = (brightness_list | sum / brightness_list | count * 2.55) | round(0) if brightness_list | count > 0 else 0 %}
+            {{ count_on }}/{{ count_total }} On @ {{ avg_brightness }}%
+          {% endif %}
+
+      - name: "Dining Room Lights Summary"
+        unique_id: dining_room_lights_summary
+        icon: mdi:lightbulb-outline
+        state: >
+          {% set lights_in_area = expand(['light.al_group_track_lights'])
+                                   | selectattr('attributes.entity_id', 'defined')
+                                   | map(attribute='attributes.entity_id') | sum(start=[]) 
+                                   | unique | list %}
+          {% set dining_entities = expand(['light.dining_room_spot_lights']) | map(attribute='entity_id') | list %}
+          {% set relevant_lights = expand(lights_in_area) | selectattr('entity_id', 'in', dining_entities) | list %}
+          {% set lights_on = relevant_lights | selectattr('state', 'eq', 'on') | list %}
+          {% set count_on = lights_on | count %}
+          {% set count_total = relevant_lights | count %}
+          {% if count_on == 0 %}
+            All Off
+          {% else %}
+            {% set brightness_list = lights_on | map(attribute='attributes.brightness') | select('number') | list %}
+            {% set avg_brightness = (brightness_list | sum / brightness_list | count * 2.55) | round(0) if brightness_list | count > 0 else 0 %}
+            {{ count_on }}/{{ count_total }} On @ {{ avg_brightness }}%
+          {% endif %}
+
+      - name: "Master Bedroom Lights Summary"
+        unique_id: master_bedroom_lights_summary
+        icon: mdi:lightbulb-outline
+        state: >
+          {% set relevant_lights = expand(['light.master_bedroom_table_lamps']) | list %}
+          {% set lights_on = relevant_lights | selectattr('state', 'eq', 'on') | list %}
+          {% set count_on = lights_on | count %}
+          {% set count_total = relevant_lights | count %}
+          {% if count_on == 0 %}
+            All Off
+          {% else %}
+            {% set brightness_list = lights_on | map(attribute='attributes.brightness') | select('number') | list %}
+            {% set avg_brightness = (brightness_list | sum / brightness_list | count * 2.55) | round(0) if brightness_list | count > 0 else 0 %}
+            {{ count_on }}/{{ count_total }} On @ {{ avg_brightness }}%
+          {% endif %}
+
+# --- Input Helpers ---
+input_boolean:
+  living_room_occupied:
+    name: Living Room Occupied
+    icon: mdi:sofa-outline
+  kitchen_occupied:
+    name: Kitchen Occupied
+    icon: mdi:countertop-outline
+  dining_room_occupied:
+    name: Dining Room Occupied
+    icon: mdi:table-chair
+  home_occupied:
+    name: Home Occupied
+    icon: mdi:home-account
+  scene_controller_b2_holding:
+    name: Scene Controller Button 2 Holding
+    icon: mdi:arrow-up-bold-box-outline
+  scene_controller_b3_holding:
+    name: Scene Controller Button 3 Holding
+    icon: mdi:arrow-down-bold-box-outline
+  scene_controller_b4_holding:
+    name: Scene Controller Button 4 Holding
+    icon: mdi:arrow-down-bold-box-outline
+  guest_mode_active:
+    name: Guest Mode Active
+    icon: mdi:account-group-outline
+  movie_mode_active:
+    name: Movie Mode Active
+    icon: mdi:movie-open-outline
+  follow_me_audio_enabled:
+    name: Follow Me Audio Enabled
+    icon: mdi:speaker-multiple
+  # Add good_night_active here if it's not defined elsewhere
+  good_night_active:
+    name: Good Night Active
+    icon: mdi:weather-night
+  # Helper for Bathroom->Kitchen logic
+  living_room_vacant_long_enough:
+    name: Living Room Vacant Long Enough
+    initial: false
+    icon: mdi:timer-sand-empty
+
+
+input_number:
+  al_temp_brightness_boost:
+    name: Adaptive Lighting Temporary Brightness Boost
+    icon: mdi:brightness-percent
+    min: -25
+    max: 25
+    step: 5
+    unit_of_measurement: "%"
+
+
+input_datetime:
+  sonos_alarm_time:
+    name: Sonos Alarm Time
+    has_date: false
+    has_time: true
+    icon: mdi:alarm
+    mode: slider
+
+input_text:
+  sonos_active_group_master:
+    name: Sonos Active Group Master
+    icon: mdi:speaker-wireless
+    initial: "media_player.kitchen" # Default to living room speaker
+
+
+input_select:
+  zen32_b5_light_cycle:
+    name: ZEN32 Button 5 Light Cycle State
+    options:
+      - 'OFF'    # Represents the state after all_common_off
+      - 'ACCENT' # Represents the state after accent_only
+      - 'BRIGHT' # Represents the state after general_bright
+    initial: 'OFF'
+    icon: mdi:lightbulb-cycle
+
+# --- Scene Definitions ---
+scene:
+  - name: General Bright
+    entities:
+      light.al_group_non_hue:
+        state: on
+        brightness_pct: 65
+      light.al_group_track_lights:
+        state: on
+        brightness_pct: 20
+      light.al_group_hue_adapt:
+        state: on
+        brightness_pct: 75
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 75
+      light.master_bedroom_table_lamps:
+        state: on
+
+  - name: Relax Evening
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt: # Living lamps, entry, office
+        state: on
+        brightness_pct: 40
+        color_temp_kelvin: 2700 # Warm white
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 25
+        color_temp_kelvin: 2700 # Warm white
+      light.master_bedroom_table_lamps:
+        state: off
+
+  - name: All Common Off
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt:
+        state: off
+      light.kitchen_island_pendants:
+        state: off
+
+  - name: Accent Only
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt: # Living lamps, entry, office
+        state: on
+        brightness_pct: 15
+        color_temp_kelvin: 2700 # Warm white
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 15
+        color_temp_kelvin: 2700 # Warm white
+      light.master_bedroom_table_lamps:
+        state: on
+
+# --- Script Definitions ---
+script:
+  # --- Scene Controller Helper Scripts ---
+  # scene_controller_gradual_brighten:
+  #   alias: Scene Controller - Gradual Brighten (While Held)
+  #   mode: single
+  #   icon: mdi:brightness-auto
+  #   sequence:
+  #     - repeat:
+  #         while:
+  #           - condition: state
+  #             entity_id: input_boolean.scene_controller_b2_holding
+  #             state: 'on'
+  #         sequence:
+  #           - service: light.turn_on
+  #             data:
+  #               brightness_step_pct: 5
+  #             target:
+  #               entity_id: >
+  #                 {{ expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants'])
+  #                    | selectattr('state', 'eq', 'on')
+  #                    | map(attribute='entity_id') | list }}
+  #           - delay: '00:00:00.500'
+  
+  scene_controller_gradual_brighten:
+    alias: Scene Controller - Gradual Brighten (While Held)
+    mode: single
+    icon: mdi:brightness-auto
+    sequence:
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.scene_controller_b2_holding
+              state: 'on'
+          sequence:
+            - service: light.turn_on
+              data:
+                brightness_step_pct: >-
+                  {% set max_brightness = 95 %}
+                  {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                    | selectattr('state', 'eq', 'on') %}
+                  {% set brightenable_entities = [] %}
+                  {% for entity in entities %}
+                    {% set brightness = entity.attributes.brightness | default(0) %}
+                    {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                    {% if brightness_pct < max_brightness %}
+                      {% set brightenable_entities = brightenable_entities + [entity.entity_id] %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if brightenable_entities | count > 0 %}
+                    5
+                  {% else %}
+                    0
+                  {% endif %}
+                transition: 0.5
+              target:
+                entity_id: >
+                  {% set max_brightness = 95 %}
+                  {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                    | selectattr('state', 'eq', 'on') %}
+                  {% set brightenable_entities = [] %}
+                  {% for entity in entities %}
+                    {% set brightness = entity.attributes.brightness | default(0) %}
+                    {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                    {% if brightness_pct < max_brightness %}
+                      {% set brightenable_entities = brightenable_entities + [entity.entity_id] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ brightenable_entities }}
+            - delay: '00:00:00.250'
+
+            
+  scene_controller_gradual_dim:
+      alias: Scene Controller - Gradual Dim (While Held)
+      mode: single
+      icon: mdi:brightness-percent
+      sequence:
+        - repeat:
+            while:
+              - condition: state
+                entity_id: input_boolean.scene_controller_b3_holding
+                state: 'on'
+            sequence:
+              - service: light.turn_on
+                data:
+                  brightness_step_pct: >-
+                    {% set min_brightness = 5 %}
+                    {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                      | selectattr('state', 'eq', 'on') %}
+                    {% set dimmable_entities = [] %}
+                    {% for entity in entities %}
+                      {% set brightness = entity.attributes.brightness | default(0) %}
+                      {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                      {% if brightness_pct > min_brightness %}
+                        {% set dimmable_entities = dimmable_entities + [entity.entity_id] %}
+                      {% endif %}
+                    {% endfor %}
+                    {% if dimmable_entities | count > 0 %}
+                      -5
+                    {% else %}
+                      0
+                    {% endif %}
+                    transition: 0.5
+                target:
+                  entity_id: >
+                    {% set min_brightness = 2 %}
+                    {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                      | selectattr('state', 'eq', 'on') %}
+                    {% set dimmable_entities = [] %}
+                    {% for entity in entities %}
+                      {% set brightness = entity.attributes.brightness | default(0) %}
+                      {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                      {% if brightness_pct > min_brightness %}
+                        {% set dimmable_entities = dimmable_entities + [entity.entity_id] %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ dimmable_entities }}
+              - delay: '00:00:00.500'
+
+  # --- Room Specific AL Reset Scripts ---
+  reset_al_living_room:
+    alias: Reset AL Manual Control - Living Room
+    icon: mdi:sofa-outline
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_track_lights
+          lights: light.living_room_spot_lights
+          manual_control: false
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_hue_adapt
+          lights: >
+            {{ ['light.couch_lamp', 'light.credenza_light', 'light.living_room_floor_lamp', 'light.entry_lamp']
+               | select('in', state_attr('switch.adaptive_lighting_hue_adapt', 'manual_control') | default([])) | list }}
+          manual_control: false
+      - service: system_log.write
+        data:
+          message: "Living Room AL Manual Control Reset"
+          level: info
+
+  reset_al_kitchen:
+    alias: Reset AL Manual Control - Kitchen
+    icon: mdi:countertop-outline
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_non_hue
+          lights: light.kitchen_main_lights
+          manual_control: false
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_kitchen_island
+          lights: light.kitchen_island_pendants
+          manual_control: false
+      - service: system_log.write
+        data:
+          message: "Kitchen AL Manual Control Reset"
+          level: info
+
+  reset_al_dining_room:
+    alias: Reset AL Manual Control - Dining Room
+    icon: mdi:table-chair
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_track_lights
+          lights: light.dining_room_spot_lights
+          manual_control: false
+      - service: system_log.write
+        data:
+          message: "Dining Room AL Manual Control Reset"
+          level: info
+
+  reset_al_master_bedroom:
+    alias: Reset AL Manual Control - Master Bedroom
+    icon: mdi:bed-outline
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_master_adapt # Correct entity for the AL switch
+          lights: light.master_bedroom_table_lamps # Lights controlled by this switch
+          manual_control: false
+      - service: input_boolean.turn_off # Also turn off the corresponding boolean
+        target:
+          entity_id: input_boolean.al_manual_control_master_adapt
+      - service: system_log.write
+        data:
+          message: "Master Bedroom AL Manual Control Reset"
+          level: info
+
+
+  # --- Dashboard Helper Scripts (Merged) ---
+  cycle_brightness:
+    alias: Cycle Light Brightness
+    description: Cycles a light through preset brightness levels (25%, 50%, 75%, 100%)
+    fields:
+      entity_id:
+        description: The light entity to control
+        example: light.living_room_lamp
+    sequence:
+      - service: homeassistant.turn_on
+        target:
+          entity_id: "{{ entity_id }}"
+        data:
+          brightness: >
+            {% if state_attr(entity_id, 'brightness') is not none %}
+              {% set current = state_attr(entity_id, 'brightness') %}
+              {% if current < 65 %}
+                128
+              {% elif current < 192 %}
+                255
+              {% else %}
+                64
+              {% endif %}
+            {% else %}
+              64
+            {% endif %}
+
+  play_white_noise:
+    alias: Play White Noise
+    description: Plays white noise on bedroom speaker
+    sequence:
+      - service: media_player.play_media
+        target:
+          entity_id: media_player.master_bedroom
+        data:
+          media_content_id: "spotify:playlist:37i9dQZF1DWZd79rJ6a7lp"
+          media_content_type: playlist
+
+  prepare_home_return:
+    alias: Prepare Home Return
+    description: Prepares home for your return - adjusts HVAC and turns on key lights
+    sequence:
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.dining_room
+        data:
+          temperature: 72
+      - service: light.turn_on
+        target:
+          entity_id: light.entryway_lamp
+        data:
+          brightness: 180
+
+  reset_active_manual_control:
+    alias: Reset All Active AL Manual Controls
+    description: Turns off any active AL manual control booleans
+    sequence:
+      - service: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.al_manual_control_non_hue
+            - input_boolean.al_manual_control_kitchen_island
+            - input_boolean.al_manual_control_master_adapt
+            - input_boolean.al_manual_control_track_lights
+            - input_boolean.al_manual_control_hue_adapt
+
+  decrease_thermostat_temp:
+    alias: Decrease Thermostat Target Temp
+    fields:
+      entity_id:
+        description: Climate entity ID
+        example: climate.dining_room
+      delta:
+        description: Degrees to decrease
+        example: 1
+    sequence:
+      - service: climate.set_temperature
+        target:
+          entity_id: "{{ entity_id | default('climate.dining_room') }}"
+        data:
+          temperature: "{{ (state_attr(entity_id | default('climate.dining_room'), 'temperature') | float) - (delta | float) }}"
+
+  increase_thermostat_temp:
+    alias: Increase Thermostat Target Temp
+    fields:
+      entity_id:
+        description: Climate entity ID
+        example: climate.dining_room
+      delta:
+        description: Degrees to increase
+        example: 1
+    sequence:
+      - service: climate.set_temperature
+        target:
+          entity_id: "{{ entity_id | default('climate.dining_room') }}"
+        data:
+          temperature: "{{ (state_attr(entity_id | default('climate.dining_room'), 'temperature') | float) + (delta | float) }}"
+
+  set_eco_mode:
+    alias: Set Thermostat Eco Mode
+    description: Sets the thermostat to an eco preset (adjust preset name if needed)
+    sequence:
+      - service: climate.set_preset_mode
+        target:
+          entity_id: climate.dining_room
+        data:
+          preset_mode: eco
+
+  play_spotify_playlist:
+    alias: Play Spotify Playlist on Target Speaker
+    fields:
+      playlist_uri:
+        description: Spotify playlist URI
+        example: spotify:playlist:37i9dQZF1DXcBWIGoYBM5M
+      entity_id:
+        description: Speaker entity_id to target
+        example: media_player.living_room
+    sequence:
+      - service: media_player.play_media # Or spotcast.start if using Spotcast
+        target:
+          entity_id: "{{ entity_id }}"
+        data:
+          media_content_id: "{{ playlist_uri }}"
+          media_content_type: playlist # Adjust if needed (e.g., 'music' for TuneIn)
+
+  sonos_volume_down_all:
+    alias: Sonos Volume Down All
+    description: Decreases volume on all Sonos speakers by 10%
+    sequence:
+      - service: media_player.volume_down
+        target:
+          entity_id: # List all Sonos players here
+            - media_player.living_room
+            - media_player.kitchen
+            - media_player.dining_room
+            - media_player.master_bedroom
+            - media_player.sun_house
+      # Removed incorrectly merged lines and log entry
+
+  button_5_press_action:
+    alias: Button 5 Cycle Lighting Scenes
+    description: "Cycles through lighting scenes regardless of current light states"
+    mode: single
+    sequence:
+      - service: input_select.select_next
+        target:
+          entity_id: input_select.zen32_b5_light_cycle
+        data:
+          cycle: true
+      - choose:
+          # When cycling to OFF state
+          - conditions:
+              - condition: state
+                entity_id: input_select.zen32_b5_light_cycle
+                state: 'OFF'
+            sequence:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.all_common_off
+          
+          # When cycling to ACCENT state
+          - conditions:
+              - condition: state
+                entity_id: input_select.zen32_b5_light_cycle
+                state: 'ACCENT'
+            sequence:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.accent_only
+          
+          # When cycling to BRIGHT state
+          - conditions:
+              - condition: state
+                entity_id: input_select.zen32_b5_light_cycle
+                state: 'BRIGHT'
+            sequence:
+              - service: scene.turn_on
+                target:
+                  entity_id: scene.general_bright
+
+  # --- Sleep Mode Scripts (Merged from sleep_mode.yaml) ---
+  initiate_sleep_mode:
+    alias: Initiate Sleep Mode
+    icon: mdi:bed
+    sequence:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.good_night_active
+        alias: "Activate Good Night Indicator"
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.dining_room
+        data:
+          temperature: 66
+        alias: "Set Thermostat to 66°F"
+      - service: light.turn_on
+        target:
+          area_id: master_bedroom
+        data:
+          brightness_pct: 10
+        alias: "Dim Master Bedroom Lights"
+      - service: light.turn_off
+        target:
+          area_id:
+            - living_room
+            - kitchen
+            - dining_room
+            - office
+            - entryway
+        data:
+          transition: 2
+        alias: "Turn Off Common Area Lights"
+      - service: notify.mobile_app_YOUR_PHONE_ID # <<<--- REPLACE
+        data:
+          message: "Set Sonos alarm time?"
+          title: "Sonos Alarm"
+          data:
+            actions:
+              - action: URI
+                title: "Choose Time"
+                uri: "/lovelace/alarm_settings" # <<<--- REPLACE
+              - action: SET_SONOS_ALARM_FROM_HELPER
+                title: "Set Alarm Now"
+              - action: SKIP_SONOS_ALARM
+                title: "Skip Alarm"
+            entity_id: input_datetime.sonos_alarm_time
+        alias: "Prompt for Sonos Alarm Time"
+    mode: single
+
+# Removed duplicate script block inserted previously
+# --- Automation Definitions ---
+automation:
+  # --- Presence Logic Automations ---
+  - alias: "Presence - Turn ON Living Room Occupied"
+    id: presence_turn_on_living_room_occupied
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.living_room_presence
+          - binary_sensor.couch_presence
+        to: 'on'
+    condition: []
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.living_room_occupied
+    mode: single
+
+  - alias: "Presence - Turn ON Kitchen Occupied"
+    id: presence_turn_on_kitchen_occupied
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.kitchen_presence
+        to: 'on'
+    condition: []
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.kitchen_occupied
+    mode: single
+
+  - alias: "Presence - Turn ON Dining Room Occupied"
+    id: presence_turn_on_dining_room_occupied
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.dining_room_presence
+        to: 'on'
+    condition: []
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.dining_room_occupied
+    mode: single
+
+  - alias: "Presence - Turn OFF Living Room Occupied (Vacancy)"
+    id: presence_turn_off_living_room_occupied
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.living_room_presence
+          - binary_sensor.couch_presence
+        to: 'off'
+    condition:
+      - condition: state
+        entity_id: binary_sensor.living_room_presence
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.couch_presence
+        state: 'off'
+    action:
+      - delay: '00:03:00'
+      - condition: state
+        entity_id: binary_sensor.living_room_presence
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.couch_presence
+        state: 'off'
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.living_room_occupied
+    mode: restart
+
+  - alias: "Presence - Turn OFF Kitchen Occupied (Vacancy)"
+    id: presence_turn_off_kitchen_occupied
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.kitchen_presence
+        to: 'off'
+        for: '00:03:00'
+    condition: []
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.kitchen_occupied
+    mode: single
+
+  - alias: "Presence - Turn OFF Dining Room Occupied (Vacancy)"
+    id: presence_turn_off_dining_room_occupied
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.dining_room_presence
+        to: 'off'
+        for: '00:03:00'
+    condition: []
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.dining_room_occupied
+    mode: single
+
+  - alias: "Presence - Update Home Occupied Status"
+    id: presence_update_home_occupied
+    trigger:
+      - platform: state
+        entity_id:
+          - person.mac_connolly
+          - input_boolean.living_room_occupied
+          - input_boolean.kitchen_occupied
+          - input_boolean.dining_room_occupied
+    action:
+      - choose:
+          - conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity_id: person.mac_connolly
+                    state: 'home'
+                  - condition: state
+                    entity_id: input_boolean.living_room_occupied
+                    state: 'on'
+                  - condition: state
+                    entity_id: input_boolean.kitchen_occupied
+                    state: 'on'
+

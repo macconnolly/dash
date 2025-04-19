@@ -1,0 +1,20 @@
+template:
+  - sensor:
+      - name: sonos_status
+        state: >
+          {% set players = ['media_player.living_room','media_player.kitchen',
+                            'media_player.dining_room','media_player.master_bedroom'] %}
+          {{ 'playing' if players|select('is_state','playing')|list|count > 0 else 'idle' }}
+        attributes:
+          active_count: >
+            {% set players = ['media_player.living_room','media_player.kitchen',
+                              'media_player.dining_room','media_player.master_bedroom'] %}
+            {{ players|select('is_state','playing')|list|count }}
+          current_track: >
+            {% for p in ['media_player.living_room','media_player.kitchen',
+                         'media_player.dining_room','media_player.master_bedroom'] %}
+              {% if is_state(p,'playing') %}
+                {{ state_attr(p,'media_artist') }} - {{ state_attr(p,'media_title') }}
+                {% break %}
+              {% endif %}
+            {% endfor %}

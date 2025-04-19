@@ -1,0 +1,97 @@
+# /dashboards/views/evening.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Evening Ambiance"
+    subtitle: "Relax and unwind"
+    icon: mdi:weather-sunset
+  
+  # Quick Evening Actions
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Evening Mode"
+        icon: mdi:lightbulb-night
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.relax_evening # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(156, 39, 176, 0.15); # Evening color
+          }
+      
+      - name: "Movie Mode"
+        icon: mdi:movie-open
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          service_data:
+            entity_id: input_boolean.movie_mode_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(103, 58, 183, 0.15); # Living room color
+          }
+      
+      - name: "Accent Only"
+        icon: mdi:lamps
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.accent_only # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(245, 166, 35, 0.15); # Secondary color
+          }
+      
+      - name: "Good Night"
+        icon: mdi:sleep
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_on
+          service_data:
+            entity_id: input_boolean.good_night_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(63, 81, 181, 0.15); # Night color
+          }
+  
+  # Rooms Grid - Focus on Living Areas & Bedroom
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      # Living Room Card using Streamline Template
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Living Room"
+          icon: "mdi:sofa"
+          light_group: "light.living_room"
+          presence: "binary_sensor.living_room_presence"
+          temperature: "sensor.living_room_temperature"
+          media_player: "media_player.living_room"
+          adaptive_control: "input_boolean.al_manual_control_track_lights" # Adjust if needed
+          color: "rgba(103, 58, 183, 1)" # Living room color
+      
+      # Bedroom Card using Streamline Template
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Bedroom"
+          icon: "mdi:bed"
+          light_group: "light.master_bedroom_table_lamps"
+          presence: "binary_sensor.iphone_12_pro_focus" # Using focus as proxy? Check if dedicated presence exists
+          temperature: "sensor.master_bedroom_temperature"
+          media_player: "media_player.master_bedroom"
+          adaptive_control: "input_boolean.al_manual_control_master_adapt" # Adjust if needed
+          color: "rgba(3, 169, 244, 1)" # Bedroom color
+  
+  # Media Controls - Prominent in Evening using Streamline Template
+  - type: custom:streamline-card
+    template: media_control_hub
+    variables:
+      title: "Evening Media"
+      # Default players map likely needs adjustment based on your actual entities
+      # master_player: "media_player.living_room"
+      # players: ...

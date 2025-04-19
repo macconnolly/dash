@@ -1,0 +1,111 @@
+# /dashboards/views/morning.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Morning Routine"
+    subtitle: "Start your day right"
+    icon: mdi:weather-sunny
+  
+  # Quick Morning Actions
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Morning Lights"
+        icon: mdi:lightbulb-group
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.morning_lights
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 167, 38, 0.15); # Using morning color
+          }
+      
+      - name: "Good Night Off"
+        icon: mdi:weather-sunset-up
+        tap_action:
+          action: call-service
+          service: input_boolean.turn_off
+          service_data:
+            entity_id: input_boolean.good_night_active
+        styles: |
+          .bubble-icon-container {
+            background: rgba(63, 81, 181, 0.15); # Using night color
+          }
+      
+      - name: "Morning News"
+        icon: mdi:newspaper
+        tap_action:
+          action: call-service
+          service: script.play_morning_news # Assuming this script exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(3, 169, 244, 0.15); # Using info color
+          }
+      
+      - name: "Weather"
+        icon: mdi:weather-partly-cloudy
+        tap_action:
+          action: more-info
+          entity_id: weather.home_2
+        styles: |
+          .bubble-icon-container {
+            background: rgba(0, 150, 136, 0.15); # Using kitchen color (Teal)
+          }
+  
+  # Kitchen & Dining - Priority in Morning
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      # Streamline-powered Room Cards
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Kitchen"
+          icon: "mdi:countertop"
+          light_group: "light.kitchen_main_lights"
+          presence: "binary_sensor.kitchen_presence"
+          temperature: "sensor.kitchen_temperature"
+          media_player: "media_player.kitchen"
+          adaptive_control: "input_boolean.al_manual_control_kitchen_island" # Check if correct boolean
+          color: "rgba(0, 150, 136, 1)" # Teal
+      
+      - type: custom:streamline-card
+        template: smart_room_card
+        variables:
+          area: "Dining Room"
+          icon: "mdi:table-chair"
+          light_group: "light.dining_room_spot_lights"
+          presence: "binary_sensor.dining_room_presence"
+          temperature: "sensor.dining_room_temperature"
+          media_player: "media_player.dining_room"
+          adaptive_control: "input_boolean.al_manual_control_non_hue" # Check if correct boolean
+          color: "rgba(255, 87, 34, 1)" # Deep Orange
+  
+  # Morning-specific Information
+  - type: custom:bubble-card
+    card_type: custom
+    card:
+      type: vertical-stack
+      cards:
+        - type: weather-forecast
+          entity: weather.home_2
+          show_forecast: true
+        
+        - type: conditional
+          conditions:
+            - entity: calendar.personal # Assuming this calendar entity exists
+              state_not: "off"
+          card:
+            type: custom:bubble-header
+            title: "Today's Events"
+        
+        - type: conditional
+          conditions:
+            - entity: calendar.personal # Assuming this calendar entity exists
+              state_not: "off"
+          card:
+            type: calendar
+            entities:
+              - calendar.personal
+            title: ~ # Hide default title

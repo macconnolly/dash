@@ -1,0 +1,141 @@
+template:
+  name: unified_popup
+  description: "Context-aware popup template that works with both Bubble Card and Streamline Card"
+  variables:
+    title:
+      type: string
+      default: "Popup"
+      description: "Title of the popup"
+    subtitle:
+      type: string
+      default: ""
+      description: "Subtitle for the popup"
+    icon:
+      type: string
+      default: "mdi:information"
+      description: "Icon for the popup"
+    style:
+      type: string
+      default: "bubble"
+      description: "Style to use (bubble or streamline)"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context sensor for adaptive styling"
+    use_context_color:
+      type: boolean
+      default: true
+      description: "Whether to use context-based coloring"
+    close_action:
+      type: boolean
+      default: true
+      description: "Enable close button"
+  template: |
+    {% set style_variant = variables.style | default('bubble') %}
+    {% set context = states(variables.context_entity) %}
+    
+    {% if style_variant == 'bubble' %}
+    type: custom:bubble-card
+    card_type: custom
+    {% else %}
+    type: custom:streamline-card
+    {% endif %}
+    
+    card:
+      type: vertical-stack
+      cards:
+        # Header section with appropriate component
+        - type: {% if style_variant == 'bubble' %}custom:bubble-header{% else %}custom:streamline-header{% endif %}
+          title: "{{ variables.title }}"
+          subtitle: "{{ variables.subtitle }}"
+          icon: "{{ variables.icon }}"
+          {% if variables.use_context_color %}
+          color: >
+            {% if context == 'morning' %}
+              rgba(255, 152, 0, 1)
+            {% elif context == 'day' %}
+              rgba(255, 235, 59, 1)
+            {% elif context == 'evening' %}
+              rgba(255, 87, 34, 1)
+            {% elif context == 'night' or context == 'sleeping' %}
+              rgba(13, 71, 161, 1)
+            {% elif context == 'movie' %}
+              rgba(156, 39, 176, 1)
+            {% elif context == 'focus' %}
+              rgba(33, 150, 243, 1)
+            {% elif context == 'hosting' %}
+              rgba(233, 30, 99, 1)
+            {% elif context == 'away' %}
+              rgba(158, 158, 158, 1)
+            {% else %}
+              var(--primary-color)
+            {% endif %}
+          {% endif %}
+          {% if variables.close_action %}
+          tap_action:
+            action: close-popup
+          {% endif %}
+        
+        # Content placeholder - filled by the implementation
+        {{ content }}
+  
+  styles_javascript: |
+    `
+    // Get context and style info
+    const context = hass.states['${variables.context_entity}']?.state || 'day';
+    const styleVariant = '${variables.style}' || 'bubble';
+    const useContextColor = ${variables.use_context_color} !== false;
+    
+    // Helper function to get context-based color
+    function getContextColor(opacity = 1) {
+      switch(context) {
+        case 'morning': return opacity < 1 ? `rgba(255, 152, 0, ${opacity})` : 'rgba(255, 152, 0, 1)';
+        case 'day': return opacity < 1 ? `rgba(255, 235, 59, ${opacity})` : 'rgba(255, 235, 59, 1)';
+        case 'evening': return opacity < 1 ? `rgba(255, 87, 34, ${opacity})` : 'rgba(255, 87, 34, 1)';
+        case 'night': 
+        case 'sleeping': return opacity < 1 ? `rgba(13, 71, 161, ${opacity})` : 'rgba(13, 71, 161, 1)';
+        case 'movie': return opacity < 1 ? `rgba(156, 39, 176, ${opacity})` : 'rgba(156, 39, 176, 1)';
+        case 'focus': return opacity < 1 ? `rgba(33, 150, 243, ${opacity})` : 'rgba(33, 150, 243, 1)';
+        case 'hosting': return opacity < 1 ? `rgba(233, 30, 99, ${opacity})` : 'rgba(233, 30, 99, 1)';
+        case 'away': return opacity < 1 ? `rgba(158, 158, 158, ${opacity})` : 'rgba(158, 158, 158, 1)';
+        default: return opacity < 1 ? `rgba(var(--rgb-primary-color), ${opacity})` : 'var(--primary-color)';
+      }
+    }
+    
+    // Apply styling to popup
+    const card = root.querySelector('ha-card');
+    if (card) {
+      // Basic styling
+      card.style.borderRadius = styleVariant === 'bubble' ? '16px' : '8px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'all 0.3s ease';
+      
+      // Apply context color if enabled
+      if (useContextColor) {
+        card.style.background = getContextColor(0.05);
+        card.style.boxShadow = \`0 2px 8px \${getContextColor(0.2)}\`;
+      }
+      
+      // Add subtle animation
+      card.style.animation = 'fadeIn 0.2s ease-out';
+      
+      // Add animation keyframes if they don't exist
+      if (!document.getElementById('popup-animations')) {
+        const style = document.createElement('style');
+        style.id = 'popup-animations';
+        style.textContent = \`
+          @keyframes fadeIn {
+            from { opacity: 0.8; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        \`;
+        document.head.appendChild(style);
+      }
+      
+      // Make responsive on mobile
+      const mediaQuery = window.matchMedia('(max-width: 600px)');
+      if (mediaQuery.matches) {
+        card.style.maxWidth = '95vw';
+      }
+    }
+    `

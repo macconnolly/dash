@@ -1,0 +1,471 @@
+module: climate_hub
+name: Climate Hub
+version: "1.1"
+template: |
+  type: vertical-stack
+  cards:
+    - type: custom:bubble-header
+      title: Climate
+      subtitle: |
+        {{state_attr('climate.dining_room','current_temperature')}}°
+        • {{state_attr('climate.dining_room','hvac_action')|title}}
+      icon: mdi:thermostat
+    - type: custom:bubble-card
+      card_type: thermostat
+      entity: climate.dining_room
+    - module: enhanced_fan   # keep fan card but unchanged
+    - type: custom:bubble-header
+      title: Energy & Runtime
+    - type: custom:bubble-grid
+      columns: 2
+      cards:
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_energy_today
+          name: Energy Today
+          icon: mdi:flash
+          unit: kWh
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_cost_today
+          name: Cost Today
+          icon: mdi:currency-usd
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_heating_duration_today
+          name: Heat Runtime
+          icon: mdi:fire
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_cooling_duration_today
+          name: Cool Runtime
+          icon: mdi:snowflake
+    - type: custom:bubble-header
+      title: Temperature – 24 h / 7 d / 30 d
+    - type: custom:apexcharts-card
+      header: {show:false}
+      graph_span: 24h
+      series:
+        - {entity:sensor.dining_room_temperature, name:Dining, stroke_width:2}
+    - type: custom:apexcharts-card
+      header:{show:false}
+      graph_span: 7d
+      series:
+        - {entity:sensor.hvac_heating_runtime_daily,name:Heating}
+        - {entity:sensor.hvac_cooling_runtime_daily,name:Cooling}
+    - type: custom:apexcharts-card
+      header:{show:false}
+      graph_span: 30d
+      series:
+        - {entity:sensor.hvac_energy_daily,name:Energy kWh,type:column}
+
+climate_hub:
+  name: "Climate Hub 3.5"
+  version: "3.5.0"
+  description: "Advanced climate control with statistics, runtime data, and adaptive controls for a smart home"
+  editor:
+    - variable: climate_entity
+      name: Primary Climate Entity
+      selector:
+        entity:
+          domain: climate
+    - variable: temperature_sensors
+      name: Temperature Sensors (JSON array of room names and entities)
+      selector:
+        text:
+    - variable: hvac_duration_heating
+      name: HVAC Heating Duration Entity
+      selector:
+        entity:
+          domain: sensor
+    - variable: hvac_duration_cooling
+      name: HVAC Cooling Duration Entity
+      selector:
+        entity:
+          domain: sensor
+    - variable: color_scheme
+      name: Color Scheme
+      selector:
+        select:
+          options:
+            - label: "Standard (Blue/Red)"
+              value: "standard"
+            - label: "Monochrome"
+              value: "monochrome"
+            - label: "High Contrast"
+              value: "high-contrast"
+          
+  template: |
+    type: custom:bubble-card
+    card_type: climate
+    entity: "${variables.climate_entity}"
+    card_mod:
+      style: |
+        ha-card {
+          --bubble-card-heating-color: ${
+            variables.color_scheme === 'monochrome' ? 'rgba(var(--rgb-primary-color), 0.9)' :
+            variables.color_scheme === 'high-contrast' ? '#FF5722' : 
+            '#E53935'
+          };
+          --bubble-card-cooling-color: ${
+            variables.color_scheme === 'monochrome' ? 'rgba(var(--rgb-info-color), 0.9)' :
+            variables.color_scheme === 'high-contrast' ? '#03A9F4' : 
+            '#039BE5'
+          };
+          --bubble-card-off-color: ${
+            variables.color_scheme === 'high-contrast' ? '#9E9E9E' : 
+            'rgba(var(--rgb-primary-text-color), 0.5)'
+          };
+          --bubble-card-idle-color: ${
+            variables.color_scheme === 'monochrome' ? 'rgba(var(--rgb-primary-color), 0.5)' :
+            variables.color_scheme === 'high-contrast' ? '#4CAF50' : 
+            '#4DB6AC'
+          };
+        }
+    name: "Climate Hub"
+    icon: "mdi:thermometer"
+    show_current_as_primary: true
+    decimals: 1
+    tap_action:
+      action: more-info
+    styles: |
+      /* ===== BASE CARD STYLING ===== */
+      ha-card {
+        overflow: visible;
+        padding-bottom: 16px;
+      }
+      
+      /* ===== HVAC MODE STYLING ===== */
+      .bubble-card-climate-mode-selector {
+        margin-top: 16px;
+        border-radius: 12px;
+        background: rgba(var(--rgb-primary-text-color), 0.05);
+        overflow: hidden;
+      }
+      
+      .bubble-card-climate-mode-selector-item {
+        border-radius: 0;
+        transition: ${designSystem.animations.standard};
+        position: relative;
+        z-index: 1;
+      }
+      
+      .bubble-card-climate-mode-selector-item::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: ${
+          attributes.hvac_action === 'heating' ? 'var(--bubble-card-heating-color)' :
+          attributes.hvac_action === 'cooling' ? 'var(--bubble-card-cooling-color)' :
+          attributes.hvac_action === 'idle' ? 'var(--bubble-card-idle-color)' :
+          'var(--bubble-card-off-color)'
+        };
+        opacity: ${attributes.hvac_mode === 'off' ? '0' : '0.1'};
+        z-index: -1;
+        border-radius: inherit;
+        transition: opacity 0.3s ease, background 0.3s ease;
+      }
+      
+      .bubble-card-climate-mode-selector-item:hover::before {
+        opacity: 0.15;
+      }
+      
+      /* ===== TEMPERATURE ADJUSTMENT STYLING ===== */
+      .bubble-card-climate-controls {
+        margin-top: 20px;
+      }
+      
+      .bubble-card-climate-control-button {
+        position: relative;
+        transition: ${designSystem.animations.standard};
+        overflow: visible;
+      }
+      
+      .bubble-card-climate-control-button:hover {
+        transform: scale(1.1);
+      }
+      
+      /* ===== HVAC ACTION INDICATOR ===== */
+      .hvac-action-indicator {
+        position: absolute;
+        right: 8px;
+        bottom: 36px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(var(--rgb-card-background-color), 0.8);
+        padding: 4px 8px;
+        border-radius: 16px;
+        font-size: 12px;
+        backdrop-filter: blur(4px);
+        box-shadow: ${designSystem.shadows.subtle};
+        white-space: nowrap;
+      }
+      
+      .hvac-action-indicator ha-icon {
+        color: ${
+          attributes.hvac_action === 'heating' ? 'var(--bubble-card-heating-color)' :
+          attributes.hvac_action === 'cooling' ? 'var(--bubble-card-cooling-color)' :
+          attributes.hvac_action === 'idle' ? 'var(--bubble-card-idle-color)' :
+          'var(--bubble-card-off-color)'
+        };
+        animation: ${
+          attributes.hvac_action === 'heating' || attributes.hvac_action === 'cooling' 
+            ? 'pulse 1.5s infinite'
+            : 'none'
+        };
+      }
+      
+      @keyframes pulse {
+        0% { opacity: 0.7; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.2); }
+        100% { opacity: 0.7; transform: scale(1); }
+      }
+      
+      /* ===== ROOM TEMPERATURE GRID ===== */
+      .room-temperature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 8px;
+        margin-top: 16px;
+      }
+      
+      .room-temperature-card {
+        background: rgba(var(--rgb-primary-text-color), 0.05);
+        border-radius: 12px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transition: ${designSystem.animations.standard};
+      }
+      
+      .room-temperature-card:hover {
+        background: rgba(var(--rgb-primary-text-color), 0.08);
+        transform: translateY(-2px);
+      }
+      
+      .room-name {
+        font-size: 12px;
+        margin-bottom: 4px;
+        opacity: 0.7;
+      }
+      
+      .room-temperature {
+        font-size: 16px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      
+      .room-temperature-trend {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+      
+      /* ===== HVAC RUNTIME STATS ===== */
+      .hvac-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      
+      .hvac-stat-card {
+        background: rgba(var(--rgb-primary-text-color), 0.05);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        transition: ${designSystem.animations.standard};
+      }
+      
+      .hvac-stat-card:nth-child(1) {
+        background: linear-gradient(135deg, rgba(var(--rgb-card-background-color), 1), rgba(${
+          variables.color_scheme === 'monochrome' ? 'var(--rgb-primary-color)' :
+          variables.color_scheme === 'high-contrast' ? '255, 87, 34' : 
+          '229, 57, 53'
+        }, 0.1));
+      }
+      
+      .hvac-stat-card:nth-child(2) {
+        background: linear-gradient(135deg, rgba(var(--rgb-card-background-color), 1), rgba(${
+          variables.color_scheme === 'monochrome' ? 'var(--rgb-info-color)' :
+          variables.color_scheme === 'high-contrast' ? '3, 169, 244' : 
+          '3, 155, 229'
+        }, 0.1));
+      }
+      
+      .hvac-stat-card:hover {
+        transform: translateY(-2px);
+      }
+      
+      .hvac-stat-title {
+        font-size: 12px;
+        margin-bottom: 6px;
+        opacity: 0.7;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .hvac-stat-title ha-icon {
+        color: ${
+          variables.color_scheme === 'monochrome' ? 'var(--primary-color)' :
+          'inherit'
+        };
+      }
+      
+      .hvac-stat-value {
+        font-size: 18px;
+        font-weight: bold;
+      }
+      
+      /* ===== PRESET MODES STYLING ===== */
+      .bubble-card-climate-preset-wrapper {
+        margin-top: 16px;
+      }
+      
+      .bubble-card-climate-preset-selector {
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      
+      .bubble-card-climate-preset-selector-item {
+        position: relative;
+        margin: 0;
+        transition: ${designSystem.animations.standard};
+      }
+      
+      .bubble-card-climate-preset-selector-item::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 50%;
+        transform: translateX(-50%) scaleX(0);
+        height: 2px;
+        width: 80%;
+        background: var(--primary-color);
+        transition: transform 0.3s ease;
+        border-radius: ${designSystem.border_radius.round};
+      }
+      
+      .bubble-card-climate-preset-selector-item.bubble-card-climate-preset-selected::after {
+        transform: translateX(-50%) scaleX(1);
+      }
+    extra_styles: |
+      <!-- HVAC action indicator -->
+      <div class="hvac-action-indicator">
+        <ha-icon icon="${
+          attributes.hvac_action === 'heating' ? 'mdi:fire' :
+          attributes.hvac_action === 'cooling' ? 'mdi:snowflake' :
+          attributes.hvac_action === 'idle' ? 'mdi:thermostat' :
+          'mdi:thermometer-off'
+        }"></ha-icon>
+        ${
+          attributes.hvac_action === 'heating' ? 'Heating' :
+          attributes.hvac_action === 'cooling' ? 'Cooling' :
+          attributes.hvac_action === 'idle' ? 'Idle' :
+          'Off'
+        }
+      </div>
+      
+      <!-- Room temperature grid -->
+      <div class="room-temperature-grid">
+        ${(() => {
+          try {
+            const rooms = JSON.parse(variables.temperature_sensors || '[]');
+            return rooms.map(room => `
+              <div class="room-temperature-card">
+                <div class="room-name">${room.name}</div>
+                <div class="room-temperature">
+                  ${hass.states[room.entity]?.state}°
+                  <ha-icon icon="${
+                    parseFloat(hass.states[room.entity]?.state) > parseFloat(attributes.temperature) + 1
+                      ? 'mdi:thermometer-high'
+                      : parseFloat(hass.states[room.entity]?.state) < parseFloat(attributes.temperature) - 1
+                      ? 'mdi:thermometer-low'
+                      : 'mdi:thermometer'
+                  }" style="width: 16px; height: 16px; color: ${
+                    parseFloat(hass.states[room.entity]?.state) > parseFloat(attributes.temperature) + 1
+                      ? 'var(--bubble-card-heating-color)'
+                      : parseFloat(hass.states[room.entity]?.state) < parseFloat(attributes.temperature) - 1
+                      ? 'var(--bubble-card-cooling-color)'
+                      : 'var(--bubble-card-idle-color)'
+                  };"></ha-icon>
+                </div>
+                <div class="room-temperature-trend">
+                  ${
+                    parseFloat(hass.states[room.entity]?.state) > parseFloat(attributes.temperature) + 1.5
+                      ? 'Too Warm'
+                      : parseFloat(hass.states[room.entity]?.state) < parseFloat(attributes.temperature) - 1.5
+                      ? 'Too Cool'
+                      : 'Ideal'
+                  }
+                </div>
+              </div>
+            `).join('');
+          } catch (e) {
+            return '<div style="color: var(--error-color); padding: 8px;">Invalid temperature sensors format</div>';
+          }
+        })()}
+      </div>
+      
+      <!-- HVAC Runtime Stats -->
+      <div class="hvac-stats">
+        <div class="hvac-stat-card">
+          <div class="hvac-stat-title">
+            <ha-icon icon="mdi:fire" style="color: var(--bubble-card-heating-color);"></ha-icon>
+            Heating Today
+          </div>
+          <div class="hvac-stat-value">
+            ${hass.states[variables.hvac_duration_heating]?.state || '0'} min
+          </div>
+        </div>
+        <div class="hvac-stat-card">
+          <div class="hvac-stat-title">
+            <ha-icon icon="mdi:snowflake" style="color: var(--bubble-card-cooling-color);"></ha-icon>
+            Cooling Today
+          </div>
+          <div class="hvac-stat-value">
+            ${hass.states[variables.hvac_duration_cooling]?.state || '0'} min
+          </div>
+        </div>
+      </div>
+    target_temperature_step: 0.5
+    control:
+      hvac:
+        off:
+          icon: mdi:power-off
+          name: Off
+        heat:
+          icon: mdi:fire
+          name: Heat
+        cool:
+          icon: mdi:snowflake
+          name: Cool
+        heat_cool:
+          icon: mdi:thermometer-auto
+          name: Auto
+    sub_button:
+      - icon: mdi:fan
+        name: "Fan"
+        tap_action:
+          action: call-service
+          service: climate.set_fan_mode
+          service_data:
+            entity_id: "${variables.climate_entity}"
+            fan_mode: >
+              {% set current = state_attr('${variables.climate_entity}', 'fan_mode') %}
+              {% if current == 'auto' %}
+                on
+              {% else %}
+                auto
+              {% endif %}
+      
+      - icon: mdi:leaf
+        name: "Eco"
+        tap_action:
+          action: call-service
+          service: script.set_eco_mode
+          service_data:
+            entity_id: "${variables.climate_entity}"
+    slider:
+      show: false

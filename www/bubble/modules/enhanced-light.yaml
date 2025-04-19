@@ -1,0 +1,771 @@
+# /www/bubble/modules/enhanced-light.yaml
+module: enhanced_light
+name: "Enhanced Smart Light Control"
+version: "3.0"
+description: "Advanced light control with adaptive status, brightness indicators, color rings, and quick actions"
+editor:
+  - variable: entity
+    name: Light Entity
+    selector:
+      entity:
+        domain: light
+  - variable: name
+    name: Display Name
+    selector:
+      text:
+  - variable: adaptive_entity
+    name: Adaptive Lighting Control Entity
+    selector:
+      entity:
+        domain: input_boolean
+  - variable: area_color
+    name: Area Color (Optional)
+    selector:
+      color_rgb:
+    default: "rgba(var(--rgb-primary-color), 1)"
+  - variable: show_color_temp
+    name: Show Color Temperature Controls
+    selector:
+      boolean:
+    default: true
+  - variable: show_brightness
+    name: Show Brightness Indicator
+    selector:
+      boolean:
+    default: true
+  - variable: color_ring
+    name: Show HSV Color Ring
+    selector:
+      boolean:
+    default: true
+  - variable: slider_min
+    name: Slider Minimum
+    selector:
+      number:
+    default: 1
+  - variable: slider_max
+    name: Slider Maximum
+    selector:
+      number:
+    default: 255
+  - variable: slider_step
+    name: Slider Step
+    selector:
+      number:
+    default: 1
+  - variable: slider_debounce
+    name: Slider Debounce (ms)
+    selector:
+      number:
+    default: 200
+  - variable: dbl_tap_default
+    name: Double-Tap Default Value
+    selector:
+      number:
+    default: 128
+  - variable: slider_hold_to_adjust
+    name: Hold to Adjust Slider
+    selector:
+      boolean:
+    default: true
+template: |
+  type: custom:bubble-card
+  card_type: light
+  entity: "${variables.entity}"
+  name: "${variables.name || stateObj.attributes.friendly_name}"
+  double_tap_action:
+    action: call-service
+    service: script.cycle_brightness
+    service_data:
+      entity_id: "${variables.entity}"
+  hold_action:
+    action: more-info
+  sub_button:
+    # Adaptive/Manual Override Button
+    - entity: "${variables.adaptive_entity}"
+      icon: >
+        {{ state === 'on' ? 'mdi:lightbulb-auto-off' : 'mdi:lightbulb-auto' }}
+      color: >
+        {{ state === 'on' ? '#FF9800' : '#8BC34A' }}
+      state_display: >
+        {{ state === 'on' ? 'Manual' : 'Auto' }}
+      tap_action:
+        action: call-service
+        service: >
+          {{ state === 'on' 
+            ? 'script.reset_al_override' 
+            : 'adaptive_lighting.set_manual_control' }}
+        service_data: >
+          {{ state === 'on' 
+            ? {'entity_id': variables.adaptive_entity} 
+            : {'entity_id': variables.entity, 'manual_control': true} }}
+    
+    # Brightness Level Button (25%, 50%, 75%, 100%)
+    - entity: "${variables.entity}"
+      icon: >
+        {% if is_state(entity, 'on') %}
+          {% set bri = state_attr(entity, 'brightness')|int|default(0) %}
+          {% if bri < 65 %}mdi:brightness-2
+          {% elif bri < 128 %}mdi:brightness-4
+          {% elif bri < 192 %}mdi:brightness-6
+          {% else %}mdi:brightness-7{% endif %}
+        {% else %}
+          mdi:brightness-5
+        {% endif %}
+      state_display: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'brightness') %}
+          {{ (state_attr(entity, 'brightness') / 255 * 100) | round }}%
+        {% else %}
+          --
+        {% endif %}
+      tap_action:
+        action: call-service
+        service: script.cycle_brightness
+        service_data:
+          entity_id: "${variables.entity}"
+    
+    # Color Temperature Button
+    - entity: "${variables.entity}"
+      show: ${JSON.stringify(variables.show_color_temp !== false && 
+                (attributes.supported_color_modes && 
+                 (attributes.supported_color_modes.includes('color_temp') || 
+                  attributes.supported_color_modes.includes('xy') || 
+                  attributes.supported_color_modes.includes('rgb'))))}
+      icon: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'color_temp') %}
+          {% set temp = state_attr(entity, 'color_temp')|int %}
+          {% if temp < 300 %}mdi:thermometer-plus
+          {% elif temp < 400 %}mdi:thermometer
+          {% else %}mdi:thermometer-minus{% endif %}
+        {% else %}
+          mdi:palette
+        {% endif %}
+      state_display: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'color_temp_kelvin') %}
+          {{ state_attr(entity, 'color_temp_kelvin')|int }}K
+        {% else %}
+          --
+        {% endif %}
+      styles: |
+        ${
+          (() => {
+            if (state !== 'on' || !attributes.color_temp_kelvin) return '';
+            // Calculate color based on temperature
+            const kelvin = attributes.color_temp_kelvin;
+            const temp = kelvin > 4000 
+              ? 'rgba(200, 230, 255, 0.2)' // Cool white
+              : kelvin > 3000 
+                ? 'rgba(255, 244, 229, 0.2)' // Neutral white
+                : 'rgba(255, 223, 189, 0.2)'; // Warm white
+            return `.bubble-sub-button-icon-container-3 { background: ${temp}; }`;
+          })()
+        }
+      tap_action:
+        action: more-info
+      
+    # CT-Auto Button (New!)
+    - name: CT-Auto
+      icon: mdi:white-balance-sunny
+      show_background: true
+      show: ${JSON.stringify(variables.show_color_temp !== false && 
+                (attributes.supported_color_modes && 
+                 attributes.supported_color_modes.includes('color_temp')))}
+      tap_action:
+        action: call-service
+        service: light.turn_on
+        service_data:
+          entity_id: "${variables.entity}"
+          kelvin: "${(() => { const h = new Date().getHours(); return h < 12 ? 4000 : h < 18 ? 3000 : 2200; })()}"
+  
+  slider:
+      min: ${variables.slider_min || 1}
+      max: ${variables.slider_max || 255}
+      step: ${variables.slider_step || 1}
+      debounce: ${variables.slider_debounce || 200}
+      hold_to_adjust: ${variables.slider_hold_to_adjust || true}
+      dbl_tap_default: ${variables.dbl_tap_default || 128}
+  
+  styles_javascript: |
+    `
+    // Base animations
+    ${designSystem.animations.keyframes.spin}
+    ${designSystem.animations.keyframes.pulse}
+    ${designSystem.animations.keyframes.fadeIn}
+    ${designSystem.animations.keyframes.shimmer}
+    
+    // Card background based on state
+    .bubble-button-background {
+      background: ${designSystem.functions.stateGradient(
+        state, 
+        variables.area_color || 'var(--primary-color)'
+      )};
+      opacity: 1 !important;
+      transition: background 0.4s ease;
+    }
+    
+    // Apply light turn-on animation
+    .bubble-icon-container {
+      position: relative;
+      animation: ${state === 'on' ? 'fadeIn 0.3s ease-out' : 'none'};
+      transition: transform 0.2s ease-out;
+    }
+    
+    // Apply press feedback
+    ha-card:active {
+      transform: scale(0.97);
+    }
+    
+    // Brightness indicator bar
+    ${variables.show_brightness !== false ? `
+    .bubble-name::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: ${
+        state === 'on' && attributes.brightness
+          ? (attributes.brightness / 255 * 100) + '%'
+          : '0%'
+      };
+      height: 3px;
+      background: linear-gradient(
+        to right, 
+        ${variables.area_color || 'var(--primary-color)'}88, 
+        ${variables.area_color || 'var(--primary-color)'}FF
+      );
+      border-radius: 2px;
+      transition: width 0.4s ease-out;
+      opacity: ${state === 'on' ? 1 : 0};
+    }` : ''}
+    
+    // Color temperature visualization for color-capable lights
+    ${attributes.supported_color_modes && 
+      (attributes.supported_color_modes.includes('color_temp') || 
+       attributes.supported_color_modes.includes('xy') || 
+       attributes.supported_color_modes.includes('rgb')) ? `
+    .bubble-icon {
+      color: ${
+        state === 'on' && attributes.color_temp_kelvin
+          ? attributes.color_temp_kelvin > 4000
+            ? 'rgba(180, 220, 255, 1)' // Cool white
+            : attributes.color_temp_kelvin > 3000 
+              ? 'rgba(255, 255, 240, 1)' // Neutral white
+              : 'rgba(255, 210, 170, 1)' // Warm white
+          : 'var(--primary-text-color)'
+      };
+      transition: color 0.4s ease;
+    }` : ''}
+    
+    // Adaptive/Manual mode badges
+    ${variables.adaptive_entity ? `
+    .bubble-icon-container::before, .bubble-icon-container::after {
+      content: ''; 
+      position: absolute; 
+      width: 8px; 
+      height: 8px; 
+      border-radius: 50%;
+      border: 1.5px solid var(--card-background-color);
+      box-shadow: 0 0 3px rgba(0,0,0,0.25);
+      transition: transform 0.3s ease, opacity 0.3s;
+    }
+    .bubble-icon-container::before {
+      top: -2px; 
+      right: -2px; 
+      background: #8BC34A; /* Adaptive color */
+      opacity: ${hass.states[variables.adaptive_entity]?.state === 'off' ? 1 : 0}; 
+      transform: scale(${hass.states[variables.adaptive_entity]?.state === 'off' ? 1 : 0});
+    }
+    .bubble-icon-container::after {
+      bottom: -2px; 
+      right: -2px; 
+      background: #FF9800; /* Manual color */
+      opacity: ${hass.states[variables.adaptive_entity]?.state === 'on' ? 1 : 0}; 
+      transform: scale(${hass.states[variables.adaptive_entity]?.state === 'on' ? 1 : 0});
+    }
+    ` : ''}
+    
+    // HSV Color Ring
+    ${variables.color_ring !== false && 
+      attributes.supported_color_modes && 
+      (attributes.supported_color_modes.includes('hs') || 
+       attributes.supported_color_modes.includes('rgb') || 
+       attributes.supported_color_modes.includes('xy')) ? `
+    .bubble-icon-container {
+      background: ${attributes.hs_color ? 
+        `conic-gradient(
+          hsl(${attributes.hs_color[0]}deg 100% 50%), 
+          hsl(${attributes.hs_color[0] + 360}deg 100% 50%)
+        )` : 'none'};
+      padding: ${state === 'on' && attributes.hs_color ? '3px' : '0px'};
+      border-radius: 50%;
+      transition: padding 0.3s ease;
+    }
+    .bubble-icon {
+      background: var(--card-background-color);
+      border-radius: 50%;
+      padding: ${state === 'on' && attributes.hs_color ? '6px' : '0px'};
+      transition: padding 0.3s ease;
+    }
+    ` : ''}
+    
+    // Sub-button styling
+    .bubble-sub-button-background {
+      transition: all 0.3s ease;
+    }
+    
+    .bubble-sub-button:active .bubble-sub-button-background {
+      transform: scale(0.95);
+    }
+enhanced_light:
+  name: "Enhanced Light Control"
+  version: "3.5.0"
+  description: "Advanced light control with adaptive lighting status indicators and scene presets"
+  editor:
+    - variable: entity
+      name: Light Entity
+      selector:
+        entity:
+          domain: light
+    - variable: al_manual_control
+      name: AL Manual Control Boolean (optional)
+      selector:
+        entity:
+          domain: input_boolean
+    - variable: reset_al_script
+      name: Reset AL Script (optional)
+      selector:
+        entity:
+          domain: script
+    - variable: show_color_temp
+      name: Show Color Temperature Controls
+      selector:
+        boolean:
+    - variable: show_rgb
+      name: Show RGB Controls
+      selector:
+        boolean:
+    - variable: accent_color
+      name: Accent Color
+      selector:
+        color_rgb:
+          
+  template: |
+    type: custom:bubble-card
+    card_type: light
+    entity: "${variables.entity}"
+    icon: "${hass.states[variables.entity]?.attributes?.icon || 'mdi:lightbulb'}"
+    name: "${hass.states[variables.entity]?.attributes?.friendly_name || variables.entity.split('.')[1]}"
+    state_display: |
+      ${state === 'on' ? `${attributes.brightness_pct || '100'}%` : ''}
+    brightness_step: 10
+    show_name: true
+    show_state: true
+    tap_action:
+      action: toggle
+    double_tap_action:
+      action: call-service
+      service: light.turn_on
+      service_data:
+        entity_id: "${variables.entity}"
+        brightness_pct: |
+          {% set current = state_attr('${variables.entity}', 'brightness')|int(0) / 255 * 100 %}
+          {% if current < 25 %}
+            25
+          {% elif current < 50 %}
+            50
+          {% elif current < 75 %}
+            75
+          {% elif current < 100 %}
+            100
+          {% else %}
+            25
+          {% endif %}
+    hold_action:
+      action: more-info
+    slider:
+      direction: horizontal
+      thumbs:
+        show: true
+        size: 20px
+        border_radius: 10px
+        color: ${variables.accent_color || 'var(--primary-color)'}
+        opacity: 0.8
+        shadow: ${designSystem.shadows.subtle}
+      background:
+        opacity: 0.3
+      max: 100
+      min: 1
+      height: 40px
+      border_radius: 12px
+    styles: |
+      /* ===== BASE CARD STYLING ===== */
+      ha-card {
+        --bubble-card-primary-color: ${variables.accent_color || 'var(--primary-color)'};
+        --bubble-card-rgb-primary-color: ${
+          variables.accent_color
+            ? `${parseInt(variables.accent_color.substring(1, 3), 16)}, 
+               ${parseInt(variables.accent_color.substring(3, 5), 16)}, 
+               ${parseInt(variables.accent_color.substring(5, 7), 16)}`
+            : 'var(--rgb-primary-color)'
+        };
+        --bubble-card-adaptive-color: #4DB6AC;
+        --bubble-card-manual-color: #F9A825;
+        
+        display: flex;
+        flex-direction: column;
+        transition: ${designSystem.animations.standard};
+      }
+
+      ha-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        opacity: ${state === 'on' ? '0.07' : '0'};
+        background: rgb(var(--bubble-card-rgb-primary-color));
+        transition: opacity 0.3s ease, background 0.3s ease;
+        border-radius: var(--ha-card-border-radius);
+        z-index: 0;
+      }
+      
+      /* ===== CARD HOVER EFFECTS ===== */
+      ha-card:hover {
+        transform: translateY(-2px);
+      }
+      
+      ha-card:hover::before {
+        opacity: ${state === 'on' ? '0.12' : '0.03'};
+      }
+      
+      /* ===== LIGHT ICON STYLING ===== */
+      .bubble-card-icon {
+        position: relative;
+        overflow: visible;
+      }
+      
+      .bubble-card-icon::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        opacity: ${state === 'on' ? '0.2' : '0'};
+        background: radial-gradient(
+          circle, 
+          rgb(var(--bubble-card-rgb-primary-color)) 0%, 
+          rgba(var(--bubble-card-rgb-primary-color), 0.3) 70%, 
+          transparent 100%
+        );
+        transition: opacity 0.3s ease;
+        transform: scale(1.5);
+        z-index: -1;
+      }
+      
+      /* ===== ADAPTIVE LIGHTING INDICATOR ===== */
+      .al-indicator {
+        position: absolute;
+        bottom: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        height: 3px;
+        width: 24px;
+        border-radius: 3px;
+        background: ${
+          variables.al_manual_control && hass.states[variables.al_manual_control]?.state === 'on'
+            ? 'var(--bubble-card-manual-color)'
+            : 'var(--bubble-card-adaptive-color)'
+        };
+        opacity: ${state === 'on' ? '1' : '0.4'};
+        transition: background 0.3s ease, opacity 0.3s ease;
+      }
+      
+      /* ===== BRIGHTNESS INDICATOR STYLING ===== */
+      .bubble-card-progress {
+        height: 40px;
+      }
+      
+      .bubble-card-progress-container {
+        overflow: visible;
+      }
+      
+      /* ===== COLOR TEMPERATURE INDICATOR ===== */
+      .color-temp-indicator {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color);
+        background: ${
+          attributes.color_temp_kelvin
+            ? attributes.color_temp_kelvin < 2200
+              ? '#FF9800' /* Warm */
+              : attributes.color_temp_kelvin < 3500
+                ? '#FFB74D' /* Medium Warm */
+                : attributes.color_temp_kelvin < 4500
+                  ? '#FFF176' /* Neutral */
+                  : attributes.color_temp_kelvin < 5500
+                    ? '#E3F2FD' /* Cool White */
+                    : '#B3E5FC' /* Cool */
+            : 'transparent'
+        };
+        opacity: ${state === 'on' && attributes.color_temp_kelvin ? '1' : '0'};
+        transition: background 0.3s ease, opacity 0.3s ease;
+      }
+      
+      /* ===== RGB COLOR INDICATOR ===== */
+      .rgb-indicator {
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color);
+        background: ${
+          attributes.rgb_color 
+            ? `rgb(${attributes.rgb_color[0]}, ${attributes.rgb_color[1]}, ${attributes.rgb_color[2]})`
+            : 'transparent'
+        };
+        opacity: ${state === 'on' && attributes.rgb_color ? '1' : '0'};
+        transition: background 0.3s ease, opacity 0.3s ease;
+      }
+      
+      /* ===== RESET AL BUTTON ===== */
+      .reset-al-button {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--card-background-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: ${designSystem.shadows.subtle};
+        opacity: ${
+          variables.al_manual_control && 
+          variables.reset_al_script &&
+          hass.states[variables.al_manual_control]?.state === 'on'
+            ? '1'
+            : '0'
+        };
+        pointer-events: ${
+          variables.al_manual_control && 
+          variables.reset_al_script &&
+          hass.states[variables.al_manual_control]?.state === 'on'
+            ? 'auto'
+            : 'none'
+        };
+        transition: opacity 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      
+      .reset-al-button:hover {
+        transform: scale(1.1);
+        box-shadow: ${designSystem.shadows.medium};
+      }
+      
+      /* ===== COLOR MODES MENU ===== */
+      .color-modes-menu {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        opacity: ${state === 'on' ? '1' : '0.5'};
+        transition: opacity 0.3s ease;
+        pointer-events: ${state === 'on' ? 'auto' : 'none'};
+      }
+      
+      .color-mode-button {
+        flex: 1;
+        background: rgba(var(--rgb-primary-text-color), 0.05);
+        border-radius: 8px;
+        padding: 6px;
+        text-align: center;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      
+      .color-mode-button:hover {
+        background: rgba(var(--rgb-primary-text-color), 0.1);
+        transform: translateY(-2px);
+      }
+      
+      .color-mode-button.active {
+        background: rgba(var(--bubble-card-rgb-primary-color), 0.1);
+        font-weight: 500;
+      }
+      
+      .color-mode-button ha-icon {
+        width: 16px;
+        height: 16px;
+      }
+      
+      /* ===== ANIMATION KEYFRAMES ===== */
+      @keyframes pulseGlow {
+        0% { transform: scale(1.5); opacity: 0.2; }
+        50% { transform: scale(1.7); opacity: 0.3; }
+        100% { transform: scale(1.5); opacity: 0.2; }
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      .bubble-card-icon::after {
+        animation: ${state === 'on' ? 'pulseGlow 2s ease-in-out infinite' : 'none'};
+      }
+      
+      /* ===== RESPONSIVE ADJUSTMENTS ===== */
+      @media (max-width: 600px) {
+        .color-modes-menu {
+          flex-wrap: wrap;
+        }
+        
+        .color-mode-button {
+          flex-basis: calc(50% - 4px);
+        }
+      }
+    extra_styles: |
+      <!-- Adaptive Lighting indicator -->
+      <div class="al-indicator"></div>
+      
+      <!-- Color temperature indicator -->
+      <div class="color-temp-indicator"></div>
+      
+      <!-- RGB color indicator -->
+      <div class="rgb-indicator"></div>
+      
+      <!-- Reset AL button (visible only when AL is in manual control) -->
+      ${
+        variables.al_manual_control && variables.reset_al_script
+          ? `<div class="reset-al-button" @click="${(e) => {
+              e.stopPropagation();
+              const event = new Event('reset-al');
+              event.detail = {
+                script: variables.reset_al_script
+              };
+              document.dispatchEvent(event);
+            }}">
+              <ha-icon icon="mdi:restart" style="width: 18px; height: 18px; color: var(--primary-text-color);"></ha-icon>
+            </div>`
+          : ''
+      }
+      
+      <!-- Color modes menu (shown only if color temp or RGB is enabled) -->
+      ${
+        (variables.show_color_temp || variables.show_rgb) && state === 'on'
+          ? `<div class="color-modes-menu">
+              ${
+                variables.show_color_temp
+                  ? `<div class="color-mode-button ${!attributes.rgb_color ? 'active' : ''}" @click="${(e) => {
+                      e.stopPropagation();
+                      const event = new Event('show-color-temp');
+                      event.detail = {
+                        entity: variables.entity
+                      };
+                      document.dispatchEvent(event);
+                    }}">
+                      <ha-icon icon="mdi:thermometer"></ha-icon>
+                      Temp
+                    </div>
+                    
+                    <div class="color-mode-button" @click="${(e) => {
+                      e.stopPropagation();
+                      const event = new Event('set-light-color-temp');
+                      event.detail = {
+                        entity: variables.entity,
+                        temperature: 2700
+                      };
+                      document.dispatchEvent(event);
+                    }}">
+                      <ha-icon icon="mdi:white-balance-sunny" style="color: #FFB74D;"></ha-icon>
+                      Warm
+                    </div>
+                    
+                    <div class="color-mode-button" @click="${(e) => {
+                      e.stopPropagation();
+                      const event = new Event('set-light-color-temp');
+                      event.detail = {
+                        entity: variables.entity,
+                        temperature: 4000
+                      };
+                      document.dispatchEvent(event);
+                    }}">
+                      <ha-icon icon="mdi:white-balance-sunny" style="color: #FFEE58;"></ha-icon>
+                      Neutral
+                    </div>
+                    
+                    <div class="color-mode-button" @click="${(e) => {
+                      e.stopPropagation();
+                      const event = new Event('set-light-color-temp');
+                      event.detail = {
+                        entity: variables.entity,
+                        temperature: 6500
+                      };
+                      document.dispatchEvent(event);
+                    }}">
+                      <ha-icon icon="mdi:white-balance-sunny" style="color: #90CAF9;"></ha-icon>
+                      Cool
+                    </div>`
+                  : ''
+              }
+              
+              ${
+                variables.show_rgb
+                  ? `<div class="color-mode-button ${attributes.rgb_color ? 'active' : ''}" @click="${(e) => {
+                      e.stopPropagation();
+                      const event = new Event('show-color-picker');
+                      event.detail = {
+                        entity: variables.entity
+                      };
+                      document.dispatchEvent(event);
+                    }}">
+                      <ha-icon icon="mdi:palette"></ha-icon>
+                      Color
+                    </div>`
+                  : ''
+              }
+            </div>`
+          : ''
+      }
+    sub_elements:
+      - entity: "${variables.entity}"
+        attribute: brightness_pct
+        unit: "%"
+        tap_action:
+          action: more-info
+      
+      - entity: "${variables.al_manual_control || ''}"
+        show: ${!!variables.al_manual_control}
+        icon: "${
+          variables.al_manual_control && hass.states[variables.al_manual_control]?.state === 'on'
+            ? 'mdi:account-cog'
+            : 'mdi:auto-fix'
+        }"
+        color: "${
+          variables.al_manual_control && hass.states[variables.al_manual_control]?.state === 'on'
+            ? 'var(--bubble-card-manual-color)'
+            : 'var(--bubble-card-adaptive-color)'
+        }"
+        state_display: "${
+          variables.al_manual_control && hass.states[variables.al_manual_control]?.state === 'on'
+            ? 'Manual'
+            : 'Adaptive'
+        }"
+        tap_action:
+          action: "${
+            variables.reset_al_script && variables.al_manual_control && 
+            hass.states[variables.al_manual_control]?.state === 'on'
+              ? 'call-service'
+              : 'none'
+          }"
+          service: "script.turn_on"
+          service_data:
+            entity_id: "${variables.reset_al_script || ''}"

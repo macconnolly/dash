@@ -1,0 +1,282 @@
+template:
+  name: context_room_card
+  description: "Context-aware room card adapter that works with both Bubble Card and Streamline Card"
+  variables:
+    style:
+      type: string
+      default: "bubble"
+      description: "Style to use (bubble or streamline)"
+    room_name:
+      type: string
+      default: "Living Room"
+      description: "Room name"
+    area_id:
+      type: string
+      default: "living_room"
+      description: "Area identifier (used for entity IDs)"
+    presence_entity:
+      type: string
+      default: "binary_sensor.living_room_presence"
+      description: "Room presence sensor"
+    temperature_entity:
+      type: string
+      default: "sensor.living_room_temperature"
+      description: "Room temperature sensor"
+    light_entity:
+      type: string
+      default: "light.living_room"
+      description: "Main room light"
+    media_entity:
+      type: string
+      default: "media_player.living_room"
+      description: "Room media player"
+    climate_entity:
+      type: string
+      default: "climate.living_room"
+      description: "Room climate entity"
+    icon:
+      type: string
+      default: "mdi:sofa"
+      description: "Icon for the room"
+    adaptive_lighting_switch:
+      type: string
+      default: ""
+      description: "Adaptive lighting switch for this room (optional)"
+    context_relevance:
+      type: number
+      default: 1
+      description: "Room relevance in current context (1-10, with 10 being most relevant)"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Context entity to use for styling"
+    show_climate:
+      type: boolean
+      default: true
+      description: "Whether to show climate controls"
+    use_popup:
+      type: boolean
+      default: true
+      description: "Whether to show a popup on tap"
+  template: |
+    {% set style_variant = variables.style | default('bubble') %}
+    {% set context = states(variables.context_entity) %}
+    
+    {% if style_variant == 'bubble' %}
+    type: custom:bubble-card
+    card_type: custom
+    {% else %}
+    type: custom:streamline-card
+    template: room_card
+    {% endif %}
+    
+    {% if style_variant == 'bubble' %}
+    variables:
+      room_name: "{{ variables.room_name }}"
+      area_id: "{{ variables.area_id }}"
+      presence_entity: "{{ variables.presence_entity }}"
+      temperature_entity: "{{ variables.temperature_entity }}"
+      light_entity: "{{ variables.light_entity }}"
+      media_entity: "{{ variables.media_entity }}"
+      climate_entity: "{{ variables.climate_entity }}"
+      icon: "{{ variables.icon }}"
+      adaptive_lighting_switch: "{{ variables.adaptive_lighting_switch }}"
+      context_relevance: {{ variables.context_relevance }}
+      show_climate: {{ variables.show_climate }}
+    {% endif %}
+    
+    card:
+      type: custom:mushroom-template-card
+      primary: "{{ variables.room_name }}"
+      secondary: >
+        {% set presence = is_state(variables.presence_entity, 'on') %}
+        {% set temp = states(variables.temperature_entity) %}
+        {% set adaptive = is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+        {% set media_playing = is_state(variables.media_entity, 'playing') %}
+        {% set media_title = state_attr(variables.media_entity, 'media_title') %}
+        
+        {% if presence %}
+          {% if context == 'sleeping' and variables.area_id != 'bedroom' %}
+            Quiet
+          {% else %}
+            Active
+          {% endif %}
+        {% else %}
+          Vacant
+        {% endif %} • 
+        {{ temp }}° • 
+        {% if is_state(variables.light_entity, 'on') %}
+          {% if adaptive %}Adaptive{% else %}Manual{% endif %} Light
+        {% else %}
+          Lights Off
+        {% endif %}
+        {% if media_playing %} • {{ media_title | truncate(20) }}{% endif %}
+      icon: >
+        {% if context == 'away' %}
+          mdi:home-export-outline
+        {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+          mdi:sleep
+        {% elif context == 'movie' and variables.area_id == 'living_room' %}
+          mdi:movie-open
+        {% elif is_state(variables.presence_entity, 'on') %}
+          {{ variables.icon }}
+        {% else %}
+          mdi:door-closed
+        {% endif %}
+      entity: "{{ variables.presence_entity }}"
+      icon_color: >
+        {% if context == 'morning' %}
+          amber
+        {% elif context == 'day' %}
+          yellow
+        {% elif context == 'evening' %}
+          deep-orange
+        {% elif context == 'night' or context == 'sleeping' %}
+          blue
+        {% elif context == 'movie' %}
+          purple
+        {% elif context == 'focus' %}
+          cyan
+        {% elif context == 'hosting' %}
+          green
+        {% elif is_state(variables.presence_entity, 'on') %}
+          primary
+        {% else %}
+          grey
+        {% endif %}
+      
+      {% if variables.use_popup %}
+      tap_action:
+        action: call-service
+        service: browser_mod.popup
+        service_data:
+          title: "{{ variables.room_name }}"
+          content:
+            type: custom:streamline-card
+            template: room_popup
+            variables:
+              style: "{{ variables.style }}"
+              room_name: "{{ variables.room_name }}"
+              temperature_entity: "{{ variables.temperature_entity }}"
+              presence_entity: "{{ variables.presence_entity }}"
+              light_entity: "{{ variables.light_entity }}"
+              media_entity: "{{ variables.media_entity }}"
+              climate_entity: "{{ variables.climate_entity }}"
+              adaptive_lighting_entity: "{{ variables.adaptive_lighting_switch }}"
+              icon: "{{ variables.icon }}"
+              sections: ["status", "light", "climate", "media"]
+      {% endif %}
+      
+      hold_action:
+        action: navigate
+        navigation_path: "/lovelace-bubble/room/{{ variables.area_id }}"
+  
+  styles_javascript: |
+    `
+    // Get context and room details
+    const context = hass.states['${variables.context_entity}']?.state || 'day';
+    const styleVariant = '${variables.style}' || 'bubble';
+    const roomName = '${variables.room_name}';
+    const areaId = '${variables.area_id}';
+    const presenceEntity = '${variables.presence_entity}';
+    const lightEntity = '${variables.light_entity}';
+    const mediaEntity = '${variables.media_entity}';
+    const relevance = ${variables.context_relevance} || 1;
+    
+    // Get current states
+    const isOccupied = presenceEntity && hass.states[presenceEntity]?.state === 'on';
+    const isLightOn = lightEntity && hass.states[lightEntity]?.state === 'on';
+    const isMediaPlaying = mediaEntity && hass.states[mediaEntity]?.state === 'playing';
+    
+    // Helper function to get context-based color
+    function getContextColor(opacity = 1) {
+      switch(context) {
+        case 'morning': return opacity < 1 ? `rgba(255, 152, 0, ${opacity})` : 'rgba(255, 152, 0, 1)';
+        case 'day': return opacity < 1 ? `rgba(255, 235, 59, ${opacity})` : 'rgba(255, 235, 59, 1)';
+        case 'evening': return opacity < 1 ? `rgba(255, 87, 34, ${opacity})` : 'rgba(255, 87, 34, 1)';
+        case 'night': 
+        case 'sleeping': return opacity < 1 ? `rgba(13, 71, 161, ${opacity})` : 'rgba(13, 71, 161, 1)';
+        case 'movie': return opacity < 1 ? `rgba(156, 39, 176, ${opacity})` : 'rgba(156, 39, 176, 1)';
+        case 'focus': return opacity < 1 ? `rgba(33, 150, 243, ${opacity})` : 'rgba(33, 150, 243, 1)';
+        case 'hosting': return opacity < 1 ? `rgba(233, 30, 99, ${opacity})` : 'rgba(233, 30, 99, 1)';
+        case 'away': return opacity < 1 ? `rgba(158, 158, 158, ${opacity})` : 'rgba(158, 158, 158, 1)';
+        default: return opacity < 1 ? `rgba(var(--rgb-primary-color), ${opacity})` : 'var(--primary-color)';
+      }
+    }
+    
+    // Apply styling to card
+    const card = root.querySelector('ha-card');
+    if (card) {
+      // Card styling based on style variant
+      card.style.borderRadius = styleVariant === 'bubble' ? '16px' : '8px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'all 0.3s ease';
+      
+      // Add left border based on room state
+      let borderColor;
+      if (isMediaPlaying) {
+        borderColor = 'rgba(3, 169, 244, 1)';
+      } else if (isOccupied && isLightOn) {
+        borderColor = getContextColor();
+      } else if (isOccupied) {
+        borderColor = 'rgba(76, 175, 80, 1)';
+      } else {
+        borderColor = 'var(--divider-color)';
+      }
+      
+      // Apply border styling
+      card.style.borderLeft = `3px solid ${borderColor}`;
+      
+      // Apply background gradient based on context
+      if (isOccupied) {
+        // Calculate opacity based on relevance (more relevant = more visible)
+        const gradientOpacity = Math.min(0.7, 0.5 + (relevance * 0.02));
+        card.style.background = `linear-gradient(135deg, ${getContextColor(0.1)}, transparent ${gradientOpacity * 100}%)`;
+      }
+      
+      // Adjust opacity based on room relevance
+      if (!isOccupied) {
+        card.style.opacity = 0.7 + (relevance * 0.03);
+      }
+      
+      // Very subtle scaling for high-relevance rooms
+      if (relevance > 8) {
+        card.style.transform = 'scale(1.02)';
+      }
+      
+      // Add animation for newly occupied rooms
+      if (isOccupied && hass.states[presenceEntity]?.last_changed > 
+          (new Date().getTime()/1000 - 60)) {
+        
+        // Add keyframes if they don't exist
+        if (!document.getElementById('room-card-animations')) {
+          const style = document.createElement('style');
+          style.id = 'room-card-animations';
+          style.textContent = `
+            @keyframes pulse {
+              0% { transform: scale(1); }
+              50% { transform: scale(1.02); }
+              100% { transform: scale(1); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        card.style.animation = 'pulse 2s ease-in-out 1';
+      }
+    }
+    
+    // Style the icon to match context
+    const icon = root.querySelector('.primary.icon');
+    if (icon) {
+      if (isMediaPlaying) {
+        icon.style.color = 'rgba(3, 169, 244, 1)';
+      } else if (isOccupied && isLightOn) {
+        icon.style.color = getContextColor();
+      } else if (isOccupied) {
+        icon.style.color = 'rgba(76, 175, 80, 1)';
+      } else {
+        icon.style.color = 'var(--disabled-text-color)';
+      }
+    }
+    `

@@ -1,0 +1,516 @@
+# /www/streamline/templates/room_card.yaml
+template:
+  name: room_card
+  description: "Advanced context-aware room card that adapts to time of day and room usage"
+  base: base_card
+  variables:
+    room_name:
+      type: string
+      default: "Living Room"
+      description: "Room name"
+    area_id:
+      type: string
+      default: "living_room"
+      description: "Area identifier (used for entity IDs)"
+    presence_entity:
+      type: string
+      default: "binary_sensor.living_room_presence"
+      description: "Room presence sensor"
+    temperature_entity:
+      type: string
+      default: "sensor.living_room_temperature"
+      description: "Room temperature sensor"
+    light_entity:
+      type: string
+      default: "light.living_room"
+      description: "Main room light"
+    media_entity:
+      type: string
+      default: "media_player.living_room"
+      description: "Room media player"
+    show_climate:
+      type: boolean
+      default: true
+      description: "Show climate controls"
+    climate_entity:
+      type: string
+      default: "climate.living_room"
+      description: "Room climate entity"
+    show_vacuum:
+      type: boolean
+      default: false
+      description: "Show vacuum controls"
+    icon:
+      type: string
+      default: "mdi:sofa"
+      description: "Icon for the room"
+    adaptive_lighting_switch:
+      type: string
+      default: ""
+      description: "Adaptive lighting switch for this room (optional)"
+    context_relevance:
+      type: number
+      default: 1
+      description: "Room relevance in current context (1-10, with 10 being most relevant)"
+  template: |
+    type: custom:bubble-card
+    card_type: "custom"
+    card:
+      type: custom:mushroom-template-card
+      primary: "{{ variables.room_name }}"
+      secondary: >
+        {% set presence = is_state(variables.presence_entity, 'on') %}
+        {% set temp = states(variables.temperature_entity) %}
+        {% set adaptive = is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+        {% set media_playing = is_state(variables.media_entity, 'playing') %}
+        {% set media_title = state_attr(variables.media_entity, 'media_title') %}
+        {% set home_context = states('sensor.home_context_engine') %}
+        
+        {% if presence %}
+          {% if home_context == 'sleeping' and area_id != 'bedroom' %}
+            Quiet
+          {% else %}
+            Active
+          {% endif %}
+        {% else %}
+          Vacant
+        {% endif %} • 
+        {{ temp }}° • 
+        {% if is_state(variables.light_entity, 'on') %}
+          {% if adaptive %}Adaptive{% else %}Manual{% endif %} Light
+        {% else %}
+          Lights Off
+        {% endif %}
+        {% if media_playing %} • {{ media_title | truncate(20) }}{% endif %}
+      icon: >
+        {% set home_context = states('sensor.home_context_engine') %}
+        {% if home_context == 'away' %}
+          mdi:home-export-outline
+        {% elif home_context == 'sleeping' and variables.area_id == 'bedroom' %}
+          mdi:sleep
+        {% elif home_context == 'movie' and variables.area_id == 'living_room' %}
+          mdi:movie-open
+        {% elif is_state(variables.presence_entity, 'on') %}
+          {{ variables.icon }}
+        {% else %}
+          mdi:door-closed
+        {% endif %}
+      entity: "{{ variables.presence_entity }}"
+      icon_color: >
+        {% set home_context = states('sensor.home_context_engine') %}
+        {% if home_context == 'morning' %}
+          amber
+        {% elif home_context == 'day' %}
+          yellow
+        {% elif home_context == 'evening' %}
+          deep-orange
+        {% elif home_context == 'night' or home_context == 'sleeping' %}
+          blue
+        {% elif home_context == 'movie' %}
+          purple
+        {% elif home_context == 'focus' %}
+          cyan
+        {% elif home_context == 'hosting' %}
+          green
+        {% elif is_state(variables.presence_entity, 'on') %}
+          primary
+        {% else %}
+          grey
+        {% endif %}
+      hold_action:
+        action: navigate
+        navigation_path: "/lovelace-bubble/room/{{ variables.area_id }}"
+      tap_action:
+        action: call-service
+        service: browser_mod.popup
+        service_data:
+          title: "{{ variables.room_name }}"
+          content:
+            type: custom:bubble-card
+            card_type: custom
+            card:
+              type: vertical-stack
+              cards:
+                - type: custom:bubble-header
+                  title: "Light Controls"
+                  subtitle: >
+                    {% set context = states('sensor.home_context_engine') %}
+                    {% set adaptive = is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+                    {% if adaptive %}
+                      Adaptive lighting active ({{ context | title }} mode)
+                    {% else %}
+                      Manual lighting control
+                    {% endif %}
+                - type: custom:light-entity-card
+                  entity: "{{ variables.light_entity }}"
+                  fluid_width: true
+                
+                # Conditional adaptive lighting controls
+                - type: conditional
+                  conditions:
+                    - condition: template
+                      value_template: "{{ variables.adaptive_lighting_switch | length > 0 }}"
+                  card:
+                    type: entities
+                    entities:
+                      - entity: "{{ variables.adaptive_lighting_switch }}"
+                        name: "Adaptive Lighting"
+                        secondary_info: "Automatically adjusts color temperature and brightness"
+                
+                - type: conditional
+                  conditions:
+                    - entity: "{{ variables.climate_entity }}"
+                      state_not: "unavailable"
+                    - condition: template
+                      value_template: "{{ variables.show_climate }}"
+                  card:
+                    type: vertical-stack
+                    cards:
+                      - type: custom:bubble-header
+                        title: "Climate"
+                        subtitle: >
+                          {% set context = states('sensor.home_context_engine') %}
+                          {% if context == 'away' %}
+                            Energy saving mode
+                          {% elif context == 'sleeping' %}
+                            Sleep temperature
+                          {% else %}
+                            Comfort settings
+                          {% endif %}
+                      - type: custom:bubble-card
+                        card_type: thermostat
+                        entity: "{{ variables.climate_entity }}"
+                
+                - type: conditional
+                  conditions:
+                    - entity: "{{ variables.media_entity }}"
+                      state_not: "unavailable"
+                  card: 
+                    type: vertical-stack
+                    cards:
+                      - type: custom:bubble-header
+                        title: "Media"
+                      - type: custom:mini-media-player
+                        entity: "{{ variables.media_entity }}"
+                        artwork: cover
+                        hide:
+                          power: true
+                          volume: false
+                          controls: false
+                        info: short
+                        shortcuts:
+                          columns: 3
+                          buttons:
+                            - icon: mdi:play-pause
+                              type: service
+                              id: media_player.media_play_pause
+                              data:
+                                entity_id: "{{ variables.media_entity }}"
+                            - icon: mdi:skip-previous
+                              type: service
+                              id: media_player.media_previous_track
+                              data:
+                                entity_id: "{{ variables.media_entity }}"
+                            - icon: mdi:skip-next
+                              type: service
+                              id: media_player.media_next_track
+                              data:
+                                entity_id: "{{ variables.media_entity }}"
+    styles_javascript: |
+      `
+      // Import design system components
+      ${designSystem.animations.keyframes.fadeIn}
+      ${designSystem.animations.keyframes.pulse}
+      
+      // Context-aware card styling
+      ha-card {
+        animation: fadeIn 0.5s ease-out;
+        box-shadow: 0 2px 8px 0 rgba(0,0,0,0.15);
+        border-left: 3px solid ${
+          (() => {
+            // Determine border color based on active features and context
+            const context = hass.states['sensor.home_context_engine']?.state || 'day';
+            const isOccupied = hass.states['${variables.presence_entity}']?.state === 'on';
+            const isLightOn = hass.states['${variables.light_entity}']?.state === 'on';
+            const isMediaPlaying = hass.states['${variables.media_entity}']?.state === 'playing';
+            const relevance = ${variables.context_relevance} || 1;
+            
+            // If this room is highly relevant to current context, make it stand out more
+            const relevanceFactor = relevance > 7 ? 1 : 0.8;
+            
+            if (isMediaPlaying) return designSystem.colors.info;
+            if (isOccupied && isLightOn) {
+              // Context-based coloring when occupied with lights on
+              switch(context) {
+                case 'morning': return designSystem.colors.morning;
+                case 'day': return designSystem.colors.day;
+                case 'evening': return designSystem.colors.evening;
+                case 'night': return designSystem.colors.night;
+                case 'sleeping': return designSystem.colors.night;
+                case 'movie': return designSystem.colors.living;
+                case 'focus': return designSystem.colors.info;
+                case 'hosting': return designSystem.colors.success;
+                default: return designSystem.colors.day;
+              }
+            }
+            return isOccupied ? designSystem.colors.success : 'var(--divider-color)';
+          })()
+        };
+        background: ${
+          (() => {
+            const context = hass.states['sensor.home_context_engine']?.state || 'day';
+            const isOccupied = hass.states['${variables.presence_entity}']?.state === 'on';
+            const relevance = ${variables.context_relevance} || 1;
+            
+            // Calculate opacity based on context relevance
+            const opacity = Math.min(0.2, 0.05 + (relevance * 0.015));
+            
+            if (!isOccupied) return 'var(--card-background-color)';
+            
+            // Apply subtle gradient based on context
+            switch(context) {
+              case 'morning': return `linear-gradient(135deg, ${designSystem.colors.morning_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'day': return `linear-gradient(135deg, ${designSystem.colors.day_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'evening': return `linear-gradient(135deg, ${designSystem.colors.evening_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'night': 
+              case 'sleeping': 
+                return `linear-gradient(135deg, ${designSystem.colors.night_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'movie': 
+                return `linear-gradient(135deg, ${designSystem.colors.living_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'focus':
+                return `linear-gradient(135deg, ${designSystem.colors.info_light}, transparent ${70 - (relevance * 5)}%)`;
+              case 'hosting':
+                return `linear-gradient(135deg, ${designSystem.colors.success_light}, transparent ${70 - (relevance * 5)}%)`;
+              default: return 'var(--card-background-color)';
+            }
+          })()
+        };
+        transition: background 0.5s ease, border-left 0.5s ease;
+        opacity: ${
+          (() => {
+            const context = hass.states['sensor.home_context_engine']?.state || 'day';
+            const relevance = ${variables.context_relevance} || 1;
+            const isOccupied = hass.states['${variables.presence_entity}']?.state === 'on';
+            
+            // If room is occupied, show at full opacity
+            if (isOccupied) return 1;
+            
+            // Scale opacity based on context relevance
+            return 0.7 + (relevance * 0.03);
+          })()
+        };
+        transform: scale(${
+          (() => {
+            const relevance = ${variables.context_relevance} || 1;
+            // Very subtle scaling for high-relevance rooms
+            return relevance > 8 ? '1.02' : '1';
+          })()
+        });
+        transition: all 0.3s ease;
+      }
+      
+      // Dynamic icon styling based on room state
+      .primary.icon {
+        color: ${
+          (() => {
+            const context = hass.states['sensor.home_context_engine']?.state || 'day';
+            const isOccupied = hass.states['${variables.presence_entity}']?.state === 'on';
+            const isLightOn = hass.states['${variables.light_entity}']?.state === 'on';
+            const isMediaPlaying = hass.states['${variables.media_entity}']?.state === 'playing';
+            
+            if (isMediaPlaying) return designSystem.colors.info;
+            if (isOccupied && isLightOn) {
+              // Context-based coloring when occupied with lights on
+              switch(context) {
+                case 'morning': return designSystem.colors.morning;
+                case 'day': return designSystem.colors.day;
+                case 'evening': return designSystem.colors.evening;
+                case 'night': return designSystem.colors.night;
+                case 'sleeping': return designSystem.colors.night;
+                case 'movie': return designSystem.colors.living;
+                case 'focus': return designSystem.colors.info;
+                case 'hosting': return designSystem.colors.success;
+                default: return 'var(--primary-color)';
+              }
+            }
+            return isOccupied ? designSystem.colors.success : 'var(--disabled-text-color)';
+          })()
+        };
+        
+        animation: ${
+          hass.states['${variables.presence_entity}']?.state === 'on' &&
+          hass.states['${variables.presence_entity}']?.last_changed > 
+          (new Date().getTime()/1000 - 60) ? 'pulse 2s ease-in-out 1' : 'none'
+        };
+      }
+      `
+      
+    chip:
+      # Dynamic chip that shows different info based on context
+      - type: template
+        icon: >
+          {% if is_state(variables.light_entity, 'on') %}
+            {% if is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+              mdi:lightbulb-auto
+            {% else %}
+              mdi:lightbulb-on
+            {% endif %}
+          {% else %}
+            mdi:lightbulb-off
+          {% endif %}
+        content: >
+          {% if is_state(variables.light_entity, 'on') %}
+            {% if is_state_attr(variables.light_entity, 'brightness') %}
+              {{ (state_attr(variables.light_entity, 'brightness') / 255 * 100) | int }}%
+            {% else %}
+              On
+            {% endif %}
+          {% else %}
+            Off
+          {% endif %}
+        styles:
+          icon:
+            color: >-
+              {% if is_state(variables.light_entity, 'on') %}
+                {% if is_state_attr(variables.light_entity, 'adaptive_lighting', true) %}
+                  rgba(255, 167, 38, 1)
+                {% else %}
+                  rgba(255, 235, 59, 1)
+                {% endif %}
+              {% else %}
+                var(--disabled-text-color)
+              {% endif %}
+        tap_action:
+          action: toggle
+          entity: "{{ variables.light_entity }}"
+      
+      # Context-relevant action chip based on room type and context
+      - type: template
+        icon: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% if context == 'morning' and variables.area_id == 'kitchen' %}
+            mdi:coffee
+          {% elif context == 'movie' and variables.area_id == 'living_room' %}
+            mdi:movie-open
+          {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+            mdi:sleep
+          {% elif variables.adaptive_lighting_switch | length > 0 %}
+            {% if is_state(variables.adaptive_lighting_switch, 'on') %}
+              mdi:brightness-auto
+            {% else %}
+              mdi:brightness-7
+            {% endif %}
+          {% elif is_state(variables.climate_entity, 'heat') %}
+            mdi:thermometer-high
+          {% elif is_state(variables.climate_entity, 'cool') %}
+            mdi:thermometer-low
+          {% else %}
+            mdi:home-automation
+          {% endif %}
+        content: >
+          {% set context = states('sensor.home_context_engine') %}
+          {% if context == 'morning' and variables.area_id == 'kitchen' %}
+            Coffee
+          {% elif context == 'movie' and variables.area_id == 'living_room' %}
+            Movie
+          {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+            Sleep
+          {% elif variables.adaptive_lighting_switch | length > 0 %}
+            {% if is_state(variables.adaptive_lighting_switch, 'on') %}
+              Auto
+            {% else %}
+              Manual
+            {% endif %}
+          {% elif is_state(variables.climate_entity, 'heat') %}
+            {{ state_attr(variables.climate_entity, 'temperature') }}°
+          {% elif is_state(variables.climate_entity, 'cool') %}
+            {{ state_attr(variables.climate_entity, 'temperature') }}°
+          {% else %}
+            Auto
+          {% endif %}
+        styles:
+          icon:
+            color: >-
+              {% set context = states('sensor.home_context_engine') %}
+              {% if context == 'morning' %}
+                rgba(255, 167, 38, 1)
+              {% elif context == 'movie' %}
+                rgba(156, 39, 176, 1)
+              {% elif context == 'sleeping' %}
+                rgba(13, 71, 161, 1)
+              {% elif variables.adaptive_lighting_switch | length > 0 and is_state(variables.adaptive_lighting_switch, 'on') %}
+                rgba(33, 150, 243, 1)
+              {% elif is_state(variables.climate_entity, 'heat') %}
+                rgba(244, 67, 54, 1)
+              {% elif is_state(variables.climate_entity, 'cool') %}
+                rgba(33, 150, 243, 1)
+              {% else %}
+                rgba(76, 175, 80, 1)
+              {% endif %}
+        tap_action:
+          action: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' and variables.area_id == 'kitchen' %}
+              call-service
+            {% elif context == 'movie' and variables.area_id == 'living_room' %}
+              call-service
+            {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+              call-service
+            {% elif variables.adaptive_lighting_switch | length > 0 %}
+              toggle
+            {% else %}
+              more-info
+            {% endif %}
+          entity: >
+            {% if variables.adaptive_lighting_switch | length > 0 %}
+              {{ variables.adaptive_lighting_switch }}
+            {% else %}
+              {{ variables.climate_entity }}
+            {% endif %}
+          service: >
+            {% set context = states('sensor.home_context_engine') %}
+            {% if context == 'morning' and variables.area_id == 'kitchen' %}
+              script.start_coffee
+            {% elif context == 'movie' and variables.area_id == 'living_room' %}
+              script.start_movie_mode
+            {% elif context == 'sleeping' and variables.area_id == 'bedroom' %}
+              script.activate_sleep_mode
+            {% else %}
+              
+            {% endif %}
+      
+      # Show media status chip when media is playing
+      - type: conditional
+        conditions:
+          - entity: "{{ variables.media_entity }}"
+            state: "playing"
+        chip:
+          type: template
+          icon: mdi:speaker-play
+          content: >
+            {{ state_attr(variables.media_entity, 'media_title') | truncate(20) }}
+          styles:
+            icon:
+              color: "rgba(3, 169, 244, 1)"
+          tap_action:
+            action: more-info
+            entity: "{{ variables.media_entity }}"
+      
+      # Show temperature chip with color coding
+      - type: template
+        icon: mdi:thermometer
+        content: "{{ states(variables.temperature_entity) }}°"
+        styles:
+          icon:
+            color: >-
+              {% set temp = states(variables.temperature_entity) | float %}
+              {% if temp < 18 %}
+                rgba(41, 182, 246, 1)
+              {% elif temp > 24 %}
+                rgba(255, 87, 34, 1)
+              {% else %}
+                rgba(76, 175, 80, 1)
+              {% endif %}
+        tap_action:
+          action: more-info
+          entity: "{{ variables.temperature_entity }}"

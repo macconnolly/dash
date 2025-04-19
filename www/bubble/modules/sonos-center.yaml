@@ -1,0 +1,444 @@
+module: sonos_center
+name: Sonos Center
+version: "1.1"
+template: |
+  type: vertical-stack
+  cards:
+    - type: custom:bubble-header
+      title: Audio
+      subtitle: "{{state_attr('sensor.sonos_status','active_count')}} active"
+      icon: mdi:speaker-multiple
+    # dynamic master (first playing else living_room)
+    - type: custom:bubble-card
+      card_type: media-player
+      entity: |
+        {% set playing = expand('media_player.living_room',
+                                 'media_player.kitchen',
+                                 'media_player.dining_room',
+                                 'media_player.master_bedroom')
+           |selectattr('state','eq','playing')|list %}
+        {{ playing[0].entity_id if playing else 'media_player.living_room' }}
+      name: Now Playing
+      queue: true
+      group_players_header: Group with:
+      hide:
+        volume: false
+        power_state: true
+    # mini group builder
+    - type: custom:bubble-grid
+      columns: 2
+      cards:
+        {% for p in ['living_room','kitchen','dining_room','master_bedroom'] %}
+        - type: custom:bubble-button
+          name: {{p.replace('_',' ').title()}}
+          icon: mdi:speaker
+          tap_action:
+            action: call-service
+            service: media_player.join
+            data: {group_members: media_player.{{p}}}
+        {% endfor %}
+    - type: custom:bubble-horizontal-buttons-stack
+      buttons:
+        - {name: Pause All,icon: mdi:pause-circle,
+           tap_action:{action:call-service,
+                       service: media_player.media_pause,
+                       service_data:{entity_id: all}}}
+        - {name: Ungroup, icon: mdi:speaker-off,
+           tap_action:{action:call-service,
+                       service: script.sonos_ungroup_all}}
+    # Spotify shortcuts (visible if focus off)
+    - type: conditional
+      conditions:
+        - entity: binary_sensor.iphone_12_pro_focus ; state: "off"
+      card:
+        type: custom:bubble-grid
+        columns: 2
+        cards:
+          - {type:custom:bubble-card,card_type:button,icon:mdi:playlist-music,
+             name: Playlists, tap_action:{action:navigate,
+             navigation_path:#spotify-playlists}}
+          - {type:custom:bubble-card,card_type:button,icon:mdi:history,
+             name: Recent, tap_action:{action:navigate,
+             navigation_path:#spotify-recent}}
+sonos_center:
+  name: "Sonos Media Control Center"
+  version: "3.5.0"
+  description: "Advanced Sonos control center with multi-room capabilities and Spotify integration"
+  editor:
+    - variable: master_player
+      name: Master Sonos Player
+      selector:
+        entity:
+          domain: media_player
+          integration: sonos
+    - variable: additional_players
+      name: Additional Players (comma separated)
+      selector:
+        text:
+    - variable: spotify_integration
+      name: Enable Spotify Integration
+      selector:
+        boolean:
+    - variable: favorite_playlists
+      name: Favorite Spotify Playlists (JSON array with names and URIs)
+      selector:
+        text:
+    - variable: color
+      name: Theme Color
+      selector:
+        color_rgb:
+          
+  template: |
+    type: custom:bubble-card
+    card_type: media-player
+    entity: "${variables.master_player}"
+    source_menu:
+      position: bottom-right
+      open_on_popup: true
+    eq_menu:
+      position: top-right
+      items:
+        # --- Quick Scene and Preset Selectors ---
+        - icon: mdi:movie-roll
+          show: true
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.movie_mode
+        - icon: mdi:music-note
+          show: true
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.music_mode
+        - icon: mdi:theme-light-dark
+          show: true
+          tap_action:
+            action: call-service
+            service: scene.turn_on
+            service_data:
+              entity_id: scene.evening_relax
+    slider:
+      show: true
+      direction: horizontal
+      max: 100
+      min: 0
+      height: 40px
+      border_radius: 8px
+      thumb:
+        color: "${variables.color || 'var(--primary-color)'}"
+        show: true
+        border_radius: 10px
+    styles: |
+      ha-card {
+        --bubble-card-warning-color: rgba(var(--rgb-warning-color), 0.9);
+        --bubble-card-primary-color: ${variables.color || 'var(--primary-color)'};
+        --bubble-card-info-color: rgba(var(--rgb-info-color), 0.9);
+        overflow: visible;
+      }
+      
+      /* ===== ALBUM ART ENHANCEMENTS ===== */
+      .bubble-card-media-player-album {
+        border-radius: ${designSystem.border_radius.md};
+        box-shadow: ${designSystem.shadows.medium};
+        transition: ${designSystem.animations.standard};
+        transform-style: preserve-3d;
+        perspective: 1000px;
+      }
+      
+      .bubble-card-media-player-album:hover {
+        transform: scale(1.02) translateY(-2px) rotateY(5deg);
+        box-shadow: ${designSystem.shadows.pronounced};
+      }
+      
+      /* ===== ACTIVE PLAYER GLOW EFFECT ===== */
+      .bubble-card-media-player-information {
+        position: relative;
+      }
+      
+      .bubble-card-media-player-information::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 3px;
+        background: ${variables.color || 'var(--primary-color)'};
+        border-radius: ${designSystem.border_radius.round};
+        opacity: ${attributes.media_duration ? '1' : '0'};
+        transition: opacity 0.3s ease, width 0.3s ease;
+      }
+      
+      /* ===== PLAYER CONTROLS STYLING ===== */
+      .bubble-card-media-player-controls {
+        margin-top: 16px;
+      }
+      
+      .bubble-card-media-player-controls ha-icon {
+        transition: ${designSystem.animations.standard};
+      }
+      
+      .bubble-card-media-player-controls ha-icon:hover {
+        transform: scale(1.15);
+        opacity: 1 !important;
+      }
+      
+      /* ===== NOW PLAYING INDICATORS ===== */
+      @keyframes nowPlaying {
+        0% { height: 10px; }
+        50% { height: 20px; }
+        100% { height: 10px; }
+      }
+      
+      .now-playing-indicator {
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 3px;
+        height: 20px;
+        align-items: center;
+      }
+      
+      .now-playing-bar {
+        width: 3px;
+        height: 10px;
+        background-color: ${variables.color || 'var(--primary-color)'};
+        border-radius: ${designSystem.border_radius.round};
+        animation: nowPlaying 1.2s ease infinite;
+      }
+      
+      .now-playing-bar:nth-child(1) { animation-delay: 0ms; }
+      .now-playing-bar:nth-child(2) { animation-delay: 300ms; }
+      .now-playing-bar:nth-child(3) { animation-delay: 600ms; }
+      .now-playing-bar:nth-child(4) { animation-delay: 900ms; }
+      
+      /* ===== GROUP SPEAKERS INDICATOR ===== */
+      .multi-room-indicator {
+        position: absolute;
+        bottom: -8px;
+        right: 8px;
+        font-size: 11px;
+        background: rgba(var(--rgb-card-background-color), 0.8);
+        padding: 2px 6px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        backdrop-filter: blur(4px);
+        opacity: ${
+          attributes.group_members && attributes.group_members.length > 1 
+            ? '1' 
+            : '0'
+        };
+        transition: opacity 0.3s ease;
+      }
+      
+      /* ===== SPOTIFY INTEGRATION STYLES ===== */
+      .spotify-playlists {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 8px;
+        opacity: ${state === 'off' ? '0.7' : '1'};
+        transition: opacity 0.3s ease;
+      }
+      
+      .spotify-playlist {
+        position: relative;
+        border-radius: ${designSystem.border_radius.md};
+        overflow: hidden;
+        aspect-ratio: 1;
+        box-shadow: ${designSystem.shadows.subtle};
+        cursor: pointer;
+        transition: ${designSystem.animations.standard};
+      }
+      
+      .spotify-playlist:hover {
+        transform: translateY(-2px);
+        box-shadow: ${designSystem.shadows.medium};
+      }
+      
+      .spotify-playlist img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .spotify-playlist .name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 4px;
+        font-size: 10px;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      /* ===== VOLUME CONTROL TOOLTIP ===== */
+      .bubble-card-media-player-progress-cursor {
+        position: relative;
+      }
+      
+      .bubble-card-media-player-progress-cursor::after {
+        content: attr(data-volume);
+        position: absolute;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card-background-color);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+      
+      .bubble-card-media-player-progress-cursor:hover::after {
+        opacity: 1;
+      }
+    extra_styles: |
+      <!-- Now playing animation -->
+      <div class="now-playing-indicator" style="display: ${state === 'playing' ? 'flex' : 'none'}">
+        <div class="now-playing-bar"></div>
+        <div class="now-playing-bar"></div>
+        <div class="now-playing-bar"></div>
+        <div class="now-playing-bar"></div>
+      </div>
+      
+      <!-- Multi-room indicator -->
+      <div class="multi-room-indicator">
+        <ha-icon icon="mdi:speaker-multiple" style="width: 14px; height: 14px;"></ha-icon>
+        ${attributes.group_members ? attributes.group_members.length : '1'} rooms
+      </div>
+      
+      <!-- Spotify Playlists -->
+      ${variables.spotify_integration ? `
+      <div class="spotify-playlists">
+        ${(() => {
+          try {
+            const playlists = JSON.parse(variables.favorite_playlists || '[]');
+            return playlists.map(playlist => `
+              <div class="spotify-playlist" @click="${(e) => {
+                const event = new Event('spotify-play');
+                event.detail = {
+                  uri: playlist.uri,
+                  target: variables.master_player
+                };
+                document.dispatchEvent(event);
+              }}">
+                <img src="${playlist.image || 'https://via.placeholder.com/80'}" alt="${playlist.name}">
+                <div class="name">${playlist.name}</div>
+              </div>
+            `).join('');
+          } catch (e) {
+            return '<div style="color: var(--error-color);">Invalid playlist format</div>';
+          }
+        })()}
+      </div>
+      ` : ''}
+    sub_elements:
+      - entity: "${variables.master_player}"
+        attribute: volume_level
+        show: true
+        tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "Volume Controls"
+              content:
+                type: custom:bubble-grid
+                columns: 3
+                cards:
+                  - type: custom:bubble-card
+                    card_type: button
+                    name: "Master Volume"
+                    tap_action:
+                      action: call-service
+                      service: media_player.volume_set
+                      service_data:
+                        entity_id: "${variables.master_player}"
+                        volume_level: 0.4
+                  - type: custom:bubble-card
+                    card_type: button
+                    name: "All Off"
+                    icon: mdi:speaker-off
+                    tap_action:
+                      action: call-service
+                      service: media_player.turn_off
+                      target:
+                        entity_id: ${
+                          [variables.master_player, ...(variables.additional_players || '').split(',')]
+                            .filter(p => p.trim())
+                            .map(p => `"${p.trim()}"`)
+                            .join(',')
+                        }
+                  - type: custom:bubble-card
+                    card_type: button
+                    name: "All Same Volume"
+                    tap_action:
+                      action: call-service
+                      service: script.sonos_sync_volumes
+                      service_data:
+                        master: "${variables.master_player}"
+                  ${
+                    variables.additional_players ? 
+                    variables.additional_players.split(',').map(player => `
+                    - type: custom:bubble-card
+                      card_type: media-player
+                      entity: "${player.trim()}"
+                      style: "height: 80px;"
+                    `).join('') : ''
+                  }
+    sub_button:
+      - entity: input_boolean.follow_me_audio_enabled
+        icon: mdi:run-fast
+        state_display: "Follow Me"
+        color: "#9C27B0"
+        tap_action:
+          action: toggle
+        hold_action:
+          action: call-service
+          service: script.configure_follow_me_audio
+          service_data:
+            main_player: "${variables.master_player}"
+            
+      - entity: input_boolean.scene_controller_b4_holding  
+        name: "Group All"
+        icon: mdi:speaker-multiple
+        color: "#03A9F4"
+        tap_action:
+          action: call-service
+          service: script.sonos_group_all_speakers
+          service_data:
+            master: "${variables.master_player}"
+        double_tap_action:
+          action: call-service
+          service: script.sonos_ungroup_all_speakers
+            
+      - icon: mdi:spotify
+        color: "#1DB954"
+        show: ${variables.spotify_integration}
+        state_display: "Spotify"
+        tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: "Spotify Controls"
+              content:
+                type: custom:spotcast-ui
+                entity: "${variables.master_player}"
+                spot_account: default
+                spotcast_uri: Spotify
+                country: US

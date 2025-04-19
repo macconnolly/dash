@@ -1,0 +1,110 @@
+# Pop-up definition for Morning Weather (#morning-weather)
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Today's Weather"
+    subtitle: "{{ now().strftime('%A, %B %d') }}"
+    icon: "{{ state_attr('weather.home_2', 'forecast')[0].condition }}" # Assuming weather.home_2 exists
+
+  # Current Weather Details
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-sensor
+        entity: weather.home_2
+        attribute: temperature
+        name: "Temperature"
+        icon: mdi:thermometer
+
+      - type: custom:bubble-sensor
+        entity: weather.home_2
+        attribute: humidity
+        name: "Humidity"
+        icon: mdi:water-percent
+
+      - type: custom:bubble-sensor
+        entity: weather.home_2
+        attribute: pressure
+        name: "Pressure"
+        icon: mdi:gauge
+
+      - type: custom:bubble-sensor
+        entity: weather.home_2
+        attribute: wind_speed
+        name: "Wind"
+        icon: mdi:weather-windy
+
+  # Forecast Header
+  - type: custom:bubble-header
+    title: "Forecast"
+
+  # Forecast Display (Custom Styling from guide)
+  # Note: This uses bubble-card entity type for custom styling access
+  - type: custom:bubble-card
+    card_type: entity # Using entity card type to apply custom styles below
+    entity: weather.home_2 # Dummy entity to anchor the card
+    styles: |
+      /* Custom forecast styling - referencing design system variables */
+      ha-card {
+        padding: 16px; /* designSystem.spacing.md */
+        background: none; /* Remove default card background */
+        box-shadow: none; /* Remove default card shadow */
+      }
+
+      .forecast {
+        display: flex;
+        overflow-x: auto;
+        padding: 8px 0; /* designSystem.spacing.sm */
+        scrollbar-width: thin;
+        /* Assuming designSystem.colors.primary is defined in bubble-modules.yaml */
+        scrollbar-color: rgba(80, 155, 245, 1) transparent;
+      }
+
+      .forecast-item {
+        flex: 0 0 80px;
+        text-align: center;
+        padding: 4px; /* designSystem.spacing.xs */
+        margin-right: 8px; /* designSystem.spacing.sm */
+        background: rgba(80, 155, 245, 0.05); /* Assuming primary color */
+        border-radius: 8px; /* designSystem.border_radius.md */
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* designSystem.animations.standard */
+      }
+
+      .forecast-item:hover {
+        background: rgba(80, 155, 245, 0.1); /* Assuming primary color */
+        transform: translateY(-2px);
+      }
+
+      .forecast-item ha-icon {
+        display: block;
+        margin: 0 auto;
+        color: rgba(80, 155, 245, 1); /* Assuming primary color */
+      }
+
+      .forecast-item .temp {
+        margin-top: 4px; /* designSystem.spacing.xs */
+        font-weight: bold;
+      }
+
+      .forecast-item .precip {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+    # Actual forecast data needs to be templated within the card content
+    # Using markdown card to render the styled forecast items
+    card:
+      type: markdown
+      content: |
+        <div class="forecast">
+          {% for forecast in state_attr('weather.home_2', 'forecast') %}
+            <div class="forecast-item">
+              <div>{{ as_timestamp(forecast.datetime) | timestamp_custom('%a') }}</div>
+              <ha-icon icon="{{ forecast.condition | replace('partlycloudy', 'weather-partly-cloudy') | replace('cloudy', 'weather-cloudy') | replace('sunny', 'weather-sunny') | replace('clear-night', 'weather-night') | replace('rainy', 'weather-pouring') | replace('snowy', 'weather-snowy') | replace('windy', 'weather-windy') | replace('fog', 'weather-fog') }}"></ha-icon>
+              <div class="temp">{{ forecast.temperature }}° / {{ forecast.templow }}°</div>
+              {% if forecast.precipitation_probability > 0 %}
+                <div class="precip">{{ forecast.precipitation_probability }}%</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>

@@ -1,0 +1,145 @@
+# /dashboards/popups/dining_room.yaml
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Dining Room"
+    subtitle: >
+      {% if is_state('binary_sensor.dining_room_presence', 'on') %}
+        Occupied • {{ states('sensor.dining_room_temperature') }}°
+      {% else %}
+        {{ states('sensor.dining_room_temperature') }}° • Vacant for {{ relative_time(states.binary_sensor.dining_room_presence.last_changed) }}
+      {% endif %}
+    icon: mdi:table-chair
+  
+  # Quick Scene Controls (Adapt scenes for dining context)
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Dinner Time"
+        icon: mdi:silverware-fork-knife
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.dinner_party # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 87, 34, 0.15); # Dining color
+          }
+      - name: "Bright"
+        icon: mdi:brightness-7
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.dining_bright # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(255, 235, 59, 0.15); # Day color
+          }
+      - name: "Ambient"
+        icon: mdi:lamps
+        tap_action:
+          action: call-service
+          service: scene.turn_on
+          service_data:
+            entity_id: scene.dining_ambient # Assuming this scene exists
+        styles: |
+          .bubble-icon-container {
+            background: rgba(156, 39, 176, 0.15); # Evening color
+          }
+      - name: "Off"
+        icon: mdi:lightbulb-off
+        tap_action:
+          action: call-service
+          service: light.turn_off
+          service_data:
+            entity_id: light.dining_room_spot_lights # Target the group
+        styles: |
+          .bubble-icon-container {
+            background: rgba(160, 160, 160, 0.1); # Inactive color
+          }
+  
+  # Adaptive Lighting Status 
+  - type: conditional
+    conditions:
+      - entity: input_boolean.al_manual_control_non_hue # Check if correct boolean
+        state: "on"
+    card:
+      type: custom:bubble-card
+      card_type: custom
+      card:
+        type: markdown
+        content: |
+          **Adaptive Lighting Override Active**
+          
+          One or more lights in this room are currently under manual control.
+        styles: |
+          ha-card {
+            background: rgba(255, 193, 7, 0.1); # Manual color light
+            border-left: 3px solid rgba(255, 193, 7, 0.8); # Manual color
+            padding: 8px 16px;
+            margin: 8px 0;
+          }
+      
+  - type: conditional
+    conditions:
+      - entity: input_boolean.al_manual_control_non_hue # Check if correct boolean
+        state: "on"
+    card:
+      type: custom:bubble-button
+      name: "Reset Adaptive Lighting"
+      icon: mdi:lightbulb-auto
+      tap_action:
+        action: call-service
+        service: script.reset_al_dining_room # Assuming this script exists
+      styles_javascript: |
+        `
+        .bubble-button-background {
+          background: rgba(255, 193, 7, 0.15); # Manual color light
+        }
+        `
+  
+  # Individual Lights Control using Enhanced Light Module
+  - type: custom:bubble-header
+    title: "Lights"
+  
+  - type: custom:bubble-grid
+    columns: 1 # Only one light group shown here
+    cards:
+      - type: custom:bubble-card
+        card_type: module
+        module: enhanced_light
+        variables:
+          entity: light.dining_room_spot_lights
+          name: "Spot Lights"
+          adaptive_entity: input_boolean.al_manual_control_non_hue # Check if correct boolean
+          area_color: "rgba(255, 87, 34, 1)" # Dining color
+      
+      # Add other dining lights if applicable
+
+  # Media Section (Conditional) using Streamline Template
+  - type: conditional
+    conditions:
+      - entity: media_player.dining_room
+        state_not: "off"
+      - entity: media_player.dining_room
+        state_not: "unavailable"
+    card:
+      type: custom:bubble-header
+      title: "Media"
+  
+  - type: conditional
+    conditions:
+      - entity: media_player.dining_room
+        state_not: "off"
+      - entity: media_player.dining_room
+        state_not: "unavailable"
+    card:
+      type: custom:streamline-card
+      template: media_player_card # Using the Streamline template
+      variables:
+        entity: media_player.dining_room
+        name: "Dining Room Sonos"
+        show_controls: true
+        show_volume: true
+        color: "rgba(255, 87, 34, 1)" # Dining color

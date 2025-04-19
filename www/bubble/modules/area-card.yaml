@@ -1,0 +1,315 @@
+module: area_card
+name: "Area Card Module"
+version: "3.5.0"
+description: "A comprehensive card for an area that shows adaptive lighting status, occupancy, temperature, Sonos player, and controls for each area of the open concept living space"
+editor:
+  - variable: title
+    name: Area Title
+    selector:
+      text:
+  - variable: icon
+    name: Area Icon
+    selector:
+      icon:
+  - variable: area_color
+    name: Area Accent Color
+    selector:
+      color_rgb:
+  - variable: light_group
+    name: Light Group Entity
+    selector:
+      entity:
+        domain: light
+  - variable: occupancy_sensor
+    name: Occupancy Sensor
+    selector:
+      entity:
+        domain: binary_sensor
+  - variable: temperature_sensor
+    name: Temperature Sensor
+    selector:
+      entity:
+        domain: sensor
+  - variable: media_player
+    name: Media Player (Sonos)
+    selector:
+      entity:
+        domain: media_player
+  - variable: al_manual_control
+    name: Adaptive Lighting Manual Control
+    selector:
+      entity:
+        domain: input_boolean
+  - variable: al_switch
+    name: Adaptive Lighting Switch
+    selector:
+      entity:
+        domain: switch
+  - variable: popup_hash
+    name: Pop-up Hash
+    selector:
+      text:
+        
+template: |
+  type: custom:bubble-card
+  card_type: pop-up
+  card_mod:
+    style: |
+      ha-card {
+        --bubble-card-header-color: ${variables.area_color};
+        --primary-color: ${variables.area_color};
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      ha-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+  hash: "${variables.popup_hash}"
+  icon: "${variables.icon}"
+  name: "${variables.title}"
+  entity: "${variables.light_group}"
+  state_display: |
+    ${
+      `{{ 
+        is_state('${variables.occupancy_sensor}', 'on') 
+          ? (is_state('${variables.media_player}', 'playing') 
+             ? 'Media Active' 
+             : 'Occupied')
+          : 'Vacant'
+      }}`
+    }
+  styles: |
+    /* ===== CARD BACKGROUND BASED ON STATE ===== */
+    .bubble-button-background {
+      background: ${
+        `{{ 
+          is_state('${variables.light_group}', 'on')
+            ? 'radial-gradient(circle, ${variables.area_color.replace('1)', '0.25)')} 0%, ${variables.area_color.replace('1)', '0.05)')} 100%)'
+            : 'none'
+         }}`
+      } !important;
+      opacity: 1 !important;
+      transition: background 0.4s ease;
+    }
+    
+    /* ===== ICON STYLING ===== */
+    .bubble-icon {
+      color: ${
+        `{{ 
+          is_state('${variables.light_group}', 'on') 
+            ? '${variables.area_color}'
+            : 'var(--primary-text-color)'
+         }}`
+      };
+      transition: color 0.4s ease;
+    }
+    
+    /* ===== OCCUPANCY INDICATOR ===== */
+    .bubble-icon-container {
+      position: relative;
+    }
+    
+    .bubble-icon-container::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: ${
+        `{{ 
+          is_state('${variables.occupancy_sensor}', 'on')
+            ? '#4CAF50'
+            : 'transparent'
+         }}`
+      };
+      border: 2px solid var(--card-background-color);
+      transition: all 0.3s ease;
+      opacity: ${
+        `{{ 
+          is_state('${variables.occupancy_sensor}', 'on')
+            ? '1'
+            : '0'
+         }}`
+      };
+      box-shadow: ${
+        `{{ 
+          is_state('${variables.occupancy_sensor}', 'on')
+            ? '0 0 4px #4CAF50'
+            : 'none'
+         }}`
+      };
+      z-index: 1;
+    }
+    
+    /* ===== ADAPTIVE LIGHTING INDICATOR ===== */
+    .adaptive-badge {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: ${
+        `{{ 
+          is_state('${variables.al_manual_control}', 'off') and is_state('${variables.al_switch}', 'on')
+            ? '#9CCC65'
+            : '#FFA000'
+         }}`
+      };
+      border: 2px solid var(--card-background-color);
+      opacity: ${
+        `{{ 
+          is_state('${variables.light_group}', 'on') and is_state('${variables.al_switch}', 'on')
+            ? '1'
+            : '0'
+         }}`
+      };
+      z-index: 1;
+      transition: all 0.3s ease;
+    }
+    
+    /* ===== TEMPERATURE INDICATOR ===== */
+    .temp-indicator {
+      position: absolute;
+      display: inline-block;
+      bottom: -26px;
+      right: 10px;
+      white-space: nowrap;
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      background: rgba(var(--rgb-card-background-color), 0.7);
+      padding: 2px 6px;
+      border-radius: 12px;
+      backdrop-filter: blur(4px);
+      transition: all 0.3s ease;
+      opacity: 0.9;
+    }
+    
+    /* ===== MEDIA BADGE ===== */
+    .media-badge {
+      position: absolute;
+      display: inline-block;
+      top: -4px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: ${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? '#E91E63'
+            : 'transparent'
+         }}`
+      };
+      border: 2px solid var(--card-background-color);
+      transition: all 0.3s ease;
+      opacity: ${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? '1'
+            : '0'
+         }}`
+      };
+      box-shadow: ${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? '0 0 4px #E91E63'
+            : 'none'
+         }}`
+      };
+      animation: ${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? 'pulse 2s infinite'
+            : 'none'
+         }}`
+      };
+      z-index: 1;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.7; }
+    }
+    
+    /* ===== MEDIA INFO ===== */
+    .media-info {
+      position: absolute;
+      display: inline-block;
+      left: 0;
+      right: 0;
+      bottom: -50px;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.2;
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 2px 4px;
+      background: rgba(var(--rgb-card-background-color), 0.7);
+      border-radius: 4px;
+      opacity: ${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? '0.9'
+            : '0'
+         }}`
+      };
+      transform: translateY(${
+        `{{ 
+          is_state('${variables.media_player}', 'playing')
+            ? '0'
+            : '10px'
+         }}`
+      });
+      transition: all 0.3s ease;
+      backdrop-filter: blur(4px);
+    }
+  extra_styles: |
+    <!-- Adaptive Lighting badge -->
+    <div class="adaptive-badge"></div>
+    
+    <!-- Media badge -->
+    <div class="media-badge"></div>
+    
+    <!-- Temperature indicator -->
+    <div class="temp-indicator">
+      ${
+        `{{ states('${variables.temperature_sensor}') | float | round(1) }}°
+         {% set target = state_attr('climate.dining_room', 'temperature') | float %}
+         {% set current = states('${variables.temperature_sensor}') | float %}
+         {% if current > target + 1 %}↑{% elif current < target - 1 %}↓{% else %}•{% endif %}`
+      }
+    </div>
+    
+    <!-- Media info -->
+    <div class="media-info">
+      ${
+        `{% if is_state('${variables.media_player}', 'playing') %}
+           {% if state_attr('${variables.media_player}', 'media_artist') and state_attr('${variables.media_player}', 'media_title') %}
+             {{ state_attr('${variables.media_player}', 'media_artist') }} - {{ state_attr('${variables.media_player}', 'media_title') }}
+           {% elif state_attr('${variables.media_player}', 'media_title') %}
+             {{ state_attr('${variables.media_player}', 'media_title') }}
+           {% else %}
+             Playing
+           {% endif %}
+         {% endif %}`
+      }
+    </div>
+  tap_action:
+    action: toggle
+    entity: "${variables.light_group}"
+  double_tap_action:
+    action: navigate
+    navigation_path: "${variables.popup_hash}"
+  hold_action:
+    action: call-service
+    service: script.reset_al_dining_room
+    service_data:
+      entity_id: "${variables.al_manual_control}"

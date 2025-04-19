@@ -1,0 +1,21 @@
+template:
+  name: base_card
+  description: "Base template for all cards in the dashboard"
+  variables:
+    title:
+      type: string
+      default: "Card Title"
+      description: "Title of the card"
+    icon:
+      type: string
+      default: "mdi:card"
+      description: "Icon for the card"
+  template: |
+    type: custom:bubble-card
+    card_type: custom
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          primary: "{{ variables.title }}"
+          icon: "{{ variables.icon }}"

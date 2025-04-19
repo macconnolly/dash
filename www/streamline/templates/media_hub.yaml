@@ -1,0 +1,273 @@
+# /www/streamline/templates/media_hub.yaml
+template:
+  name: "media_control_hub"
+  description: "Comprehensive media control with Spotify integration and multi-room audio"
+  variables:
+    title:
+      type: string
+      default: "Media Control"
+      description: "Section title"
+    master_player:
+      type: string
+      default: "media_player.living_room"
+      description: "Primary media player entity"
+    players:
+      type: map
+      default:
+        living_room: 
+          entity: "media_player.living_room"
+          name: "Living Room"
+          icon: "mdi:sofa"
+        kitchen:
+          entity: "media_player.kitchen"
+          name: "Kitchen"
+          icon: "mdi:countertop"
+        dining_room:
+          entity: "media_player.dining_room"
+          name: "Dining Room"
+          icon: "mdi:table-chair"
+        bedroom:
+          entity: "media_player.master_bedroom"
+          name: "Bedroom"
+          icon: "mdi:bed"
+      description: "Media players map"
+  template: |
+    type: vertical-stack
+    cards:
+      - type: custom:bubble-header
+        title: "{{ title }}"
+        subtitle: >
+          {% set active_count = 0 %}
+          {% for player in players.values() %}
+            {% if is_state(player.entity, 'playing') %}
+              {% set active_count = active_count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ active_count }} active player{% if active_count != 1 %}s{% endif %}
+        icon: mdi:speaker-multiple
+      
+      # Now Playing Section (dynamic)
+      - type: conditional
+        conditions:
+          - entity: "{{ master_player }}"
+            state: "playing"
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: "{{ master_player }}"
+          name: "Now Playing"
+          artwork_border: false
+          group_players_header: "Group with:"
+          styles_javascript: |
+            `
+            // Animations
+            @keyframes pulse {
+              0% { transform: scale(1); opacity: 0.8; }
+              50% { transform: scale(1.05); opacity: 1; }
+              100% { transform: scale(1); opacity: 0.8; }
+            }
+            
+            // Enhanced artwork
+            .artwork {
+              border-radius: 16px;
+              box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+              transition: transform 0.3s ease;
+            }
+            
+            .artwork:hover {
+              transform: scale(1.02);
+            }
+            
+            // Player controls enhancement
+            .player-controls mwc-icon-button {
+              --mdc-icon-size: 40px;
+              margin: 0 8px;
+              transition: transform 0.2s ease, color 0.2s ease;
+            }
+            
+            .player-controls mwc-icon-button:hover {
+              transform: scale(1.1);
+              color: var(--primary-color);
+            }
+            
+            // Dynamic background based on artwork
+            .bubble-media-player-background {
+              background: linear-gradient(135deg, 
+                rgba(var(--rgb-primary-color), 0.15) 0%, 
+                rgba(var(--rgb-primary-color), 0.05) 100%
+              );
+              transition: background 1s ease;
+            }
+            
+            // Purple Rain Easter Egg
+            ${(() => {
+              const mediaTitle = attributes.media_title || '';
+              const mediaArtist = attributes.media_artist || '';
+              if (mediaTitle.toLowerCase().includes('purple rain') || 
+                  mediaArtist.toLowerCase().includes('prince')) {
+                document.body.style.setProperty('--primary-color', '#8860ff');
+                return \`
+                  .bubble-media-player-background { 
+                    background: linear-gradient(135deg, 
+                      rgba(136, 96, 255, 0.2) 0%, 
+                      rgba(136, 96, 255, 0.05) 100%
+                    ); 
+                  }
+                  .media-title, .media-artist {
+                    color: #8860ff;
+                    animation: pulse 2s infinite;
+                  }
+                \`;
+              }
+              return '';
+            })()}
+            `
+      
+      # Quick Media Actions
+      - type: custom:bubble-horizontal-buttons-stack
+        buttons:
+          - name: "Group All"
+            icon: mdi:speaker-multiple
+            tap_action:
+              action: call-service
+              service: script.sonos_group_all_speakers
+            styles: |
+              .bubble-icon {
+                animation: pulse 2s infinite;
+              }
+              @keyframes pulse {
+                0% { transform: scale(1); opacity: 0.8; }
+                50% { transform: scale(1.05); opacity: 1; }
+                100% { transform: scale(1); opacity: 0.8; }
+              }
+          
+          - name: "Ungroup"
+            icon: mdi:speaker-off
+            tap_action:
+              action: call-service
+              service: script.sonos_ungroup_all_speakers
+          
+          - name: "Pause All"
+            icon: mdi:pause-circle
+            tap_action:
+              action: call-service
+              service: media_player.media_pause
+              service_data:
+                entity_id: all
+          
+          - name: "Focus Mode"
+            icon: mdi:waves
+            show: "{{ is_state('binary_sensor.iphone_12_pro_focus', 'on') }}"
+            tap_action:
+              action: call-service
+              service: script.play_white_noise
+      
+      # Spotify Section (conditional on focus mode)
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.iphone_12_pro_focus
+            state: "off"
+        card:
+          type: custom:bubble-header
+          title: "Spotify"
+      
+      # Spotify Playlists
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.iphone_12_pro_focus
+            state: "off"
+        card:
+          type: custom:bubble-grid
+          columns: 2
+          cards:
+            - type: custom:bubble-card
+              card_type: button
+              icon: mdi:playlist-music
+              name: "My Playlists"
+              tap_action:
+                action: navigate
+                navigation_path: "#spotify-playlists"
+              styles: |
+                .bubble-button-background {
+                  background: rgba(30, 215, 96, 0.1);
+                }
+                .bubble-icon {
+                  color: #1ED760;
+                }
+            
+            - type: custom:bubble-card
+              card_type: button
+              icon: mdi:history
+              name: "Recently Played"
+              tap_action:
+                action: navigate
+                navigation_path: "#spotify-recent"
+              styles: |
+                .bubble-button-background {
+                  background: rgba(30, 215, 96, 0.1);
+                }
+                .bubble-icon {
+                  color: #1ED760;
+                }
+      
+      # Volume Controls
+      - type: custom:bubble-header
+        title: "Volume Control"
+      
+      - type: custom:bubble-grid
+        columns: 2
+        cards:
+          {% for key, player in variables.players.items() %}
+          - type: custom:bubble-card
+            card_type: slider
+            entity: "{{ player.entity }}"
+            icon: "{{ player.icon }}"
+            name: "{{ player.name }}"
+            attribute: volume_level
+            min: 0
+            max: 1
+            step: 0.02
+            multiplier: 100
+            unit: "%"
+            tap_action:
+              action: more-info
+            sub_button:
+              # Mute toggle
+              - entity: "{{ player.entity }}"
+                attribute: is_volume_muted
+                icon: >
+                  {{ "mdi:volume-off" if state else "mdi:volume-high" }}
+                tap_action:
+                  action: call-service
+                  service: >
+                    {{ "media_player.volume_mute" }}
+                  service_data:
+                    entity_id: "{{ player.entity }}"
+                    is_volume_muted: >
+                      {{ not state }}
+            styles: |
+              .bubble-slider-color {
+                background: linear-gradient(to right, 
+                  rgba({{ 
+                    is_state(entity, 'playing') 
+                      ? 'var(--rgb-primary-color)' 
+                      : '158, 158, 158' 
+                  }}, 0.5), 
+                  rgba({{ 
+                    is_state(entity, 'playing') 
+                      ? 'var(--rgb-primary-color)' 
+                      : '158, 158, 158' 
+                  }}, 0.8)
+                );
+              }
+              
+              .bubble-icon {
+                animation: {{ is_state(entity, 'playing') ? 'pulse 2s infinite' : 'none' }};
+              }
+              
+              @keyframes pulse {
+                0% { transform: scale(1); opacity: 0.8; }
+                50% { transform: scale(1.05); opacity: 1; }
+                100% { transform: scale(1); opacity: 0.8; }
+              }
+          {% endfor %}

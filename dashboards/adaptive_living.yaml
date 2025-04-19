@@ -1,0 +1,272 @@
+title: Adaptive Home
+views:
+  - title: Main
+    path: main
+    icon: mdi:home
+    badges: []
+    cards:
+      # Dynamic context-aware header
+      - type: custom:streamline-card
+        template: dynamic_context_header
+        variables:
+          style: bubble
+          title: "Smart Home"
+          weather_entity: weather.home
+          temperature_entity: sensor.outdoor_temperature
+          context_entity: sensor.home_context_engine
+          show_weather: true
+          show_quick_actions: true
+          show_context_indicator: true
+          animation_enabled: true
+          card_template: default
+      
+      # Open floor plan card - unified control for connected spaces
+      - type: custom:streamline-card
+        template: open_floor_plan_card
+        variables:
+          style: bubble
+          title: "Open Living Space"
+          rooms: 
+            - living_room
+            - kitchen
+            - dining_room
+          room_names:
+            - Living Room
+            - Kitchen
+            - Dining Room
+          presence_entities:
+            - binary_sensor.living_room_presence
+            - binary_sensor.kitchen_presence
+            - binary_sensor.dining_room_presence
+          light_entities:
+            - light.living_room
+            - light.kitchen
+            - light.dining_room
+          temperature_entities:
+            - sensor.living_room_temperature 
+            - sensor.kitchen_temperature
+            - sensor.dining_room_temperature
+          media_entities:
+            - media_player.living_room
+            - media_player.kitchen
+            - media_player.dining_room
+          scene_entities:
+            - scene.open_area_bright
+            - scene.open_area_warm
+            - scene.open_area_cozy
+            - scene.open_area_movie
+          scene_names:
+            - Bright
+            - Warm
+            - Cozy
+            - Movie
+          scene_icons:
+            - mdi:brightness-7
+            - mdi:brightness-6
+            - mdi:lightbulb-outline
+            - mdi:movie-outline
+          climate_entity: climate.living_room
+          context_entity: sensor.home_context_engine
+          adaptive_lighting_switch: switch.adaptive_lighting_adapt_all_lights
+      
+      # Sonos Multi-Room Control - specially designed for open floor plan
+      - type: custom:streamline-card
+        template: sonos_group_control
+        variables:
+          style: bubble
+          title: "Open Area Audio"
+          main_player: media_player.living_room
+          players:
+            - media_player.living_room
+            - media_player.kitchen
+            - media_player.dining_room
+          player_names:
+            - Living Room
+            - Kitchen
+            - Dining Room
+          show_artwork: true
+          show_groups: true
+          show_presets: true
+          preset_scripts:
+            - script.sonos_preset_all_rooms
+            - script.sonos_preset_kitchen_dining
+            - script.sonos_preset_living_only
+          preset_names:
+            - All Rooms
+            - Kitchen & Dining
+            - Living Room
+          preset_icons:
+            - mdi:speaker-multiple
+            - mdi:silverware-fork-knife
+            - mdi:sofa
+      
+      # Grid of other rooms that are separate from the open floor plan
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          # Bedroom Card
+          - type: custom:streamline-card
+            template: context_room_card
+            variables:
+              style: bubble
+              room_name: "Bedroom"
+              area_id: "bedroom"
+              presence_entity: binary_sensor.bedroom_presence
+              temperature_entity: sensor.bedroom_temperature
+              light_entity: light.bedroom
+              media_entity: media_player.bedroom
+              climate_entity: climate.bedroom
+              icon: mdi:bed
+              adaptive_lighting_switch: switch.adaptive_lighting_adapt_bedroom
+              context_relevance: 7
+          
+          # Bathroom Card
+          - type: custom:streamline-card
+            template: context_room_card
+            variables:
+              style: bubble
+              room_name: "Bathroom"
+              area_id: "bathroom"
+              presence_entity: binary_sensor.bathroom_presence
+              temperature_entity: sensor.bathroom_temperature
+              light_entity: light.bathroom
+              media_entity: media_player.bathroom
+              climate_entity: climate.bathroom
+              icon: mdi:shower
+              context_relevance: 5
+      
+      # Climate & Weather Row
+      - type: horizontal-stack
+        cards:
+          # Climate Overview Card
+          - type: custom:bubble-card
+            card_type: custom
+            card:
+              type: custom:mushroom-climate-card
+              entity: climate.living_room
+              show_temperature_control: true
+              collapsible_controls: true
+              hvac_modes:
+                - heat
+                - cool
+                - heat_cool
+                - "off"
+              tap_action:
+                action: call-service
+                service: browser_mod.popup
+                service_data:
+                  title: Climate Control
+                  content:
+                    type: custom:bubble-card
+                    card_type: custom
+                    card:
+                      type: vertical-stack
+                      cards:
+                        - type: custom:bubble-header
+                          title: "Climate Control"
+                          subtitle: "Manage temperature throughout your home"
+                        - type: custom:climate-hub
+                          entities:
+                            - climate.living_room
+                            - climate.bedroom
+          
+          # Weather Card
+          - type: custom:bubble-card
+            card_type: custom
+            card:
+              type: weather-forecast
+              entity: weather.home
+              forecast_type: daily
+              tap_action:
+                action: more-info
+      
+      # Adaptive System Status
+      - type: custom:bubble-card
+        card_type: custom
+        card:
+          type: custom:mushroom-template-card
+          primary: "System Status"
+          secondary: >
+            {% set lights = states.light | selectattr('state', 'eq', 'on') | list | count %}
+            {% set media = states.media_player | selectattr('state', 'eq', 'playing') | list | count %}
+            {% set temp = states('sensor.living_room_temperature') %}
+            {{ lights }} lights on • {{ media }} media active • {{ temp }}°
+          icon: >
+            {% if is_state('binary_sensor.updater', 'on') %}
+              mdi:update
+            {% elif lights > 5 %}
+              mdi:lightbulb-group
+            {% elif media > 0 %}
+              mdi:speaker-wireless
+            {% else %}
+              mdi:home-assistant
+            {% endif %}
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: System Status
+              content:
+                type: vertical-stack
+                cards:
+                  - type: custom:bubble-header
+                    title: "System Status"
+                    subtitle: "Home Assistant System Overview"
+                  - type: entities
+                    entities:
+                      - entity: sensor.processor_use
+                        name: CPU Usage
+                        icon: mdi:cpu-64-bit
+                      - entity: sensor.memory_use
+                        name: Memory Usage
+                        icon: mdi:memory
+                      - entity: sensor.disk_use_percent
+                        name: Disk Usage
+                        icon: mdi:harddisk
+                      - entity: sensor.last_boot
+                        name: Last Boot
+                        icon: mdi:restart
+                      - entity: update.home_assistant_core_update
+                        name: Home Assistant Updates
+                        icon: mdi:home-assistant
+                      - entity: sensor.home_assistant_installed_version
+                        name: Current Version
+                        icon: mdi:tag-outline
+  
+  # Context-specific views that show only what's relevant to the current home state
+  - title: Morning
+    path: morning
+    icon: mdi:weather-sunset-up
+    visible:
+      - user: all
+      - condition: state
+        entity: sensor.home_context_engine
+        state: morning
+  
+  - title: Day
+    path: day
+    icon: mdi:white-balance-sunny
+    visible:
+      - user: all
+      - condition: state
+        entity: sensor.home_context_engine
+        state: day
+  
+  - title: Evening
+    path: evening
+    icon: mdi:weather-sunset-down
+    visible:
+      - user: all
+      - condition: state
+        entity: sensor.home_context_engine
+        state: evening
+  
+  - title: Movie
+    path: movie
+    icon: mdi:movie-open
+    visible:
+      - user: all
+      - condition: state
+        entity: sensor.home_context_engine
+        state: movie

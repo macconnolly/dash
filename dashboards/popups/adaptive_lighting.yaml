@@ -1,0 +1,91 @@
+# Pop-up definition for Adaptive Lighting Control (#adaptive-lighting-popup)
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Adaptive Lighting"
+    icon: mdi:theme-light-dark
+    subtitle: "{{ states('switch.adaptive_lighting_default') | replace('on', 'Active') | replace('off', 'Inactive') }}" # Main AL switch from package
+
+  # Main Toggle
+  - type: custom:bubble-card
+    card_type: switch
+    entity: switch.adaptive_lighting_default # Main AL switch from package
+    name: "Master Control"
+    icon: mdi:power
+
+  # Status Indicators
+  - type: custom:bubble-header
+    name: "Current Status"
+
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.adaptive_lighting_brightness_default # Sensor from package
+        name: "Brightness"
+        icon: mdi:brightness-percent
+        show_state: true
+        show_last_changed: false
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.adaptive_lighting_color_temp_default # Sensor from package
+        name: "Color Temp"
+        icon: mdi:thermometer-lines # Changed icon
+        show_state: true
+        show_last_changed: false
+
+  # Control Toggles
+  - type: custom:bubble-header
+    name: "Settings"
+
+  - type: custom:bubble-grid
+    columns: 3 # Adjusted for 3 toggles
+    cards:
+      - type: custom:bubble-card
+        card_type: switch # Assuming boolean exists or is created
+        entity: input_boolean.adaptive_lighting_sleep_mode_default # Boolean from package
+        name: "Sleep Mode"
+        icon: mdi:sleep
+
+      - type: custom:bubble-card
+        card_type: switch # Assuming boolean exists or is created
+        entity: input_boolean.adaptive_lighting_adapt_brightness_default # Boolean from package
+        name: "Adapt Brightness"
+        icon: mdi:brightness-auto
+
+      - type: custom:bubble-card
+        card_type: switch # Assuming boolean exists or is created
+        entity: input_boolean.adaptive_lighting_adapt_color_default # Boolean from package
+        name: "Adapt Color"
+        icon: mdi:palette-outline # Changed icon
+
+  # Reset Controls per Area
+  - type: custom:bubble-header
+    name: "Reset Lights to Adaptive"
+
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Living"
+        icon: mdi:sofa
+        tap_action:
+          action: call-service
+          service: script.reset_al_living_room # Script from system monitor package
+      - name: "Bedroom"
+        icon: mdi:bed
+        tap_action:
+          action: call-service
+          service: script.reset_al_bedroom # Script from system monitor package
+      - name: "Dining"
+        icon: mdi:silverware-fork-knife
+        tap_action:
+          action: call-service
+          service: script.reset_al_dining_room # Script from system monitor package
+      # Add more rooms if needed and corresponding scripts exist
+      # - name: "Kitchen"
+      #   icon: mdi:countertop
+      #   tap_action:
+      #     action: call-service
+      #     service: script.reset_al_kitchen # Placeholder script

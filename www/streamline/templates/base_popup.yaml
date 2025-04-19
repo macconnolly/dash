@@ -1,0 +1,194 @@
+template:
+  name: base_popup
+  description: "Unified base template for all popups in the dashboard"
+  variables:
+    title:
+      type: string
+      default: "Popup Title"
+      description: "Title of the popup"
+    subtitle:
+      type: string
+      default: ""
+      description: "Optional subtitle for the popup"
+    icon:
+      type: string
+      default: "mdi:information"
+      description: "Icon for the popup"
+    style_variant:
+      type: string
+      default: "bubble"
+      description: "Style variant (bubble or streamline)"
+    context_entity:
+      type: string
+      default: "sensor.home_context_engine"
+      description: "Home context entity"
+    area:
+      type: string
+      default: ""
+      description: "Area name for context-aware styling"
+    enable_glassy_effect:
+      type: boolean
+      default: true
+      description: "Enable glass morphism effect"
+    use_context_colors:
+      type: boolean
+      default: true
+      description: "Use context-based colors"
+    custom_color:
+      type: string
+      default: ""
+      description: "Custom color to override context color"
+    animation_enabled:
+      type: boolean
+      default: true
+      description: "Enable animation effects"
+    show_close_button:
+      type: boolean
+      default: true
+      description: "Show close button in header"
+  template: |
+    {% set render_variant = variables.style_variant | default('bubble') %}
+    
+    type: custom:{{ render_variant }}-card
+    {% if render_variant == 'bubble' %}card_type: custom{% endif %}
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:{{ render_variant }}-header
+          title: "{{ variables.title }}"
+          subtitle: "{{ variables.subtitle }}"
+          icon: "{{ variables.icon }}"
+          {% if variables.show_close_button %}
+          tap_action:
+            action: close-popup
+          {% endif %}
+          
+          {% if variables.use_context_colors %}
+          color: >
+            {% if variables.custom_color %}
+              {{ variables.custom_color }}
+            {% else %}
+              {% set context = states(variables.context_entity) %}
+              {% if context == 'morning' %}
+                rgba(255, 152, 0, 1)
+              {% elif context == 'day' %}
+                rgba(255, 235, 59, 1)
+              {% elif context == 'evening' %}
+                rgba(255, 87, 34, 1)
+              {% elif context == 'night' or context == 'sleeping' %}
+                rgba(13, 71, 161, 1)
+              {% elif context == 'movie' %}
+                rgba(156, 39, 176, 1)
+              {% elif context == 'focus' %}
+                rgba(33, 150, 243, 1)
+              {% elif context == 'hosting' %}
+                rgba(233, 30, 99, 1)
+              {% elif context == 'away' %}
+                rgba(158, 158, 158, 1)
+              {% else %}
+                var(--primary-color)
+              {% endif %}
+            {% endif %}
+          {% endif %}
+          
+    styles_javascript: |
+      `
+      // Get context info
+      const context = hass.states['${variables.context_entity}']?.state || 'day';
+      const styleVariant = '${variables.style_variant}' || 'bubble';
+      const animationEnabled = ${variables.animation_enabled} !== false;
+      const glassyEffect = ${variables.enable_glassy_effect} === true;
+      const useContextColors = ${variables.use_context_colors} !== false;
+      const customColor = '${variables.custom_color}';
+      const area = '${variables.area}';
+      
+      // Context-aware color function
+      function getContextColor(opacity = 1) {
+        if (customColor) {
+          const colorParts = customColor.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+          if (colorParts) {
+            return `rgba(${colorParts[1]}, ${colorParts[2]}, ${colorParts[3]}, ${opacity})`;
+          }
+          return customColor;
+        }
+        
+        // Return color based on context
+        switch(context) {
+          case 'morning': return opacity < 1 ? `rgba(255, 152, 0, ${opacity})` : 'rgba(255, 152, 0, 1)';
+          case 'day': return opacity < 1 ? `rgba(255, 235, 59, ${opacity})` : 'rgba(255, 235, 59, 1)';
+          case 'evening': return opacity < 1 ? `rgba(255, 87, 34, ${opacity})` : 'rgba(255, 87, 34, 1)';
+          case 'night': 
+          case 'sleeping': return opacity < 1 ? `rgba(13, 71, 161, ${opacity})` : 'rgba(13, 71, 161, 1)';
+          case 'movie': return opacity < 1 ? `rgba(156, 39, 176, ${opacity})` : 'rgba(156, 39, 176, 1)';
+          case 'focus': return opacity < 1 ? `rgba(33, 150, 243, ${opacity})` : 'rgba(33, 150, 243, 1)';
+          case 'hosting': return opacity < 1 ? `rgba(233, 30, 99, ${opacity})` : 'rgba(233, 30, 99, 1)';
+          case 'away': return opacity < 1 ? `rgba(158, 158, 158, ${opacity})` : 'rgba(158, 158, 158, 1)';
+          default: return opacity < 1 ? `var(--rgb-primary-color, rgba(80, 155, 245, ${opacity}))` : 'var(--primary-color, rgba(80, 155, 245, 1))';
+        }
+      }
+      
+      // Style the popup based on context
+      const root = card.shadowRoot || card;
+      const popupCard = root.querySelector('ha-card');
+      if (popupCard) {
+        // Apply glass effect if enabled
+        if (glassyEffect) {
+          popupCard.style.backdropFilter = 'blur(10px)';
+          popupCard.style.backgroundColor = 'rgba(var(--rgb-card-background-color, 255, 255, 255), 0.5)';
+        }
+        
+        // Apply context-based styling
+        if (useContextColors) {
+          const contextColor = getContextColor(0.05);
+          popupCard.style.background = contextColor;
+          
+          // Add subtle border for better definition
+          popupCard.style.border = `1px solid ${getContextColor(0.1)}`;
+        }
+        
+        // Apply card styling based on variant
+        if (styleVariant === 'bubble') {
+          popupCard.style.borderRadius = '16px';
+          popupCard.style.overflow = 'hidden';
+        } else {
+          popupCard.style.borderRadius = '8px';
+          popupCard.style.overflow = 'hidden';
+        }
+        
+        // Apply animations if enabled
+        if (animationEnabled) {
+          popupCard.style.animation = 'fadeIn 0.3s ease-out';
+          popupCard.style.transition = 'all 0.3s ease';
+        }
+        
+        // Add animation keyframes if they don't exist
+        if (animationEnabled && !document.getElementById('popup-animations')) {
+          const style = document.createElement('style');
+          style.id = 'popup-animations';
+          style.textContent = `
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(10px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        // Improved shadows
+        popupCard.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+      }
+      
+      // Make the popup responsive
+      const mediaQuery = window.matchMedia('(max-width: 600px)');
+      if (mediaQuery.matches) {
+        if (popupCard) {
+          popupCard.style.maxWidth = '95vw';
+          
+          // Adjust padding for smaller screens
+          const content = popupCard.querySelector('.card-content');
+          if (content) {
+            content.style.padding = '12px';
+          }
+        }
+      }
+      `

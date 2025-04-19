@@ -1,0 +1,103 @@
+template:
+  name: style_adapter
+  description: "Universal style adapter for switching between Bubble Card and Streamline Card"
+  variables:
+    style:
+      type: string
+      default: "bubble"
+      description: "Style variant to use (bubble or streamline)"
+    title:
+      type: string
+      default: ""
+      description: "Card title (if applicable)"
+    subtitle:
+      type: string
+      default: ""
+      description: "Card subtitle (if applicable)"
+    icon:
+      type: string
+      default: ""
+      description: "Icon to use (if applicable)"
+    use_card_mod:
+      type: boolean
+      default: true
+      description: "Whether to use card_mod for additional styling"
+    content:
+      type: string
+      default: ""
+      description: "Content to render inside the card"
+    card_type:
+      type: string
+      default: "custom"
+      description: "Bubble card type (if using bubble style)"
+    base_card_style:
+      type: string
+      default: "default"
+      description: "Base card style for streamline cards"
+  template: |
+    {% set variant = variables.style | default('bubble') %}
+    
+    {% if variant == 'bubble' %}
+    # Render as Bubble Card
+    type: custom:bubble-card
+    card_type: {{ variables.card_type | default('custom') }}
+    {% if variables.title or variables.subtitle or variables.icon %}
+    header:
+      title: {{ variables.title }}
+      subtitle: {{ variables.subtitle }}
+      icon: {{ variables.icon }}
+    {% endif %}
+    {% else %}
+    # Render as Streamline Card
+    type: custom:streamline-card
+    card_style: {{ variables.base_card_style | default('default') }}
+    {% endif %}
+    
+    card:
+      {% if variables.content %}
+      {{ variables.content | indent(6) }}
+      {% else %}
+      type: vertical-stack
+      cards:
+        {% if variant == 'streamline' and (variables.title or variables.subtitle or variables.icon) %}
+        - type: custom:streamline-header
+          title: {{ variables.title }}
+          subtitle: {{ variables.subtitle }}
+          icon: {{ variables.icon }}
+        {% endif %}
+        # Additional cards would be placed here
+      {% endif %}
+    
+    {% if variables.use_card_mod %}
+    card_mod:
+      style: |
+        ha-card {
+          {% if variant == 'bubble' %}
+          border-radius: 16px;
+          {% else %}
+          border-radius: 8px;
+          {% endif %}
+          transition: all 0.3s ease;
+        }
+    {% endif %}
+  
+  styles_javascript: |
+    `
+    // Get style variant
+    const styleVariant = '${variables.style || 'bubble'}';
+    
+    // Apply consistent styling across card variants
+    const card = root.querySelector('ha-card');
+    if (card) {
+      // Card styling based on variant
+      if (styleVariant === 'bubble') {
+        card.style.borderRadius = '16px';
+        card.style.overflow = 'hidden';
+        card.style.transition = 'all 0.3s ease';
+      } else {
+        card.style.borderRadius = '8px';
+        card.style.overflow = 'hidden';
+        card.style.transition = 'all 0.3s ease';
+      }
+    }
+    `

@@ -1,0 +1,11 @@
+# Pop-up definition for Morning Calendar (#morning-calendar)
+# Placeholder - Content to be added based on guide/requirements
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "Today's Schedule"
+    icon: mdi:calendar-today
+  - type: markdown
+    content: "Calendar details will be displayed here."
+    # Add calendar integration card here later (e.g., atomic-calendar-revive)

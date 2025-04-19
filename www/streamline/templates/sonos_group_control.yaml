@@ -1,0 +1,384 @@
+template:
+  name: sonos_group_control
+  description: "Advanced Sonos group control for open floor plan homes"
+  variables:
+    style:
+      type: string
+      default: "bubble"
+      description: "Style to use (bubble or streamline)"
+    title:
+      type: string
+      default: "Sonos Control"
+      description: "Title for the card"
+    main_player:
+      type: string
+      default: "media_player.living_room"
+      description: "Primary Sonos player"
+    players:
+      type: list
+      default: ["media_player.living_room", "media_player.kitchen", "media_player.dining_room"]
+      description: "List of all available Sonos players"
+    player_names:
+      type: list
+      default: ["Living Room", "Kitchen", "Dining Room"]
+      description: "Display names for the players"
+    show_artwork:
+      type: boolean
+      default: true
+      description: "Whether to show media artwork"
+    show_groups:
+      type: boolean
+      default: true
+      description: "Whether to show group controls"
+    show_presets:
+      type: boolean
+      default: true
+      description: "Whether to show preset buttons"
+    preset_scripts:
+      type: list
+      default: ["script.sonos_preset_all_rooms", "script.sonos_preset_kitchen_dining", "script.sonos_preset_living_only"]
+      description: "Scripts for preset configurations"
+    preset_names:
+      type: list
+      default: ["All Rooms", "Kitchen & Dining", "Living Room Only"]
+      description: "Names for the presets"
+    preset_icons:
+      type: list
+      default: ["mdi:speaker-multiple", "mdi:silverware-fork-knife", "mdi:sofa"]
+      description: "Icons for the presets"
+  template: |
+    {% set style_variant = variables.style | default('bubble') %}
+    
+    {% if style_variant == 'bubble' %}
+    type: custom:bubble-card
+    card_type: custom
+    {% else %}
+    type: custom:streamline-card
+    {% endif %}
+    
+    card:
+      type: vertical-stack
+      cards:
+        # Player Status & Controls
+        - type: custom:mushroom-template-card
+          primary: "{{ variables.title }}"
+          secondary: >
+            {% set any_playing = false %}
+            {% set player_info = namespace(name="", title="") %}
+            {% for player in variables.players %}
+              {% if is_state(player, 'playing') %}
+                {% set any_playing = true %}
+                {% set player_info.name = variables.player_names[loop.index0] %}
+                {% set player_info.title = state_attr(player, 'media_title') | default('Unknown') %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if any_playing %}
+              Playing: {{ player_info.title }} ({{ player_info.name }})
+            {% else %}
+              No music playing
+            {% endif %}
+          icon: >
+            {% set any_playing = false %}
+            {% for player in variables.players %}
+              {% if is_state(player, 'playing') %}
+                {% set any_playing = true %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if any_playing %}
+              mdi:speaker-wireless
+            {% else %}
+              mdi:speaker-off
+            {% endif %}
+          icon_color: >
+            {% set any_playing = false %}
+            {% for player in variables.players %}
+              {% if is_state(player, 'playing') %}
+                {% set any_playing = true %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            
+            {% if any_playing %}
+              purple
+            {% else %}
+              grey
+            {% endif %}
+          tap_action:
+            action: call-service
+            service: browser_mod.popup
+            service_data:
+              title: "Sonos Control"
+              content:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-title-card
+                    title: "Sonos Multi-Room Control"
+                    subtitle: >
+                      {% set playing_count = namespace(value=0) %}
+                      {% for player in variables.players %}
+                        {% if is_state(player, 'playing') %}
+                          {% set playing_count.value = playing_count.value + 1 %}
+                        {% endif %}
+                      {% endfor %}
+                      
+                      {% if playing_count.value == 0 %}
+                        No active speakers
+                      {% elif playing_count.value == 1 %}
+                        1 active speaker
+                      {% else %}
+                        {{ playing_count.value }} speakers active
+                      {% endif %}
+                  - type: custom:sonos-card
+                    entity: "{{ variables.main_player }}"
+                    speaker_as_dropdown: true
+                    hide:
+                      power: false
+                      select_source: true
+                    sonos_grouped: true
+        
+        # Conditional artwork
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_artwork }}"
+            - condition: template
+              value_template: >
+                {% for player in variables.players %}
+                  {% if is_state(player, 'playing') and state_attr(player, 'entity_picture') %}
+                    true
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+          card:
+            type: picture
+            image: >
+              {% for player in variables.players %}
+                {% if is_state(player, 'playing') and state_attr(player, 'entity_picture') %}
+                  {{ state_attr(player, 'entity_picture') }}
+                  {% break %}
+                {% endif %}
+              {% endfor %}
+            aspect_ratio: 16:9
+            tap_action:
+              action: more-info
+              entity: >
+                {% for player in variables.players %}
+                  {% if is_state(player, 'playing') %}
+                    {{ player }}
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+            card_mod:
+              style: |
+                ha-card {
+                  border-radius: 16px;
+                  overflow: hidden;
+                  margin-top: 8px;
+                  margin-bottom: 8px;
+                  box-shadow: none;
+                }
+                
+        # Playback controls
+        - type: custom:mini-media-player
+          entity: "{{ variables.main_player }}"
+          hide:
+            power: false
+            source: true
+            volume: false
+            controls: false
+          group: true
+          shortcuts:
+            columns: 3
+            buttons:
+              - icon: mdi:skip-previous
+                type: service
+                id: media_player.media_previous_track
+                data:
+                  entity_id: "{{ variables.main_player }}"
+              - icon: mdi:play-pause
+                type: service
+                id: media_player.media_play_pause
+                data:
+                  entity_id: "{{ variables.main_player }}"
+              - icon: mdi:skip-next
+                type: service
+                id: media_player.media_next_track
+                data:
+                  entity_id: "{{ variables.main_player }}"
+        
+        # Quick group presets section
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_presets }}"
+          card:
+            type: grid
+            columns: 3
+            square: false
+            cards:
+              {% for i in range(0, variables.preset_scripts | length) %}
+                {% set script = variables.preset_scripts[i] %}
+                {% set name = variables.preset_names[i] if variables.preset_names[i] is defined else script.split('.')[1] | replace('_', ' ') | title %}
+                {% set icon = variables.preset_icons[i] if variables.preset_icons[i] is defined else 'mdi:speaker' %}
+                - type: custom:button-card
+                  icon: "{{ icon }}"
+                  name: "{{ name }}"
+                  tap_action:
+                    action: call-service
+                    service: script.turn_on
+                    service_data:
+                      entity_id: "{{ script }}"
+                  styles:
+                    card:
+                      - padding: 8px
+                      - border-radius: "{{ '8px' if style_variant == 'streamline' else '12px' }}"
+                      - background-color: "rgba(156, 39, 176, 0.1)"
+                    icon:
+                      - color: "rgba(156, 39, 176, 1)"
+                    name:
+                      - font-size: 12px
+                      - color: var(--primary-text-color)
+                      - margin-top: 4px
+              {% endfor %}
+        
+        # Individual players with group controls
+        - type: conditional
+          conditions:
+            - condition: template
+              value_template: "{{ variables.show_groups }}"
+          card:
+            type: entities
+            entities:
+              - type: custom:mushroom-title-card
+                title: "Active Speakers"
+                subtitle: "Tap to toggle individual speakers"
+              {% for i in range(0, variables.players | length) %}
+                {% set player = variables.players[i] %}
+                {% set name = variables.player_names[i] if variables.player_names[i] is defined else player.split('.')[1] | replace('_', ' ') | title %}
+                - type: custom:hui-element
+                  card_type: mushroom-entity-card
+                  entity: "{{ player }}"
+                  name: "{{ name }}"
+                  icon: >
+                    {% if is_state(player, 'playing') %}
+                      mdi:speaker-playing
+                    {% elif is_state(player, 'paused') %}
+                      mdi:speaker-pause
+                    {% else %}
+                      mdi:speaker
+                    {% endif %}
+                  tap_action:
+                    action: call-service
+                    service: >
+                      {% set master = hass.states[variables.main_player] %}
+                      {% set is_grouped = master.attributes.group_members is defined and player in master.attributes.group_members %}
+                      {% if is_grouped and player != variables.main_player %}
+                        sonos.unjoin
+                      {% else %}
+                        sonos.join
+                      {% endif %}
+                    service_data:
+                      entity_id: "{{ player }}"
+                      master: "{{ variables.main_player }}"
+                  icon_color: >
+                    {% set master = hass.states[variables.main_player] %}
+                    {% set is_grouped = master.attributes.group_members is defined and player in master.attributes.group_members %}
+                    {% if is_grouped or player == variables.main_player %}
+                      {% if is_state(player, 'playing') %}
+                        purple
+                      {% else %}
+                        deep-purple
+                      {% endif %}
+                    {% else %}
+                      grey
+                    {% endif %}
+              {% endfor %}
+  
+  styles_javascript: |
+    `
+    // Get current states for all players
+    const players = ${JSON.stringify(variables.players)} || [];
+    const styleVariant = '${variables.style}' || 'bubble';
+    
+    // Check if any player is playing
+    const anyPlaying = players.some(entity => hass.states[entity]?.state === 'playing');
+    
+    // Get the master player state
+    const masterPlayer = hass.states['${variables.main_player}'];
+    const groupMembers = masterPlayer?.attributes?.group_members || [];
+    
+    // Apply styling to card based on playback status
+    const card = root.querySelector('ha-card');
+    if (card) {
+      // Card styling based on style variant
+      card.style.borderRadius = styleVariant === 'bubble' ? '16px' : '8px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'all 0.3s ease';
+      
+      // Special styling when media is playing
+      if (anyPlaying) {
+        // Add subtle music visualization effect
+        if (!document.getElementById('sonos-visualization')) {
+          const style = document.createElement('style');
+          style.id = 'sonos-visualization';
+          style.textContent = `
+            @keyframes gentle-pulse {
+              0% { box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3); }
+              50% { box-shadow: 0 4px 20px rgba(156, 39, 176, 0.5); }
+              100% { box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        card.style.animation = 'gentle-pulse 4s infinite ease-in-out';
+        card.style.borderLeft = '3px solid rgba(156, 39, 176, 1)';
+      } else {
+        card.style.borderLeft = '3px solid var(--divider-color)';
+      }
+    }
+    
+    // Apply styling to preset buttons
+    const presetButtons = root.querySelectorAll('.grid button-card');
+    presetButtons.forEach(btn => {
+      btn.addEventListener('mouseenter', function() {
+        this.style.transform = 'scale(1.05)';
+        this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+      });
+      
+      btn.addEventListener('mouseleave', function() {
+        this.style.transform = 'scale(1)';
+        this.style.boxShadow = 'none';
+      });
+    });
+    
+    // Apply special styling to grouped players
+    const playerEntities = root.querySelectorAll('mushroom-entity-card');
+    playerEntities.forEach(playerCard => {
+      const playerId = playerCard.entity;
+      if (groupMembers.includes(playerId)) {
+        const cardContainer = playerCard.shadowRoot?.querySelector('.container');
+        if (cardContainer) {
+          cardContainer.style.background = 'rgba(156, 39, 176, 0.08)';
+          cardContainer.style.borderRadius = '12px';
+        }
+      }
+    });
+    
+    // Make responsive adjustments
+    const mediaQuery = window.matchMedia('(max-width: 460px)');
+    if (mediaQuery.matches) {
+      // Adjust preset buttons for smaller screens
+      presetButtons.forEach(btn => {
+        btn.style.padding = '6px';
+        const name = btn.querySelector('.info .name');
+        if (name) {
+          name.style.fontSize = '10px';
+        }
+      });
+    }
+    `

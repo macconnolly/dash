@@ -1,0 +1,229 @@
+# /www/streamline/templates/climate_hub.yaml
+template:
+  name: "climate_control_hub"
+  description: "Advanced climate control with energy metrics and visual feedback"
+  variables:
+    entity:
+      type: string
+      default: "climate.dining_room"
+      description: "Climate entity"
+    fan:
+      type: string
+      default: "fan.hvac_fan"
+      description: "HVAC fan entity"
+    energy_today:
+      type: string
+      default: "sensor.hvac_energy_today"
+      description: "HVAC energy consumption today"
+    title:
+      type: string
+      default: "Climate Control"
+      description: "Section title"
+  template: |
+    type: vertical-stack
+    cards:
+      - type: custom:bubble-header
+        title: "{{ title }}"
+        subtitle: >
+          {{ state_attr(entity, 'current_temperature') }}° • 
+          {{ state_attr(entity, 'hvac_action') | title }}
+        icon: >
+          {% if is_state_attr(entity, 'hvac_action', 'heating') %}
+            mdi:fire
+          {% elif is_state_attr(entity, 'hvac_action', 'cooling') %}
+            mdi:snowflake
+          {% elif is_state_attr(entity, 'hvac_action', 'idle') %}
+            mdi:thermostat
+          {% else %}
+            mdi:thermostat-off
+          {% endif %}
+      
+      - type: custom:bubble-card
+        card_type: thermostat
+        entity: "{{ entity }}"
+        styles_javascript: |
+          `
+          // Dynamic thermostat styling based on HVAC state
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+          }
+          
+          .round-temp-sensor-container {
+            transition: box-shadow 1s ease;
+            box-shadow: ${
+              (() => {
+                const hvacAction = hass.states['{{ entity }}'].attributes.hvac_action;
+                if (hvacAction === 'heating') return '0 0 20px rgba(255, 112, 67, 0.5)';
+                if (hvacAction === 'cooling') return '0 0 20px rgba(41, 182, 246, 0.5)';
+                return 'none';
+              })()
+            };
+          }
+          
+          // Active heating/cooling indicator
+          .round-temp-sensor {
+            animation: ${
+              hass.states['{{ entity }}'].attributes.hvac_action === 'heating' || 
+              hass.states['{{ entity }}'].attributes.hvac_action === 'cooling'
+                ? 'pulse 4s infinite'
+                : 'none'
+            };
+          }
+          
+          // Temperature display enhancement
+          .current-temperature {
+            color: ${
+              (() => {
+                const hvacAction = hass.states['{{ entity }}'].attributes.hvac_action;
+                if (hvacAction === 'heating') return 'rgba(255, 112, 67, 1)';
+                if (hvacAction === 'cooling') return 'rgba(41, 182, 246, 1)';
+                return 'var(--primary-text-color)';
+              })()
+            };
+            font-weight: 500;
+          }
+          
+          // Target temperature display enhancement
+          .target-temperature {
+            color: var(--primary-color);
+            font-weight: 500;
+          }
+          `
+      
+      # HVAC Fan Control with Animation
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: "{{ fan }}"
+        icon: mdi:fan
+        name: "HVAC Fan"
+        sub_button:
+          # Fan speed control
+          - icon: mdi:gauge
+            show: "{{ state === 'on' }}"
+            state_display: >
+              {{ state_attr(entity, 'percentage') }}%
+            tap_action:
+              action: more-info
+          
+          # HVAC Mode indicator
+          - entity: "{{ entity }}" # Changed to climate entity for mode
+            icon: >
+              {% if is_state_attr(entity, 'hvac_mode', 'heat_cool') %}
+                mdi:autorenew
+              {% elif is_state_attr(entity, 'hvac_mode', 'heat') %}
+                mdi:fire
+              {% elif is_state_attr(entity, 'hvac_mode', 'cool') %}
+                mdi:snowflake
+              {% else %}
+                mdi:thermostat
+              {% endif %}
+            state_display: >
+              {{ state_attr(entity, 'hvac_mode') | title | replace('_', ' ') }}
+            styles: |
+              .bubble-sub-button-icon {
+                color: {{ 
+                  is_state_attr(entity, 'hvac_mode', 'heat') ? 'rgba(255, 112, 67, 1)' : 
+                  is_state_attr(entity, 'hvac_mode', 'cool') ? 'rgba(41, 182, 246, 1)' : 
+                  'rgba(158, 158, 158, 1)' 
+                }};
+              }
+          
+          # Energy consumption
+          - entity: "{{ energy_today }}"
+            icon: mdi:lightning-bolt
+            state_display: >
+              {{ states(entity) }} kWh
+        styles_javascript: |
+          `
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          
+          // Dynamic fan rotation
+          .bubble-icon {
+            animation: ${
+              state === 'on' 
+                ? 'spin ' + (20 / (attributes.percentage || 50)) + 's linear infinite' 
+                : 'none'
+            };
+          }
+          
+          // HVAC status ring
+          .bubble-icon-container::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 3px solid ${
+              hass.states['{{ entity }}'].attributes.hvac_action === 'heating' 
+                ? 'rgba(255, 112, 67, 1)'
+                : hass.states['{{ entity }}'].attributes.hvac_action === 'cooling'
+                  ? 'rgba(41, 182, 246, 1)'
+                  : 'rgba(0, 0, 0, 0.2)'
+            };
+            opacity: ${state === 'on' ? '.7' : '0'};
+            transition: opacity 0.4s;
+          }
+          
+          // Background highlights status
+          .bubble-button-background {
+            background: ${
+              state === 'on'
+                ? (hass.states['{{ entity }}'].attributes.hvac_action === 'heating'
+                    ? 'radial-gradient(circle, rgba(255, 112, 67, 0.2) 0%, rgba(255, 112, 67, 0.05) 100%)'
+                    : hass.states['{{ entity }}'].attributes.hvac_action === 'cooling'
+                      ? 'radial-gradient(circle, rgba(41, 182, 246, 0.2) 0%, rgba(41, 182, 246, 0.05) 100%)'
+                      : 'none')
+                : 'none'
+            };
+            opacity: 1 !important;
+          }
+          `
+      
+      # Temperature trend visualization
+      - type: custom:bubble-header
+        title: "Temperature Trends"
+      
+      - type: custom:apexcharts-card
+        header:
+          show: false
+        graph_span: 24h
+        all_series_config:
+          stroke_width: 2
+          curve: "smooth"
+        series:
+          - entity: sensor.living_room_temperature
+            name: "Living Room"
+            color: "rgba(103, 58, 183, 1)"
+          - entity: sensor.kitchen_temperature
+            name: "Kitchen"
+            color: "rgba(0, 150, 136, 1)"
+          - entity: sensor.dining_room_temperature
+            name: "Dining Room"
+            color: "rgba(255, 87, 34, 1)"
+          - entity: sensor.master_bedroom_temperature
+            name: "Bedroom"
+            color: "rgba(3, 169, 244, 1)"
+        apex_config:
+          chart:
+            height: 200
+            toolbar:
+              show: false
+            zoom:
+              enabled: false
+          tooltip:
+            enabled: true
+            x:
+              format: "HH:mm"
+          xaxis:
+            labels:
+              datetimeUTC: false
+              format: "HH:mm"
+          yaxis:
+            labels:
+              formatter: "|value|°"
+            forceNiceScale: true

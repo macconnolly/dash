@@ -1,0 +1,121 @@
+# Pop-up definition for System Monitor (#system-monitor-popup)
+
+type: vertical-stack
+cards:
+  - type: custom:bubble-header
+    title: "System Monitor"
+    icon: mdi:monitor-dashboard
+    subtitle: "HA Version: {{ states('sensor.ha_version') }}" # Sensor from package
+
+  # Core System Stats
+  - type: custom:bubble-grid
+    columns: 3
+    cards:
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.processor_use # Sensor from package
+        name: "CPU"
+        icon: mdi:cpu-64-bit
+        show_state: true
+        show_last_changed: false
+        styles: |
+          .bubble-value {
+            font-size: 1.2em;
+            color: ${ hass.states['sensor.processor_use'].state > 80 ? 'var(--bubble-error-color)' : 'inherit' };
+          }
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.memory_use_percent # Sensor from package
+        name: "RAM"
+        icon: mdi:memory
+        show_state: true
+        show_last_changed: false
+        styles: |
+          .bubble-value {
+            font-size: 1.2em;
+            color: ${ hass.states['sensor.memory_use_percent'].state > 85 ? 'var(--bubble-error-color)' : 'inherit' };
+          }
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.disk_use_percent_config # Sensor from package (assuming /config mount)
+        name: "Disk"
+        icon: mdi:harddisk
+        show_state: true
+        show_last_changed: false
+        styles: |
+          .bubble-value {
+            font-size: 1.2em;
+            color: ${ hass.states['sensor.disk_use_percent_config'].state > 90 ? 'var(--bubble-error-color)' : 'inherit' };
+          }
+
+  # Network Stats
+  - type: custom:bubble-header
+    name: "Network"
+
+  - type: custom:bubble-grid
+    columns: 2
+    cards:
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.network_throughput_in_eth0 # Sensor from package
+        name: "Download"
+        icon: mdi:download-network
+        show_state: true
+        show_last_changed: false
+
+      - type: custom:bubble-card
+        card_type: sensor
+        entity: sensor.network_throughput_out_eth0 # Sensor from package
+        name: "Upload"
+        icon: mdi:upload-network
+        show_state: true
+        show_last_changed: false
+
+  # System Actions
+  - type: custom:bubble-header
+    name: "Actions"
+
+  - type: custom:bubble-horizontal-buttons-stack
+    buttons:
+      - name: "Restart HA"
+        icon: mdi:restart-alert
+        color: "var(--bubble-warning-color)" # Use theme variable
+        tap_action:
+          action: call-service
+          service: script.restart_home_assistant # Script from package
+          confirmation:
+            text: "Are you sure you want to restart Home Assistant?"
+      - name: "Reload Automations"
+        icon: mdi:reload
+        tap_action:
+          action: call-service
+          service: script.reload_automations # Script from package
+      - name: "Reload Scripts"
+        icon: mdi:reload
+        tap_action:
+          action: call-service
+          service: script.reload_scripts # Script from package
+      - name: "Check Config"
+        icon: mdi:check-decagram
+        tap_action:
+          action: call-service
+          service: script.check_ha_config # Script from package
+
+  # Addon Status (Example - Requires addon sensors)
+  # - type: custom:bubble-header
+  #   name: "Add-ons"
+  # - type: custom:bubble-grid
+  #   columns: 2
+  #   cards:
+  #     - type: custom:bubble-card
+  #       card_type: sensor
+  #       entity: sensor.supervisor_addon_nodered_state # Example entity
+  #       name: "Node-RED"
+  #       icon: mdi:sitemap
+  #     - type: custom:bubble-card
+  #       card_type: sensor
+  #       entity: sensor.supervisor_addon_mosquitto_state # Example entity
+  #       name: "Mosquitto"
+  #       icon: mdi:power-plug
