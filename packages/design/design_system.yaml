@@ -1,190 +1,221 @@
 # ======================================================
-# UNIFIED DESIGN SYSTEM
+# COMPREHENSIVE DESIGN SYSTEM FOR CONTEXT-AWARE DASHBOARDS
 # ======================================================
-# This file serves as the single source of truth for the design system
-# used throughout the mobile-first context-aware dashboard.
-#
-# Author: Mac Connolly (original) + AI Assistant (consolidation)
-# Version: 1.0
-# Last Updated: April 19, 2025
+# Design System Implementation for Bubble Card v2.5beta9
+# Version: 2.0 - Mobile Optimized
+# Last Updated: April 20, 2025
 # ======================================================
 
-designSystem:
-  # Core design tokens
-  colors:
-    # Base palette
-    primary:
-      main: "rgb(var(--primary-color))"
-      transparent: "rgba(var(--primary-color), 0.2)"
-      light: "rgba(var(--primary-color), 0.6)"
-      dark: "rgb(var(--primary-dark-color))"
-    secondary:
-      main: "rgb(var(--accent-color))"
-      transparent: "rgba(var(--accent-color), 0.2)"
-    background:
-      card: "rgba(var(--card-background-color), 0.8)"
-      popup: "rgba(var(--card-background-color), 0.9)"
-      translucent: "rgba(var(--card-background-color), 0.7)"
-    
-    # Context-specific colors
-    context:
-      morning:
-        main: "rgb(255, 190, 92)"
-        transparent: "rgba(255, 190, 92, 0.2)"
-        secondary: "rgb(92, 173, 255)"
-        accent: "rgb(3, 169, 244)"
-      day:
-        main: "rgb(76, 175, 80)"
-        transparent: "rgba(76, 175, 80, 0.2)"
-        secondary: "rgb(165, 214, 167)"
-        accent: "rgb(33, 150, 243)"
-      evening:
-        main: "rgb(233, 30, 99)"
-        transparent: "rgba(233, 30, 99, 0.2)"
-        secondary: "rgb(244, 143, 177)"
-        accent: "rgb(156, 39, 176)"
-      night:
-        main: "rgb(63, 81, 181)"
-        transparent: "rgba(63, 81, 181, 0.2)"
-        secondary: "rgb(159, 168, 218)"
-        accent: "rgb(103, 58, 183)"
-      sleeping:
-        main: "rgb(63, 81, 181)"
-        transparent: "rgba(63, 81, 181, 0.1)"
-        secondary: "rgb(159, 168, 218)"
-        accent: "rgb(103, 58, 183)"
-      away:
-        main: "rgb(158, 158, 158)"
-        transparent: "rgba(158, 158, 158, 0.2)"
-        secondary: "rgb(224, 224, 224)"
-        accent: "rgb(96, 125, 139)"
-      movie:
-        main: "rgb(96, 125, 139)"
-        transparent: "rgba(96, 125, 139, 0.2)"
-        secondary: "rgb(176, 190, 197)"
-        accent: "rgb(255, 87, 34)"
-      guest:
-        main: "rgb(121, 85, 72)"
-        transparent: "rgba(121, 85, 72, 0.2)"
-        secondary: "rgb(188, 170, 164)"
-        accent: "rgb(255, 193, 7)"
-      focus:
-        main: "rgb(0, 150, 136)"
-        transparent: "rgba(0, 150, 136, 0.2)"
-        secondary: "rgb(128, 203, 196)"
-        accent: "rgb(255, 152, 0)"
-  
-  # Mobile optimization parameters
-  sizing:
-    touchTarget: "44px"  # Minimum touch target size
-    touchTargetSlider: "56px"  # Minimum slider height for better control
-    safeAreaTop: "env(safe-area-inset-top, 0px)"
-    safeAreaBottom: "env(safe-area-inset-bottom, 0px)"
-    safeAreaLeft: "env(safe-area-inset-left, 0px)"
-    safeAreaRight: "env(safe-area-inset-right, 0px)"
-    
-    # Common spacing values
-    spacing:
-      xs: "4px"
-      sm: "8px"
-      md: "16px"
-      lg: "24px"
-      xl: "32px"
-    
-    # Card specific sizing
-    card:
-      standard: "110px"  # Standard card height
-      mini: "72px"  # Mini card height
-      borderRadius: "var(--ha-card-border-radius, 12px)"
-  
-  # Typography
-  typography:
-    fontSizes:
-      xs: "12px"
-      sm: "14px"
-      md: "16px"
-      lg: "20px"
-      xl: "24px"
-      xxl: "32px"
-    fontWeights:
-      light: "300"
-      regular: "400"
-      medium: "500"
-      bold: "700"
-    lineHeights:
-      tight: "1.2"
-      normal: "1.5"
-      loose: "1.8"
-  
-  # Animation standards
-  animation:
-    standard: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-    fast: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)"
-    slow: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)"
-    presence:
-      keyframes: |
-        @keyframes presence-pulse {
-          0% { opacity: 0.7; transform: scale(0.95); }
-          50% { opacity: 1; transform: scale(1.05); }
-          100% { opacity: 0.7; transform: scale(0.95); }
-        }
-      animation: "presence-pulse 2s infinite"
-    activity:
-      keyframes: |
-        @keyframes activity-glow {
-          0% { box-shadow: 0 0 5px 0px var(--activity-color); }
-          50% { box-shadow: 0 0 10px 3px var(--activity-color); }
-          100% { box-shadow: 0 0 5px 0px var(--activity-color); }
-        }
-      animation: "activity-glow 3s infinite"
-  
-  # Shadows and elevation
-  shadows:
-    low: "0 2px 4px 0 rgba(0,0,0,0.15)"
-    medium: "0 4px 8px 0 rgba(0,0,0,0.2)"
-    high: "0 8px 16px 0 rgba(0,0,0,0.25)"
-    inset: "inset 0 2px 4px 0 rgba(0,0,0,0.1)"
-  
-  # Common styles for card elements
-  styles:
-    card:
-      base: |
-        border-radius: var(--designSystem-sizing-card-borderRadius);
-        padding: var(--designSystem-sizing-spacing-md);
-        background-color: var(--designSystem-colors-background-card);
-        backdrop-filter: blur(10px);
-        transition: var(--designSystem-animation-standard);
-      active: |
-        transform: scale(1.02);
-        box-shadow: var(--designSystem-shadows-medium);
-    
-    popup:
-      base: |
-        border-radius: var(--designSystem-sizing-card-borderRadius);
-        background-color: var(--designSystem-colors-background-popup);
-        backdrop-filter: blur(15px);
-        max-width: 95vw;
-        max-height: calc(100vh - 50px);
-        overflow-y: auto;
-      header: |
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background-color: var(--designSystem-colors-background-popup);
-        backdrop-filter: blur(15px);
-        padding: var(--designSystem-sizing-spacing-md);
-        border-bottom: 1px solid rgba(var(--primary-color), 0.2);
+# Input boolean to track initialization
+input_boolean:
+  design_system_initialized:
+    name: Design System Initialized
+    icon: mdi:palette
+
+# Provide design tokens through Lovelace resources
+lovelace:
+  resources:
+    - url: /local/bubble/bubble-card.js
+      type: module
+
+# Define scope-limited design system via card-mod
+card_mod:
+  style: |
+    /* Only apply styles to V1 dashboard components */
+    ha-panel-lovelace[route="adaptive-living"] {
+      /* ====== COLOR SYSTEM ====== */
       
-    buttonBar:
-      base: |
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: var(--designSystem-sizing-spacing-sm) var(--designSystem-sizing-spacing-sm) calc(var(--designSystem-sizing-spacing-sm) + var(--designSystem-sizing-safeAreaBottom));
-        background-color: var(--designSystem-colors-background-popup);
-        backdrop-filter: blur(10px);
-        z-index: 100;
-        display: flex;
-        justify-content: space-between;
-        border-top: 1px solid rgba(var(--primary-color), 0.1);
+      /* Base colors */
+      --designSystem-colors-primary-main: var(--primary-color, #03A9F4);
+      --designSystem-colors-primary-transparent: rgba(var(--primary-color-rgb, 3, 169, 244), 0.2);
+      --designSystem-colors-primary-light: rgba(var(--primary-color-rgb, 3, 169, 244), 0.6);
+      --designSystem-colors-primary-dark: var(--primary-dark-color, #0288D1);
+      
+      --designSystem-colors-secondary-main: var(--accent-color, #FF9800);
+      --designSystem-colors-secondary-transparent: rgba(var(--accent-color-rgb, 255, 152, 0), 0.2);
+      --designSystem-colors-secondary-light: rgba(var(--accent-color-rgb, 255, 152, 0), 0.6);
+      --designSystem-colors-secondary-dark: var(--accent-dark-color, #F57C00);
+      
+      /* Neutral colors */
+      --designSystem-colors-neutral-background: rgba(var(--card-background-color, 30, 30, 30), 1);
+      --designSystem-colors-neutral-backgroundTransparent: rgba(var(--card-background-color, 30, 30, 30), 0.8);
+      --designSystem-colors-neutral-text: rgb(var(--primary-text-color, 255, 255, 255));
+      --designSystem-colors-neutral-secondaryText: rgb(var(--secondary-text-color, 176, 176, 176));
+      --designSystem-colors-neutral-border: rgba(var(--primary-text-color, 255, 255, 255), 0.12);
+      
+      /* Semantic colors */
+      --designSystem-colors-semantic-success: var(--success-color, #4CAF50);
+      --designSystem-colors-semantic-successTransparent: rgba(var(--success-color-rgb, 76, 175, 80), 0.2);
+      --designSystem-colors-semantic-warning: var(--warning-color, #FF9800);
+      --designSystem-colors-semantic-warningTransparent: rgba(var(--warning-color-rgb, 255, 152, 0), 0.2);
+      --designSystem-colors-semantic-error: var(--error-color, #F44336);
+      --designSystem-colors-semantic-errorTransparent: rgba(var(--error-color-rgb, 244, 67, 54), 0.2);
+      --designSystem-colors-semantic-info: var(--info-color, #2196F3);
+      --designSystem-colors-semantic-infoTransparent: rgba(var(--info-color-rgb, 33, 150, 243), 0.2);
+      
+      /* Context-specific colors */
+      --designSystem-colors-context-morning-main: rgb(255, 190, 92);
+      --designSystem-colors-context-morning-transparent: rgba(255, 190, 92, 0.2);
+      --designSystem-colors-context-morning-text: rgb(66, 66, 66);
+      
+      --designSystem-colors-context-day-main: rgb(92, 173, 255);
+      --designSystem-colors-context-day-transparent: rgba(92, 173, 255, 0.2);
+      --designSystem-colors-context-day-text: rgb(33, 33, 33);
+      
+      --designSystem-colors-context-evening-main: rgb(255, 111, 0);
+      --designSystem-colors-context-evening-transparent: rgba(255, 111, 0, 0.2);
+      --designSystem-colors-context-evening-text: rgb(33, 33, 33);
+      
+      --designSystem-colors-context-night-main: rgb(72, 101, 174);
+      --designSystem-colors-context-night-transparent: rgba(72, 101, 174, 0.2);
+      --designSystem-colors-context-night-text: rgb(255, 255, 255);
+      
+      --designSystem-colors-context-sleeping-main: rgb(106, 81, 184);
+      --designSystem-colors-context-sleeping-transparent: rgba(106, 81, 184, 0.2);
+      --designSystem-colors-context-sleeping-text: rgb(255, 255, 255);
+      
+      --designSystem-colors-context-away-main: rgb(142, 142, 147);
+      --designSystem-colors-context-away-transparent: rgba(142, 142, 147, 0.2);
+      --designSystem-colors-context-away-text: rgb(255, 255, 255);
+      
+      --designSystem-colors-context-movie-main: rgb(255, 69, 58);
+      --designSystem-colors-context-movie-transparent: rgba(255, 69, 58, 0.2);
+      --designSystem-colors-context-movie-text: rgb(255, 255, 255);
+      
+      --designSystem-colors-context-hosting-main: rgb(121, 85, 72);
+      --designSystem-colors-context-hosting-transparent: rgba(121, 85, 72, 0.2);
+      --designSystem-colors-context-hosting-text: rgb(255, 255, 255);
+      
+      --designSystem-colors-context-focus-main: rgb(0, 150, 136);
+      --designSystem-colors-context-focus-transparent: rgba(0, 150, 136, 0.2);
+      --designSystem-colors-context-focus-text: rgb(255, 255, 255);
+      
+      /* Room-specific colors */
+      --designSystem-colors-room-living-main: rgb(92, 173, 255);
+      --designSystem-colors-room-living-transparent: rgba(92, 173, 255, 0.2);
+      
+      --designSystem-colors-room-kitchen-main: rgb(76, 217, 100);
+      --designSystem-colors-room-kitchen-transparent: rgba(76, 217, 100, 0.2);
+      
+      --designSystem-colors-room-dining-main: rgb(255, 149, 0);
+      --designSystem-colors-room-dining-transparent: rgba(255, 149, 0, 0.2);
+      
+      --designSystem-colors-room-bedroom-main: rgb(106, 81, 184);
+      --designSystem-colors-room-bedroom-transparent: rgba(106, 81, 184, 0.2);
+      
+      --designSystem-colors-room-bathroom-main: rgb(90, 200, 250);
+      --designSystem-colors-room-bathroom-transparent: rgba(90, 200, 250, 0.2);
+      
+      --designSystem-colors-room-office-main: rgb(255, 69, 58);
+      --designSystem-colors-room-office-transparent: rgba(255, 69, 58, 0.2);
+      
+      /* ====== TYPOGRAPHY SYSTEM ====== */
+      --designSystem-typography-fontFamily: var(--primary-font-family, "Roboto", sans-serif);
+      
+      /* Font sizes */
+      --designSystem-typography-size-xs: 10px;
+      --designSystem-typography-size-sm: 12px;
+      --designSystem-typography-size-md: 14px;
+      --designSystem-typography-size-lg: 16px;
+      --designSystem-typography-size-xl: 18px;
+      --designSystem-typography-size-xxl: 20px;
+      --designSystem-typography-size-xxxl: 24px;
+      
+      /* Font weights */
+      --designSystem-typography-weight-light: 300;
+      --designSystem-typography-weight-regular: 400;
+      --designSystem-typography-weight-medium: 500;
+      --designSystem-typography-weight-bold: 700;
+      
+      /* Line heights */
+      --designSystem-typography-lineHeight-tight: 1.2;
+      --designSystem-typography-lineHeight-normal: 1.5;
+      --designSystem-typography-lineHeight-loose: 1.8;
+      
+      /* ====== SPACING SYSTEM ====== */
+      --designSystem-spacing-xs: 4px;
+      --designSystem-spacing-sm: 8px;
+      --designSystem-spacing-md: 12px;
+      --designSystem-spacing-lg: 16px;
+      --designSystem-spacing-xl: 24px;
+      --designSystem-spacing-xxl: 32px;
+      --designSystem-spacing-xxxl: 48px;
+      
+      /* ====== MOBILE OPTIMIZATION SYSTEM ====== */
+      --designSystem-sizing-touchTarget: 44px;           /* Minimum touch target size */
+      --designSystem-sizing-touchTargetSlider: 56px;     /* Minimum slider height */
+      
+      /* Safe areas for notches and home indicators */
+      --designSystem-sizing-safeAreaTop: env(safe-area-inset-top, 0px);
+      --designSystem-sizing-safeAreaBottom: env(safe-area-inset-bottom, 0px);
+      --designSystem-sizing-safeAreaLeft: env(safe-area-inset-left, 0px);
+      --designSystem-sizing-safeAreaRight: env(safe-area-inset-right, 0px);
+      
+      /* ====== BORDER & SHAPE SYSTEM ====== */
+      --designSystem-borderRadius-none: 0;
+      --designSystem-borderRadius-xs: 2px;
+      --designSystem-borderRadius-sm: 4px;
+      --designSystem-borderRadius-md: 8px;
+      --designSystem-borderRadius-lg: 12px;
+      --designSystem-borderRadius-xl: 16px;
+      --designSystem-borderRadius-pill: 999px;
+      --designSystem-borderRadius-card: var(--ha-card-border-radius, 12px);
+      
+      /* ====== SHADOW SYSTEM ====== */
+      --designSystem-shadow-none: none;
+      --designSystem-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --designSystem-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --designSystem-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --designSystem-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      --designSystem-shadow-standard: var(--ha-card-box-shadow, 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2));
+      
+      /* ====== ANIMATION SYSTEM ====== */
+      --designSystem-animation-standard: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --designSystem-animation-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      --designSystem-animation-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      
+      /* Predefined keyframe animations */
+      --designSystem-animation-presence-keyframes: presence-pulse 2s infinite;
+      --designSystem-animation-media-keyframes: media-beat 4s infinite;
+      --designSystem-animation-fan-keyframes: rotate 2s linear infinite;
+    }
+    
+    /* Define keyframe animations globally so they can be referenced */
+    @keyframes presence-pulse {
+      0% { opacity: 0.7; transform: scale(0.95); }
+      50% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 0.7; transform: scale(0.95); }
+    }
+    
+    @keyframes media-beat {
+      0% { transform: scale(1); filter: blur(0px); }
+      10% { transform: scale(1.05); filter: blur(0.5px); }
+      15% { transform: scale(1); filter: blur(0px); }
+      50% { transform: scale(1); filter: blur(0px); }
+      60% { transform: scale(1.05); filter: blur(0.5px); }
+      65% { transform: scale(1); filter: blur(0px); }
+      100% { transform: scale(1); filter: blur(0px); }
+    }
+    
+    @keyframes rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+# Automation to initialize design system
+automation:
+  - alias: Initialize Design System
+    id: initialize_design_system
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: input_boolean.design_system_initialized
+        to: "off"
+    action:
+      - service: input_boolean.turn_on
+        entity_id: input_boolean.design_system_initialized
+      - service: system_log.write
+        data:
+          message: "Design System v2.0 Initialized for Context-Aware Dashboard V1"
+          level: info

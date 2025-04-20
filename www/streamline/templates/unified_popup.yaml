@@ -156,7 +156,7 @@ variables:
   icon: '{{ icon|default("mdi:home") }}'
   content: '{{ content|default([]) }}'
   sticky_header: '{{ sticky_header|default(true) }}'
-  context_entity: '{{ context_entity|default("sensor.dashboard_context") }}'
+  context_entity: '{{ context_entity|default("sensor.home_context_engine") }}'
   context_colors: '{{ context_colors|default(true) }}'
   show_back_button: '{{ show_back_button|default(true) }}'
 cards:
@@ -167,7 +167,7 @@ cards:
     icon: '{{ icon }}'
     icon_color: >
       {% if context_colors %}
-        {{ states(context_entity).state }}
+        {{ states(context_entity) }}
       {% else %}
         blue
       {% endif %}
@@ -177,24 +177,47 @@ cards:
     card_mod:
       style: |
         :host {
-          --card-primary-font-size: var(--designSystem-typography-fontSizes-lg);
-          --card-secondary-font-size: var(--designSystem-typography-fontSizes-sm);
+          --card-primary-font-size: var(--designSystem-typography-size-lg, 16px);
+          --card-secondary-font-size: var(--designSystem-typography-size-sm, 12px);
           position: {% if sticky_header %}sticky{% else %}relative{% endif %};
           top: 0;
           z-index: 10;
-          background: var(--designSystem-colors-background-translucent);
+          background: var(--designSystem-colors-neutral-backgroundTransparent, rgba(var(--card-background-color, 30, 30, 30), 0.8));
           backdrop-filter: blur(10px);
-          border-bottom: 1px solid rgba(var(--primary-color), 0.1);
-          padding: var(--designSystem-sizing-spacing-md);
-          margin-bottom: var(--designSystem-sizing-spacing-md);
+          border-bottom: 1px solid rgba(var(--primary-color, 3, 169, 244), 0.1);
+          padding: var(--designSystem-spacing-md, 12px);
+          margin-bottom: var(--designSystem-spacing-md, 12px);
+        }
+        
+        /* Use dynamic context colors based on current home context */
+        ha-icon {
+          color: var(--designSystem-colors-context-{{ states(context_entity) }}-main, var(--primary-color)) !important;
+          transition: var(--designSystem-animation-standard);
+        }
+        
+        /* Enlarge touch targets for better mobile experience */
+        .primary {
+          font-weight: var(--designSystem-typography-weight-medium, 500);
+        }
+        
+        /* Add mobile-friendly padding to account for notches/home bars */
+        :host {
+          padding-top: calc(var(--designSystem-spacing-md) + var(--designSystem-sizing-safeAreaTop));
+          padding-bottom: calc(var(--designSystem-spacing-md) + var(--designSystem-sizing-safeAreaBottom));
         }
   
   # Content container
   - type: custom:bubble-card
     card_type: 'container'
     style: |
-      padding: 0 var(--designSystem-sizing-spacing-md);
-      padding-bottom: calc(var(--designSystem-sizing-touchTarget) + var(--designSystem-sizing-spacing-lg));
+      padding: 0 var(--designSystem-spacing-md, 12px);
+      padding-bottom: calc(var(--designSystem-sizing-touchTarget, 44px) + var(--designSystem-spacing-lg, 16px) + var(--designSystem-sizing-safeAreaBottom, 0px));
+      
+      @media (max-width: 600px) {
+        ha-card {
+          border-radius: var(--designSystem-borderRadius-md, 8px);
+        }
+      }
     content:
       type: vertical-stack
       cards: '{{ content }}'

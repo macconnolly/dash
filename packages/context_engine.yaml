@@ -5,7 +5,7 @@
 template:
   - trigger:
       - platform: time_pattern
-        seconds: "/10" # Increased frequency for responsiveness
+        seconds: "/12" # Increased frequency for responsiveness
       - platform: state
         entity_id:
           - binary_sensor.living_room_presence
@@ -170,15 +170,18 @@ template:
           {# Specific light activity signals #}
           {% set active_lights = namespace(found=false, area='') %}
           {% for area, light in [('living', 'light.living_room'), ('kitchen', 'light.kitchen_main_lights'), ('dining', 'light.dining_room_spot_lights')] %}
-            {% if is_state(light, 'on') and states(light, 'brightness')|float > 50 and not active_lights.found %}
-              {% set active_lights.found = true %}
-              {% set active_lights.area = area %}
+            {% if is_state(light, 'on') and not active_lights.found %}
+              {% set brightness = state_attr(light, 'brightness') | default(0) %}
+              {% if brightness > 50 %}
+                {% set active_lights.found = true %}
+                {% set active_lights.area = area %}
+              {% endif %}
             {% endif %}
           {% endfor %}
           
           {# Task-specific activity signals #}
           {% set task_signals = namespace(found=false, area='') %}
-          {% if is_state('binary_sensor.refrigerator_door', 'on') or is_state('binary_sensor.kitchen_motion', 'on') %}
+          {% if is_state('binary_sensor.kitchen_presence', 'on') and is_state('binary_sensor.living_room_presence', 'off') and is_state('binary_sensor.dining_room_presence', 'off') %}
             {% set task_signals.found = true %}
             {% set task_signals.area = 'kitchen' %}
           {% endif %}
@@ -225,13 +228,11 @@ template:
             {% endfor %}
             {{ result.player }}
           active_task: >
-            {% if is_state('binary_sensor.refrigerator_door', 'on') %}
-              kitchen_refrigerator
-            {% elif now().hour >= 6 and now().hour < 9 and is_state('binary_sensor.kitchen_motion', 'on') %}
+            {% if now().hour >= 6 and now().hour < 9 and is_state('binary_sensor.kitchen_presence', 'on') %}
               breakfast_preparation
-            {% elif now().hour >= 11 and now().hour < 14 and is_state('binary_sensor.kitchen_motion', 'on') %}
+            {% elif now().hour >= 11 and now().hour < 14 and is_state('binary_sensor.kitchen_presence', 'on') %}
               lunch_preparation
-            {% elif now().hour >= 17 and now().hour < 20 and is_state('binary_sensor.kitchen_motion', 'on') %}
+            {% elif now().hour >= 17 and now().hour < 20 and is_state('binary_sensor.kitchen_presence', 'on') %}
               dinner_preparation
             {% elif is_state('media_player.living_room', 'playing') and 'TV' in state_attr('media_player.living_room', 'friendly_name')|default('') %}
               watching_tv
@@ -247,6 +248,39 @@ template:
             {% endfor %}
             }
           activity_confidence: >
+            {% set active_media = namespace(found=false, area='') %}
+            {% for area, player in [('living', 'media_player.living_room'), ('kitchen', 'media_player.kitchen'), ('dining', 'media_player.dining_room')] %}
+              {% if is_state(player, 'playing') and not active_media.found %}
+                {% set active_media.found = true %}
+                {% set active_media.area = area %}
+              {% endif %}
+            {% endfor %}
+            
+            {% set active_lights = namespace(found=false, area='') %}
+            {% for area, light in [('living', 'light.living_room'), ('kitchen', 'light.kitchen_main_lights'), ('dining', 'light.dining_room_spot_lights')] %}
+              {% if is_state(light, 'on') and not active_lights.found %}
+                {% set brightness = state_attr(light, 'brightness') | default(0) %}
+                {% if brightness > 50 %}
+                  {% set active_lights.found = true %}
+                  {% set active_lights.area = area %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            
+            {% set task_signals = namespace(found=false, area='') %}
+            {% if is_state('binary_sensor.kitchen_presence', 'on') and is_state('binary_sensor.living_room_presence', 'off') and is_state('binary_sensor.dining_room_presence', 'off') %}
+              {% set task_signals.found = true %}
+              {% set task_signals.area = 'kitchen' %}
+            {% endif %}
+            
+            {% set presence = namespace(found=false, area='') %}
+            {% for area, sensor in [('living', 'binary_sensor.living_room_presence'), ('kitchen', 'binary_sensor.kitchen_presence'), ('dining', 'binary_sensor.dining_room_presence')] %}
+              {% if is_state(sensor, 'on') and not presence.found %}
+                {% set presence.found = true %}
+                {% set presence.area = area %}
+              {% endif %}
+            {% endfor %}
+            
             {% if active_media.found %}
               high
             {% elif task_signals.found %}
