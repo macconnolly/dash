@@ -1,0 +1,263 @@
+# ======================================================
+# PERSISTENT CONTROLS BAR
+# ======================================================
+# This component provides a fixed bar at the bottom of the screen
+# with context-aware controls that are always accessible.
+#
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+type: custom:mushroom-chips-card
+alignment: justify
+card_mod:
+  style: |
+    :host {
+      --chip-height: var(--designSystem-sizing-touchTarget);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: var(--designSystem-sizing-spacing-sm) var(--designSystem-sizing-spacing-sm) calc(var(--designSystem-sizing-spacing-sm) + var(--designSystem-sizing-safeAreaBottom));
+      background: var(--designSystem-colors-background-popup);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid rgba(var(--primary-color), 0.1);
+    }
+    .chip {
+      min-width: 48px;
+      height: var(--designSystem-sizing-touchTarget) !important;
+    }
+    .chip ha-card {
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+variables:
+  context_entity: '{{ context_entity|default("sensor.dashboard_context") }}'
+  active_area_entity: '{{ active_area_entity|default("sensor.open_area_activity") }}'
+  media_entity: '{{ media_entity|default("sensor.active_media_player") }}'
+chips:
+  # Media controls - adapts to current playing media
+  - type: template
+    entity: sensor.active_media_player
+    icon: >
+      {% set media = states('sensor.active_media_player') %}
+      {% if media == 'none' %}
+        mdi:music-off
+      {% else %}
+        mdi:music
+      {% endif %}
+    icon_color: >
+      {{ states(context_entity).state if is_state('sensor.active_media_player', 'none') else 'green' }}
+    content: >
+      {% set media = states('sensor.active_media_player') %}
+      {% if media == 'none' %}
+        No Media
+      {% else %}
+        {% set title = state_attr(media, 'media_title')|default('Playing') %}
+        {{ title|truncate(12) }}
+      {% endif %}
+    tap_action:
+      action: fire-dom-event
+      browser_mod:
+        service: browser_mod.popup
+        data:
+          title: Media Controls
+          content:
+            type: custom:mushroom-media-player-card
+            entity: >
+              {% set media = states('sensor.active_media_player') %}
+              {{ media if media != 'none' else 'media_player.living_room' }}
+            fill_container: true
+            use_media_info: true
+            show_volume_level: true
+          large: true
+          style:
+            border-radius: var(--designSystem-sizing-card-borderRadius);
+            --ha-card-border-radius: var(--designSystem-sizing-card-borderRadius);
+  
+  # Open area active area indicator/toggle
+  - type: template
+    entity: sensor.open_area_activity
+    icon: >
+      {% set area = states('sensor.open_area_activity') %}
+      {% if area == 'living' %}
+        mdi:sofa
+      {% elif area == 'kitchen' %}
+        mdi:countertop
+      {% elif area == 'dining' %}
+        mdi:table-chair
+      {% else %}
+        mdi:floor-plan
+      {% endif %}
+    icon_color: >
+      {{ states(context_entity).state }}
+    content: >
+      {% set area = states('sensor.open_area_activity') %}
+      {% if area == 'living' %}
+        Living
+      {% elif area == 'kitchen' %}
+        Kitchen
+      {% elif area == 'dining' %}
+        Dining
+      {% else %}
+        Open Area
+      {% endif %}
+    tap_action:
+      action: fire-dom-event
+      browser_mod:
+        service: browser_mod.popup
+        data:
+          title: Open Area Controls
+          content:
+            type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: Open Floor Plan
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-light-card
+                    entity: light.living_room
+                    name: Living
+                    icon: mdi:sofa
+                    use_light_color: true
+                    show_brightness_control: true
+                    tap_action:
+                      action: toggle
+                  - type: custom:mushroom-light-card
+                    entity: light.kitchen_main_lights
+                    name: Kitchen
+                    icon: mdi:countertop
+                    use_light_color: true
+                    show_brightness_control: true
+                    tap_action:
+                      action: toggle
+                  - type: custom:mushroom-light-card
+                    entity: light.dining_room_spot_lights
+                    name: Dining
+                    icon: mdi:table-chair
+                    use_light_color: true
+                    show_brightness_control: true
+                    tap_action:
+                      action: toggle
+              - type: custom:mushroom-title-card
+                title: Quick Settings
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-entity-card
+                    entity: switch.adaptive_lighting_all
+                    name: Adaptive
+                    icon: mdi:theme-light-dark
+                    primary_info: name
+                    secondary_info: state
+                  - type: custom:mushroom-entity-card
+                    entity: script.all_off
+                    name: All Off
+                    icon: mdi:power
+                    tap_action:
+                      action: call-service
+                      service: script.turn_on
+                      data:
+                        entity_id: script.all_off
+          style:
+            border-radius: var(--designSystem-sizing-card-borderRadius);
+            --ha-card-border-radius: var(--designSystem-sizing-card-borderRadius);
+  
+  # Open area lights control
+  - type: entity
+    entity: light.all_lights
+    icon: mdi:lightbulb-group
+    icon_color: >
+      {{ 'amber' if is_state('light.all_lights', 'on') else states(context_entity).state }}
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+  
+  # Context-dependent action
+  - type: template
+    entity: sensor.dashboard_context
+    icon: >
+      {% set context = states('sensor.dashboard_context') %}
+      {% if context == 'morning' %}
+        mdi:coffee
+      {% elif context == 'day' %}
+        mdi:white-balance-sunny
+      {% elif context == 'evening' %}
+        mdi:weather-sunset
+      {% elif context == 'night' %}
+        mdi:weather-night
+      {% elif context == 'sleeping' %}
+        mdi:sleep
+      {% elif context == 'movie' %}
+        mdi:movie-open
+      {% elif context == 'away' %}
+        mdi:shield-home
+      {% else %}
+        mdi:home
+      {% endif %}
+    icon_color: >
+      {{ states('sensor.dashboard_context') }}
+    content: >
+      {% set context = states('sensor.dashboard_context') %}
+      {% if context == 'morning' %}
+        Coffee
+      {% elif context == 'day' %}
+        Day Mode
+      {% elif context == 'evening' %}
+        Evening
+      {% elif context == 'night' %}
+        Night
+      {% elif context == 'sleeping' %}
+        Sleep
+      {% elif context == 'movie' %}
+        Movie
+      {% elif context == 'away' %}
+        Security
+      {% else %}
+        Home
+      {% endif %}
+    tap_action:
+      action: call-service
+      service: >
+        {% set context = states('sensor.dashboard_context') %}
+        {% if context == 'morning' %}
+          switch.turn_on
+        {% elif context == 'day' %}
+          scene.turn_on
+        {% elif context == 'evening' %}
+          scene.turn_on
+        {% elif context == 'night' %}
+          scene.turn_on
+        {% elif context == 'sleeping' %}
+          script.turn_on
+        {% elif context == 'movie' %}
+          input_boolean.turn_on
+        {% elif context == 'away' %}
+          script.turn_on
+        {% else %}
+          scene.turn_on
+        {% endif %}
+      service_data:
+        entity_id: >
+          {% set context = states('sensor.dashboard_context') %}
+          {% if context == 'morning' %}
+            switch.coffee_maker
+          {% elif context == 'day' %}
+            scene.daylight_mode
+          {% elif context == 'evening' %}
+            scene.evening_mood
+          {% elif context == 'night' %}
+            scene.night_mode
+          {% elif context == 'sleeping' %}
+            script.good_night
+          {% elif context == 'movie' %}
+            input_boolean.movie_mode_active
+          {% elif context == 'away' %}
+            script.security_check
+          {% else %}
+            scene.home_mode
+          {% endif %}

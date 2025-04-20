@@ -1,0 +1,152 @@
+# ======================================================
+# CONTEXT-AWARE ROOM CARD
+# ======================================================
+# This template provides a standardized room card that displays
+# contextual information about a room's status and activities.
+#
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+type: custom:button-card
+name: '{{ room_name|default("Room") }}'
+icon: '{{ icon|default("mdi:home") }}'
+entity: '{{ presence_entity|default("none") }}'
+show_icon: true
+show_name: true
+show_state: false
+variables:
+  room_name: '{{ room_name|default("Room") }}'
+  presence_entity: '{{ presence_entity|default("none") }}'
+  light_entity: '{{ light_entity|default("none") }}'
+  media_entity: '{{ media_entity|default("none") }}'
+  climate_entity: '{{ climate_entity|default("none") }}'
+  temperature_entity: '{{ temperature_entity|default("none") }}'
+  adaptive_lighting_entity: '{{ adaptive_lighting_entity|default("none") }}'
+  context_entity: '{{ context_entity|default("sensor.dashboard_context") }}'
+  active_area_entity: '{{ active_area_entity|default("sensor.open_area_activity") }}'
+  area_id: '{{ area_id|default("room") }}'
+  area_key: '{{ area_key|default("none") }}'
+styles:
+  card:
+    - height: "var(--designSystem-sizing-card-standard)"
+    - padding: "var(--designSystem-sizing-spacing-md)"
+    - border-radius: "var(--designSystem-sizing-card-borderRadius)"
+    - background-color: "var(--designSystem-colors-background-card)"
+    - border-left: >
+        {% set context = states(context_entity).state %}
+        {% set is_active = states(active_area_entity).state == area_key %}
+        {% if is_active %}
+          4px solid var(--designSystem-colors-context-{{ context }}-main, var(--primary-color))
+        {% else %}
+          4px solid transparent
+        {% endif %}
+    - transition: "var(--designSystem-animation-standard)"
+  grid:
+    - grid-template-areas: "'i name' 'i content' 'activity activity'"
+    - grid-template-columns: "min-content 1fr"
+    - grid-template-rows: "min-content min-content min-content"
+  icon:
+    - color: >
+        {% set context = states(context_entity).state %}
+        {% if is_state(entity, 'on') or is_state(light_entity, 'on') %}
+          var(--designSystem-colors-context-{{ context }}-main, var(--primary-color))
+        {% else %}
+          var(--primary-text-color)
+        {% endif %}
+    - width: "32px"
+    - height: "32px"
+  name:
+    - font-size: "var(--designSystem-typography-fontSizes-md)"
+    - font-weight: "var(--designSystem-typography-fontWeights-medium)"
+    - justify-self: "start"
+    - padding-left: "var(--designSystem-sizing-spacing-sm)"
+  custom_fields:
+    content:
+      - display: "flex"
+      - flex-direction: "column"
+      - align-items: "flex-start"
+      - font-size: "var(--designSystem-typography-fontSizes-sm)"
+      - padding-left: "var(--designSystem-sizing-spacing-sm)"
+      - margin-top: "var(--designSystem-sizing-spacing-xs)"
+      - opacity: "0.9"
+    activity:
+      - display: "flex"
+      - align-items: "center"
+      - justify-content: "flex-start"
+      - margin-top: "var(--designSystem-sizing-spacing-sm)"
+      - font-size: "var(--designSystem-typography-fontSizes-sm)"
+      - padding-top: "var(--designSystem-sizing-spacing-xs)"
+      - border-top: "1px solid rgba(var(--primary-color), 0.1)"
+custom_fields:
+  content: >
+    {% if temperature_entity != 'none' and states(temperature_entity) != 'unavailable' %}
+      {{ states(temperature_entity) }}°C
+    {% endif %}
+    {% if climate_entity != 'none' and states(climate_entity) != 'unavailable' %}
+      <span style="margin-left: 4px; opacity: 0.8;">
+      {% if is_state_attr(climate_entity, 'hvac_action', 'heating') %}
+        🔥 Heating
+      {% elif is_state_attr(climate_entity, 'hvac_action', 'cooling') %}
+        ❄️ Cooling
+      {% elif is_state_attr(climate_entity, 'hvac_action', 'idle') %}
+        ⏸️ Idle
+      {% endif %}
+      </span>
+    {% endif %}
+  activity: >
+    {% set area = area_key|default('none') %}
+    {% set context = states(context_entity).state %}
+    {% set is_active = states(active_area_entity).state == area_key %}
+    
+    {% if is_active %}
+      <ha-icon icon="mdi:radiobox-marked" style="color: var(--designSystem-colors-context-{{ context }}-main, var(--primary-color)); width: 16px; height: 16px; margin-right: 4px;"></ha-icon>
+    {% else %}
+      <ha-icon icon="mdi:radiobox-blank" style="color: var(--primary-text-color); opacity: 0.5; width: 16px; height: 16px; margin-right: 4px;"></ha-icon>
+    {% endif %}
+    
+    {% if is_state(media_entity, 'playing') %}
+      <ha-icon icon="mdi:music" style="width: 16px; height: 16px; margin-right: 4px;"></ha-icon>
+      {% if state_attr(media_entity, 'media_title') %}
+        {{ state_attr(media_entity, 'media_title')|truncate(20) }}
+      {% else %}
+        Playing
+      {% endif %}
+    {% elif is_state(light_entity, 'on') %}
+      <ha-icon icon="mdi:lightbulb-on" style="width: 16px; height: 16px; margin-right: 4px;"></ha-icon>
+      {% if adaptive_lighting_entity != 'none' and is_state(adaptive_lighting_entity, 'on') %}
+        Adaptive Light
+      {% else %}
+        Lights On
+      {% endif %}
+    {% elif is_state(entity, 'on') %}
+      <ha-icon icon="mdi:account" style="width: 16px; height: 16px; margin-right: 4px;"></ha-icon>
+      Occupied
+    {% else %}
+      <span style="opacity: 0.5;">Available</span>
+    {% endif %}
+state:
+  - operator: "template"
+    value: "{{ is_state(entity, 'on') }}"
+    styles:
+      card:
+        - box-shadow: "var(--designSystem-shadows-low)"
+      icon:
+        - animation: "var(--designSystem-animation-presence-animation)"
+        - filter: "brightness(1.2)"
+  - operator: "template"
+    value: "{{ states(active_area_entity).state == area_key }}"
+    styles:
+      card:
+        - box-shadow: "var(--designSystem-shadows-medium)"
+        - transform: "scale(1.02)"
+tap_action:
+  action: navigate
+  navigation_path: "/popup/{{ area_id }}"
+hold_action:
+  action: toggle
+  entity: "{{ light_entity }}"
+  haptic: success
+double_tap_action:
+  action: toggle
+  entity: "{{ presence_entity }}"

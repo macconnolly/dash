@@ -1,0 +1,152 @@
+# ======================================================
+# LIVING ROOM POPUP
+# ======================================================
+# Proof of concept implementation of room popup using unified templates
+# This demonstrates the full pattern that can be applied to other rooms
+#
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+type: custom:bubble-card
+card_type: popup
+variables:
+  context_entity: sensor.dashboard_context
+  room_name: Living Room
+  area_id: living
+content:
+  # Use the unified popup shell
+  type: custom:include-template
+  template: unified_popup
+  variables:
+    title: Living Room
+    icon: mdi:sofa
+    context_entity: sensor.dashboard_context
+    content:
+      # Content cards
+      - type: vertical-stack
+        cards:
+          # Lights section
+          - type: custom:mushroom-title-card
+            title: Lights
+          - type: horizontal-stack
+            cards:
+              # Main light
+              - type: custom:mushroom-light-card
+                entity: light.living_room
+                name: Main Light
+                icon: mdi:ceiling-light
+                use_light_color: true
+                show_brightness_control: true
+                show_color_temp_control: true
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+              # Accent light
+              - type: custom:mushroom-light-card
+                entity: light.living_accent
+                name: Accent
+                icon: mdi:lava-lamp
+                use_light_color: true
+                show_brightness_control: true
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+          
+          # Adaptive Lighting controls
+          - type: custom:mushroom-chips-card
+            alignment: center
+            chips:
+              - type: entity
+                entity: input_boolean.al_manual_control_hue_adapt
+                name: Manual Mode
+                icon: mdi:lightbulb-variant
+                tap_action:
+                  action: toggle
+              - type: entity
+                entity: switch.adaptive_lighting_all
+                name: Adaptive
+                icon: mdi:theme-light-dark
+                tap_action:
+                  action: toggle
+          
+          # Media section
+          - type: custom:mushroom-title-card
+            title: Media
+          - type: custom:mushroom-media-player-card
+            entity: media_player.living_room
+            fill_container: true
+            use_media_info: true
+            show_volume_level: true
+            media_controls:
+              - on_off
+              - play_pause_stop
+              - previous
+              - next
+              - volume_mute
+              - volume_set
+            volume_controls:
+              - volume_mute
+              - volume_set
+              - volume_buttons
+            
+          # Climate section
+          - type: custom:mushroom-title-card
+            title: Climate
+          - type: custom:mushroom-climate-card
+            entity: climate.dining_room
+            fill_container: true
+            show_temperature_control: true
+            hvac_modes:
+              - "off"
+              - heat
+              - cool
+              - heat_cool
+            
+          # Context-aware scene suggestions
+          - type: custom:mushroom-title-card
+            title: Quick Settings
+          - type: custom:mushroom-chips-card
+            alignment: justify
+            chips:
+              - type: template
+                icon: mdi:movie-open
+                content: Movie Mode
+                icon_color: >
+                  {{ states('sensor.dashboard_context') }}
+                tap_action:
+                  action: call-service
+                  service: input_boolean.turn_on
+                  service_data:
+                    entity_id: input_boolean.movie_mode_active
+              - type: template
+                icon: mdi:book-open-page-variant
+                content: Reading
+                icon_color: >
+                  {{ states('sensor.dashboard_context') }}
+                tap_action:
+                  action: call-service
+                  service: scene.turn_on
+                  service_data:
+                    entity_id: scene.living_room_reading
+              - type: template
+                icon: mdi:account-group
+                content: Guests
+                icon_color: >
+                  {{ states('sensor.dashboard_context') }}
+                tap_action:
+                  action: call-service
+                  service: input_boolean.turn_on
+                  service_data:
+                    entity_id: input_boolean.guest_mode_active
+              - type: template
+                icon: mdi:power
+                content: All Off
+                icon_color: red
+                tap_action:
+                  action: call-service
+                  service: script.turn_on
+                  service_data:
+                    entity_id: script.all_off

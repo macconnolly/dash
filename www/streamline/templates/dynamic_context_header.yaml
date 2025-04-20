@@ -1,0 +1,302 @@
+# ======================================================
+# DYNAMIC CONTEXT HEADER TEMPLATE
+# ======================================================
+# This template provides a context-aware header that adapts to time of day,
+# activity, and user presence. It serves as the primary UI element for
+# displaying current context and quick actions.
+#
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+type: custom:bubble-card
+card_type: 'container'
+variables:
+  context_entity: '{{ context_entity|default("sensor.dashboard_context") }}'
+  weather_entity: '{{ weather_entity|default("weather.home_2") }}'
+  time_entity: '{{ time_entity|default("sensor.time_context") }}'
+  use_context_colors: '{{ use_context_colors|default(true) }}'
+style: |
+  :host {
+    --activity-color: var(--designSystem-colors-context-{{ states(context_entity).state }}-main, var(--primary-color));
+    border-radius: var(--designSystem-sizing-card-borderRadius);
+    background-color: var(--designSystem-colors-background-translucent);
+    backdrop-filter: blur(10px);
+    padding: var(--designSystem-sizing-spacing-md);
+    margin-bottom: var(--designSystem-sizing-spacing-md);
+  }
+  .context-header-grid {
+    display: grid;
+    grid-template-areas: 
+      "greeting weather" 
+      "context weather" 
+      "actions time";
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto;
+    gap: var(--designSystem-sizing-spacing-sm);
+  }
+  .greeting {
+    grid-area: greeting;
+    font-size: var(--designSystem-typography-fontSizes-lg);
+    font-weight: var(--designSystem-typography-fontWeights-medium);
+    color: var(--activity-color);
+  }
+  .context {
+    grid-area: context;
+    font-size: var(--designSystem-typography-fontSizes-md);
+    opacity: 0.9;
+  }
+  .weather {
+    grid-area: weather;
+    text-align: right;
+  }
+  .actions {
+    grid-area: actions;
+    margin-top: var(--designSystem-sizing-spacing-sm);
+  }
+  .time {
+    grid-area: time;
+    text-align: right;
+    font-size: var(--designSystem-typography-fontSizes-sm);
+    opacity: 0.7;
+  }
+content:
+  type: 'custom:element'
+  elements:
+    # Context Header Grid
+    - type: 'div'
+      style:
+        class: 'context-header-grid'
+      elements:
+        # Greeting
+        - type: 'div'
+          style:
+            class: 'greeting'
+          content: >
+            {% set hour = now().hour %}
+            {% if 5 <= hour < 12 %}
+              Good morning
+            {% elif 12 <= hour < 17 %}
+              Good afternoon
+            {% elif 17 <= hour < 22 %}
+              Good evening
+            {% else %}
+              Good night
+            {% endif %}
+            {% if states('person.mac') == 'home' %}
+              Mac
+            {% endif %}
+        
+        # Context Description
+        - type: 'div'
+          style:
+            class: 'context'
+          content: >
+            {% set context = states(context_entity).state %}
+            {% if context == 'morning' %}
+              Morning Mode - Gentle lighting
+            {% elif context == 'day' %}
+              Day Mode - Bright and productive
+            {% elif context == 'evening' %}
+              Evening Mode - Warm and relaxing
+            {% elif context == 'night' %}
+              Night Mode - Subdued lighting
+            {% elif context == 'sleeping' %}
+              Sleep Mode - Minimal lighting
+            {% elif context == 'away' %}
+              Away Mode - Energy efficient
+            {% elif context == 'movie' %}
+              Movie Mode - Media optimized
+            {% elif context == 'hosting' %}
+              Guest Mode - Entertainment focused
+            {% elif context == 'focus' %}
+              Focus Mode - Concentration optimized
+            {% else %}
+              Home Mode - Standard lighting
+            {% endif %}
+        
+        # Weather Information
+        - type: 'div'
+          style:
+            class: 'weather'
+          content:
+            type: custom:mushroom-template-card
+            entity: '{{ weather_entity }}'
+            icon: >
+              {% set weather = states(weather_entity) %}
+              {% if weather == 'clear-night' %}
+                mdi:weather-night
+              {% elif weather == 'cloudy' %}
+                mdi:weather-cloudy
+              {% elif weather == 'foggy' %}
+                mdi:weather-fog
+              {% elif weather == 'hail' %}
+                mdi:weather-hail
+              {% elif weather == 'lightning' %}
+                mdi:weather-lightning
+              {% elif weather == 'lightning-rainy' %}
+                mdi:weather-lightning-rainy
+              {% elif weather == 'partlycloudy' %}
+                mdi:weather-partly-cloudy
+              {% elif weather == 'pouring' %}
+                mdi:weather-pouring
+              {% elif weather == 'rainy' %}
+                mdi:weather-rainy
+              {% elif weather == 'snowy' %}
+                mdi:weather-snowy
+              {% elif weather == 'snowy-rainy' %}
+                mdi:weather-snowy-rainy
+              {% elif weather == 'sunny' %}
+                mdi:weather-sunny
+              {% elif weather == 'windy' %}
+                mdi:weather-windy
+              {% elif weather == 'windy-variant' %}
+                mdi:weather-windy-variant
+              {% else %}
+                mdi:weather-sunny
+              {% endif %}
+            icon_color: >
+              {% if use_context_colors %}
+                {{ states(context_entity).state }}
+              {% else %}
+                blue
+              {% endif %}
+            primary: >
+              {{ state_attr(weather_entity, 'temperature') }}°{{ state_attr(weather_entity, 'temperature_unit') }}
+            secondary: >
+              {{ states(weather_entity) | title }}
+        
+        # Quick Action Chips
+        - type: 'div'
+          style:
+            class: 'actions'
+          content:
+            type: custom:mushroom-chips-card
+            alignment: start
+            chips:
+              # First context-based quick action
+              - type: template
+                icon: >
+                  {% set context = states(context_entity).state %}
+                  {% if context == 'morning' %}
+                    mdi:lightbulb-group
+                  {% elif context == 'day' %}
+                    mdi:white-balance-sunny
+                  {% elif context == 'evening' %}
+                    mdi:weather-sunset
+                  {% elif context == 'night' %}
+                    mdi:weather-night
+                  {% elif context == 'sleeping' %}
+                    mdi:sleep
+                  {% elif context == 'movie' %}
+                    mdi:movie-open
+                  {% elif context == 'away' %}
+                    mdi:home-export-outline
+                  {% else %}
+                    mdi:home
+                  {% endif %}
+                icon_color: >
+                  {% if use_context_colors %}
+                    {{ states(context_entity).state }}
+                  {% else %}
+                    blue
+                  {% endif %}
+                content: >
+                  {% set context = states(context_entity).state %}
+                  {% if context == 'morning' %}
+                    Morning Lights
+                  {% elif context == 'day' %}
+                    Day Mode
+                  {% elif context == 'evening' %}
+                    Evening Mood
+                  {% elif context == 'night' %}
+                    Night Mode
+                  {% elif context == 'sleeping' %}
+                    Sleep
+                  {% elif context == 'movie' %}
+                    Movie Mode
+                  {% elif context == 'away' %}
+                    Away Mode
+                  {% else %}
+                    Home Mode
+                  {% endif %}
+                tap_action:
+                  action: call-service
+                  service: >
+                    {% set context = states(context_entity).state %}
+                    {% if context == 'morning' %}
+                      scene.turn_on
+                    {% elif context == 'day' %}
+                      scene.turn_on
+                    {% elif context == 'evening' %}
+                      scene.turn_on
+                    {% elif context == 'night' %}
+                      scene.turn_on
+                    {% elif context == 'sleeping' %}
+                      script.good_night
+                    {% elif context == 'movie' %}
+                      scene.turn_on
+                    {% elif context == 'away' %}
+                      scene.turn_on
+                    {% else %}
+                      scene.turn_on
+                    {% endif %}
+                  service_data:
+                    entity_id: >
+                      {% set context = states(context_entity).state %}
+                      {% if context == 'morning' %}
+                        scene.morning_lights
+                      {% elif context == 'day' %}
+                        scene.daylight_mode
+                      {% elif context == 'evening' %}
+                        scene.evening_mood
+                      {% elif context == 'night' %}
+                        scene.night_mode
+                      {% elif context == 'sleeping' %}
+                        scene.sleep_scene
+                      {% elif context == 'movie' %}
+                        scene.movie_mode
+                      {% elif context == 'away' %}
+                        scene.away_mode
+                      {% else %}
+                        scene.home_mode
+                      {% endif %}
+              
+              # Adaptive Lighting toggle
+              - type: entity
+                entity: switch.adaptive_lighting_all
+                icon_color: >
+                  {% if use_context_colors %}
+                    {{ states(context_entity).state }}
+                  {% else %}
+                    blue
+                  {% endif %}
+                content_color: >
+                  {% if use_context_colors %}
+                    {{ states(context_entity).state }}
+                  {% else %}
+                    blue
+                  {% endif %}
+                
+              # All lights toggle
+              - type: entity
+                entity: light.all_lights
+                icon_color: >
+                  {% if use_context_colors %}
+                    {{ states(context_entity).state }}
+                  {% else %}
+                    blue
+                  {% endif %}
+                content_color: >
+                  {% if use_context_colors %}
+                    {{ states(context_entity).state }}
+                  {% else %}
+                    blue
+                  {% endif %}
+        
+        # Current Time
+        - type: 'div'
+          style:
+            class: 'time'
+          content: >
+            {{ now().strftime('%A, %B %d • %H:%M') }}

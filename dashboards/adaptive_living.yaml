@@ -1,0 +1,295 @@
+# ======================================================
+# MOBILE-FIRST CONTEXT-AWARE DASHBOARD
+# ======================================================
+# Main dashboard implementation using our standardized components
+#
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+title: Home
+views:
+  - title: Home
+    path: default_view
+    type: custom:bubble-card
+    card_type: container
+    style: |
+      padding: var(--designSystem-sizing-spacing-md);
+      padding-bottom: calc(var(--designSystem-sizing-touchTarget) + var(--designSystem-sizing-spacing-lg));
+    variables:
+      context_entity: sensor.dashboard_context
+      active_area_entity: sensor.open_area_activity
+    content:
+      type: vertical-stack
+      cards:
+        # Context header
+        - type: custom:include-template
+          template: dynamic_context_header
+          variables:
+            context_entity: sensor.dashboard_context
+            weather_entity: weather.home_2
+            time_entity: sensor.time_context
+            use_context_colors: true
+        
+        # Room cards for open concept area with special styling for active area
+        - type: custom:mushroom-title-card
+          title: Open Floor Plan
+        
+        - type: horizontal-stack
+          cards:
+            # Living Room
+            - type: custom:include-template
+              template: context_room_card
+              variables:
+                room_name: Living Room
+                area_id: living
+                area_key: living
+                icon: mdi:sofa
+                presence_entity: binary_sensor.living_room_presence
+                light_entity: light.living_room
+                media_entity: media_player.living_room
+                climate_entity: climate.dining_room
+                temperature_entity: sensor.living_room_temperature
+                adaptive_lighting_entity: input_boolean.al_manual_control_hue_adapt
+                context_entity: sensor.dashboard_context
+                active_area_entity: sensor.open_area_activity
+            
+            # Kitchen
+            - type: custom:include-template
+              template: context_room_card
+              variables:
+                room_name: Kitchen
+                area_id: kitchen
+                area_key: kitchen
+                icon: mdi:countertop
+                presence_entity: binary_sensor.kitchen_presence
+                light_entity: light.kitchen_main_lights
+                media_entity: media_player.kitchen
+                temperature_entity: sensor.kitchen_temperature
+                adaptive_lighting_entity: input_boolean.al_manual_control_kitchen_island
+                context_entity: sensor.dashboard_context
+                active_area_entity: sensor.open_area_activity
+        
+        # Second row for Dining Room
+        - type: horizontal-stack
+          cards:
+            # Dining Room
+            - type: custom:include-template
+              template: context_room_card
+              variables:
+                room_name: Dining Room
+                area_id: dining
+                area_key: dining
+                icon: mdi:table-chair
+                presence_entity: binary_sensor.dining_room_presence
+                light_entity: light.dining_room_spot_lights
+                media_entity: media_player.dining_room
+                climate_entity: climate.dining_room
+                temperature_entity: sensor.dining_room_temperature
+                adaptive_lighting_entity: input_boolean.al_manual_control_track_lights
+                context_entity: sensor.dashboard_context
+                active_area_entity: sensor.open_area_activity
+            
+            # Bedroom
+            - type: custom:include-template
+              template: context_room_card
+              variables:
+                room_name: Bedroom
+                area_id: bedroom
+                icon: mdi:bed
+                presence_entity: binary_sensor.master_bedroom_presence
+                light_entity: light.master_bedroom_table_lamps
+                media_entity: media_player.master_bedroom
+                temperature_entity: sensor.master_bedroom_temperature
+                adaptive_lighting_entity: input_boolean.al_manual_control_master_adapt
+                context_entity: sensor.dashboard_context
+                active_area_entity: sensor.open_area_activity
+        
+        # Context-aware cards that adapt to current context
+        - type: conditional
+          conditions:
+            - entity: sensor.dashboard_context
+              state: morning
+          card:
+            type: custom:mushroom-template-card
+            primary: Good Morning
+            secondary: Here's your morning summary
+            icon: mdi:weather-sunny
+            icon_color: "{{ states('sensor.dashboard_context') }}"
+            tap_action:
+              action: navigate
+              navigation_path: "/popup/morning_summary"
+        
+        - type: conditional
+          conditions:
+            - entity: sensor.dashboard_context
+              state: evening
+          card:
+            type: custom:mushroom-template-card
+            primary: Good Evening
+            secondary: Ready to wind down?
+            icon: mdi:weather-sunset
+            icon_color: "{{ states('sensor.dashboard_context') }}"
+            tap_action:
+              action: navigate
+              navigation_path: "/popup/evening_summary"
+        
+        - type: conditional
+          conditions:
+            - entity: sensor.active_media_player
+              state_not: none
+          card:
+            type: custom:mushroom-template-card
+            primary: Now Playing
+            secondary: >
+              {% set media = states('sensor.active_media_player') %}
+              {% if media != 'none' %}
+                {% set title = state_attr(media, 'media_title')|default('') %}
+                {% set artist = state_attr(media, 'media_artist')|default('') %}
+                {% if artist and title %}
+                  {{ artist }} - {{ title }}
+                {% elif title %}
+                  {{ title }}
+                {% else %}
+                  Playing in {{ media.split('.')[1]|replace('_', ' ')|title }}
+                {% endif %}
+              {% endif %}
+            icon: mdi:music
+            icon_color: green
+            tap_action:
+              action: navigate
+              navigation_path: "/popup/media_controls"
+        
+        # System status
+        - type: custom:mushroom-title-card
+          title: System Status
+        
+        # Context-aware system cards
+        - type: horizontal-stack
+          cards:
+            # Adaptive Lighting Status
+            - type: custom:mushroom-template-card
+              primary: Lighting
+              secondary: >
+                {% if is_state('sensor.adaptive_lighting_status', 'fully_adaptive') %}
+                  Fully Adaptive
+                {% elif is_state('sensor.adaptive_lighting_status', 'partially_manual') %}
+                  Partially Manual
+                {% else %}
+                  Manual Control
+                {% endif %}
+              icon: >
+                {% if is_state('sensor.adaptive_lighting_status', 'fully_adaptive') %}
+                  mdi:theme-light-dark
+                {% elif is_state('sensor.adaptive_lighting_status', 'partially_manual') %}
+                  mdi:lightbulb-variant
+                {% else %}
+                  mdi:lightbulb-variant-outline
+                {% endif %}
+              icon_color: >
+                {% if is_state('sensor.adaptive_lighting_status', 'fully_adaptive') %}
+                  {{ states('sensor.dashboard_context') }}
+                {% elif is_state('sensor.adaptive_lighting_status', 'partially_manual') %}
+                  amber
+                {% else %}
+                  grey
+                {% endif %}
+              tap_action:
+                action: navigate
+                navigation_path: "/popup/adaptive_lighting"
+            
+            # Climate Status
+            - type: custom:mushroom-template-card
+              primary: Climate
+              secondary: >
+                {% set climate = 'climate.dining_room' %}
+                {% if is_state_attr(climate, 'hvac_action', 'heating') %}
+                  Heating to {{ state_attr(climate, 'temperature') }}°
+                {% elif is_state_attr(climate, 'hvac_action', 'cooling') %}
+                  Cooling to {{ state_attr(climate, 'temperature') }}°
+                {% elif is_state_attr(climate, 'hvac_action', 'idle') %}
+                  Idle at {{ state_attr(climate, 'temperature') }}°
+                {% else %}
+                  Off
+                {% endif %}
+              icon: >
+                {% set climate = 'climate.dining_room' %}
+                {% if is_state_attr(climate, 'hvac_action', 'heating') %}
+                  mdi:fire
+                {% elif is_state_attr(climate, 'hvac_action', 'cooling') %}
+                  mdi:snowflake
+                {% elif is_state_attr(climate, 'hvac_action', 'idle') %}
+                  mdi:thermostat
+                {% else %}
+                  mdi:hvac-off
+                {% endif %}
+              icon_color: >
+                {% set climate = 'climate.dining_room' %}
+                {% if is_state_attr(climate, 'hvac_action', 'heating') %}
+                  red
+                {% elif is_state_attr(climate, 'hvac_action', 'cooling') %}
+                  blue
+                {% elif is_state_attr(climate, 'hvac_action', 'idle') %}
+                  {{ states('sensor.dashboard_context') }}
+                {% else %}
+                  grey
+                {% endif %}
+              tap_action:
+                action: navigate
+                navigation_path: "/popup/thermostat"
+        
+        # Mode toggles
+        - type: horizontal-stack
+          cards:
+            - type: custom:mushroom-entity-card
+              entity: input_boolean.movie_mode_active
+              name: Movie Mode
+              icon: mdi:movie-open
+              tap_action:
+                action: toggle
+            
+            - type: custom:mushroom-entity-card
+              entity: input_boolean.guest_mode_active
+              name: Guest Mode
+              icon: mdi:account-group
+              tap_action:
+                action: toggle
+            
+            - type: custom:mushroom-entity-card
+              entity: input_boolean.good_night_active
+              name: Sleep Mode
+              icon: mdi:sleep
+              tap_action:
+                action: toggle
+
+  # Additional views for different contexts - simplified for this example
+  - title: Morning
+    path: morning
+    subview: true
+    type: custom:include-template
+    template: morning
+
+  - title: Evening 
+    path: evening
+    subview: true
+    type: custom:include-template
+    template: evening
+
+  - title: Away
+    path: away
+    subview: true
+    type: custom:include-template
+    template: away
+
+# Add this to configuration.yaml to include the persistent controls bar:
+# panel_custom:
+#   - name: persistent-controls
+#     sidebar_title: ""
+#     sidebar_icon: ""
+#     url_path: ""
+#     module_url: /local/streamline/templates/persistent_controls.yaml
+#     embed_iframe: false
+#     trust_external: true
+#     config:
+#       context_entity: sensor.dashboard_context
+#       active_area_entity: sensor.open_area_activity

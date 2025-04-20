@@ -1,0 +1,290 @@
+# ======================================================
+# CONTEXT ENGINE - The brain of the adaptive dashboard
+# ======================================================
+
+template:
+  - trigger:
+      - platform: time_pattern
+        seconds: "/10" # Increased frequency for responsiveness
+      - platform: state
+        entity_id:
+          - binary_sensor.living_room_presence
+          - binary_sensor.kitchen_presence
+          - binary_sensor.dining_room_presence
+          - binary_sensor.couch_presence
+          - binary_sensor.overall_presence
+          - binary_sensor.walkway_presence # Added based on inferred needs
+          - input_boolean.home_occupied
+          - input_boolean.good_night_active
+          - input_boolean.guest_mode_active
+          - input_boolean.movie_mode_active
+          - binary_sensor.iphone_12_pro_focus
+          - media_player.living_room
+          - media_player.kitchen
+          - media_player.dining_room
+          - media_player.master_bedroom
+          - media_player.sun_house
+          - climate.dining_room
+          - weather.home_2
+          - light.living_room # Added relevant lights
+          - light.kitchen_main_lights
+          - light.dining_room_spot_lights
+          - light.master_bedroom_table_lamps
+          - input_boolean.al_manual_control_non_hue
+          - input_boolean.al_manual_control_kitchen_island
+          - input_boolean.al_manual_control_master_adapt
+          - input_boolean.al_manual_control_track_lights
+          - input_boolean.al_manual_control_hue_adapt
+    sensor:
+      # Renamed from ha_context for clarity, using new logic
+      - name: home_context_engine 
+        unique_id: home_context_engine # Keep original unique_id if preferred
+        state: >
+          {% set h = now().hour %}
+          {% set m = now().minute %}
+          {% set day_phase = state_attr('sun.sun', 'elevation') > 0 %}
+          
+          {% if is_state('input_boolean.home_occupied', 'off') %}
+            away
+          {% elif is_state('input_boolean.good_night_active', 'on') %}
+            sleeping
+          {% elif is_state('input_boolean.movie_mode_active', 'on') %}
+            movie
+          {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+            hosting
+          {% elif is_state('binary_sensor.iphone_12_pro_focus', 'on') %}
+            focus
+          {% elif h >= 5 and h < 10 %}
+            morning
+          {% elif h >= 17 and h < 22 %}
+            evening
+          {% elif h >= 22 or h < 5 %}
+            night
+          {% else %}
+            day
+          {% endif %}
+        attributes:
+          metadata: >
+            {% set weather_entity = 'weather.home_2' %}
+            {% set climate_entity = 'climate.dining_room' %}
+            {% set media_active = false %}
+            {% for entity_id in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom'] %}
+              {% if is_state(entity_id, 'playing') %}
+                {% set media_active = true %}
+              {% endif %}
+            {% endfor %}
+            
+            {
+              "time_of_day": "{{ 'morning' if now().hour >= 5 and now().hour < 10 else 'day' if now().hour >= 10 and now().hour < 17 else 'evening' if now().hour >= 17 and now().hour < 22 else 'night' }}",
+              "day_of_week": "{{ now().weekday() }}",
+              "is_weekend": "{{ now().weekday() >= 5 }}",
+              "weather": "{{ states(weather_entity) }}",
+              "temperature": "{{ state_attr(weather_entity, 'temperature') }}",
+              "is_rainy": "{{ states(weather_entity) in ['rainy', 'pouring', 'lightning', 'lightning-rainy'] }}",
+              "climate_mode": "{{ state_attr(climate_entity, 'hvac_mode') }}",
+              "climate_action": "{{ state_attr(climate_entity, 'hvac_action') }}",
+              "media_active": "{{ media_active }}",
+              "active_areas": [
+                {% if is_state('binary_sensor.living_room_presence', 'on') %}"living_room"{% if is_state('binary_sensor.kitchen_presence', 'on') or is_state('binary_sensor.dining_room_presence', 'on') %},{% endif %}{% endif %}
+                {% if is_state('binary_sensor.kitchen_presence', 'on') %}"kitchen"{% if is_state('binary_sensor.dining_room_presence', 'on') %},{% endif %}{% endif %}
+                {% if is_state('binary_sensor.dining_room_presence', 'on') %}"dining_room"{% endif %}
+              ]
+            }
+      
+      # New sensor replacing light_integrity
+      - name: adaptive_lighting_status
+        unique_id: adaptive_lighting_status # Added unique_id
+        state: >
+          {% set manual_groups = namespace(count=0, list=[]) %}
+          {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+            {% if is_state(entity_id, 'on') %}
+              {% set manual_groups.count = manual_groups.count + 1 %}
+              {% set manual_groups.list = manual_groups.list + [entity_id] %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if manual_groups.count == 0 %}
+            fully_adaptive
+          {% elif manual_groups.count >= 4 %}
+            mostly_manual
+          {% else %}
+            partially_manual
+          {% endif %}
+        attributes:
+          manual_count: >
+            {% set count = namespace(value=0) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set count.value = count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ count.value }}
+          manual_groups: >
+            {% set groups = namespace(list=[]) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set groups.list = groups.list + [entity_id] %}
+              {% endif %}
+            {% endfor %}
+            {{ groups.list | join(',') }}
+          adaptive_lights: >
+            {% set al_info = namespace(current_values={}) %}
+            {% if states('sensor.adaptive_lighting_color_temperature_k') is not none %}
+              {% set al_info.current_values = al_info.current_values | combine(
+                {'color_temp': states('sensor.adaptive_lighting_color_temperature_k')|int,
+                 'brightness': states('sensor.adaptive_lighting_brightness')|int,
+                 'sun_position': states('sensor.adaptive_lighting_sun_position')|float}
+              ) %}
+            {% endif %}
+            {{ al_info.current_values | to_json }}
+
+      # ======================================================
+      # OPEN CONCEPT AREA ACTIVITY DETECTION
+      # ======================================================
+      # Enhanced open concept area activity detection with prioritized signals
+      - name: open_area_activity
+        unique_id: open_area_activity
+        icon: >
+          {% set activity = states('sensor.open_area_activity') %}
+          {% if activity == 'living' %}
+            mdi:sofa
+          {% elif activity == 'kitchen' %}
+            mdi:countertop
+          {% elif activity == 'dining' %}
+            mdi:table-chair
+          {% else %}
+            mdi:floor-plan
+          {% endif %}
+        state: >
+          {% set areas = ['living', 'kitchen', 'dining'] %}
+          
+          {# Primary high-priority activity signals #}
+          {% set active_media = namespace(found=false, area='') %}
+          {% for area, player in [('living', 'media_player.living_room'), ('kitchen', 'media_player.kitchen'), ('dining', 'media_player.dining_room')] %}
+            {% if is_state(player, 'playing') and not active_media.found %}
+              {% set active_media.found = true %}
+              {% set active_media.area = area %}
+            {% endif %}
+          {% endfor %}
+          
+          {# Specific light activity signals #}
+          {% set active_lights = namespace(found=false, area='') %}
+          {% for area, light in [('living', 'light.living_room'), ('kitchen', 'light.kitchen_main_lights'), ('dining', 'light.dining_room_spot_lights')] %}
+            {% if is_state(light, 'on') and states(light, 'brightness')|float > 50 and not active_lights.found %}
+              {% set active_lights.found = true %}
+              {% set active_lights.area = area %}
+            {% endif %}
+          {% endfor %}
+          
+          {# Task-specific activity signals #}
+          {% set task_signals = namespace(found=false, area='') %}
+          {% if is_state('binary_sensor.refrigerator_door', 'on') or is_state('binary_sensor.kitchen_motion', 'on') %}
+            {% set task_signals.found = true %}
+            {% set task_signals.area = 'kitchen' %}
+          {% endif %}
+          
+          {# Presence detection signals - lowest priority #}
+          {% set presence = namespace(found=false, area='') %}
+          {% for area, sensor in [('living', 'binary_sensor.living_room_presence'), ('kitchen', 'binary_sensor.kitchen_presence'), ('dining', 'binary_sensor.dining_room_presence')] %}
+            {% if is_state(sensor, 'on') and not presence.found %}
+              {% set presence.found = true %}
+              {% set presence.area = area %}
+            {% endif %}
+          {% endfor %}
+          
+          {# Decision logic with prioritization #}
+          {% if active_media.found %}
+            {{ active_media.area }}
+          {% elif task_signals.found %}
+            {{ task_signals.area }}
+          {% elif active_lights.found %}
+            {{ active_lights.area }}
+          {% elif presence.found %}
+            {{ presence.area }}
+          {% else %}
+            {{ states('input_text.last_active_area')|default('living') }}
+          {% endif %}
+        attributes:
+          media_active: >
+            {% set result = namespace(value=false, player='') %}
+            {% for player in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room'] %}
+              {% if is_state(player, 'playing') %}
+                {% set result.value = true %}
+                {% set result.player = player %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            {{ result.value }}
+          active_media_player: >
+            {% set result = namespace(player='none') %}
+            {% for player in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room'] %}
+              {% if is_state(player, 'playing') %}
+                {% set result.player = player %}
+                {% break %}
+              {% endif %}
+            {% endfor %}
+            {{ result.player }}
+          active_task: >
+            {% if is_state('binary_sensor.refrigerator_door', 'on') %}
+              kitchen_refrigerator
+            {% elif now().hour >= 6 and now().hour < 9 and is_state('binary_sensor.kitchen_motion', 'on') %}
+              breakfast_preparation
+            {% elif now().hour >= 11 and now().hour < 14 and is_state('binary_sensor.kitchen_motion', 'on') %}
+              lunch_preparation
+            {% elif now().hour >= 17 and now().hour < 20 and is_state('binary_sensor.kitchen_motion', 'on') %}
+              dinner_preparation
+            {% elif is_state('media_player.living_room', 'playing') and 'TV' in state_attr('media_player.living_room', 'friendly_name')|default('') %}
+              watching_tv
+            {% elif is_state('media_player.living_room', 'playing') %}
+              listening_music
+            {% else %}
+              none
+            {% endif %}
+          area_presence: >
+            {
+            {% for area, sensor in [('living', 'binary_sensor.living_room_presence'), ('kitchen', 'binary_sensor.kitchen_presence'), ('dining', 'binary_sensor.dining_room_presence')] %}
+              "{{ area }}": "{{ is_state(sensor, 'on') }}"{% if not loop.last %},{% endif %}
+            {% endfor %}
+            }
+          activity_confidence: >
+            {% if active_media.found %}
+              high
+            {% elif task_signals.found %}
+              high
+            {% elif active_lights.found %}
+              medium
+            {% elif presence.found %}
+              low
+            {% else %}
+              none
+            {% endif %}
+
+# Create an input_text entity to remember the last active area
+input_text:
+  last_active_area:
+    name: Last Active Area
+    icon: mdi:history
+    initial: living
+
+# Automation to update the last active area
+automation:
+  - alias: "Update Last Active Area"
+    description: "Stores the last definitively active area for future reference"
+    id: update_last_active_area
+    trigger:
+      - platform: state
+        entity_id: sensor.open_area_activity
+    condition:
+      - condition: template
+        value_template: >
+          {% set activity = trigger.to_state.state %}
+          {% set confidence = trigger.to_state.attributes.activity_confidence|default('none') %}
+          {{ activity in ['living', 'kitchen', 'dining'] and confidence in ['high', 'medium'] }}
+    action:
+      - service: input_text.set_value
+        data:
+          entity_id: input_text.last_active_area
+          value: "{{ trigger.to_state.state }}"
+
+# Note: Removed previous light_integrity and sonos_status sensors as they are superseded
+# Note: Removed previous room-specific, system state, time, and activity context engines as they are superseded by the new structure
