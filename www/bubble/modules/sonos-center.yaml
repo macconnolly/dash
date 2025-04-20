@@ -1,0 +1,62 @@
+module: sonos_center
+name: Sonos Center
+version: "1.1"
+template: |
+  type: vertical-stack
+  cards:
+    - type: custom:bubble-header
+      title: Audio
+      subtitle: "{{state_attr('sensor.sonos_status','active_count')}} active"
+      icon: mdi:speaker-multiple
+    # dynamic master (first playing else living_room)
+    - type: custom:bubble-card
+      card_type: media-player
+      entity: |
+        {% set playing = expand('media_player.living_room',
+                                 'media_player.kitchen',
+                                 'media_player.dining_room',
+                                 'media_player.master_bedroom')
+           |selectattr('state','eq','playing')|list %}
+        {{ playing[0].entity_id if playing else 'media_player.living_room' }}
+      name: Now Playing
+      queue: true
+      group_players_header: Group with:
+      hide:
+        volume: false
+        power_state: true
+    # mini group builder
+    - type: custom:bubble-grid
+      columns: 2
+      cards:
+        {% for p in ['living_room','kitchen','dining_room','master_bedroom'] %}
+        - type: custom:bubble-button
+          name: {{p.replace('_',' ').title()}}
+          icon: mdi:speaker
+          tap_action:
+            action: call-service
+            service: media_player.join
+            data: {group_members: media_player.{{p}}}
+        {% endfor %}
+    - type: custom:bubble-horizontal-buttons-stack
+      buttons:
+        - {name: Pause All,icon: mdi:pause-circle,
+           tap_action:{action:call-service,
+                       service: media_player.media_pause,
+                       service_data:{entity_id: all}}}
+        - {name: Ungroup, icon: mdi:speaker-off,
+           tap_action:{action:call-service,
+                       service: script.sonos_ungroup_all}}
+    # Spotify shortcuts (visible if focus off)
+    - type: conditional
+      conditions:
+        - entity: binary_sensor.iphone_12_pro_focus ; state: "off"
+      card:
+        type: custom:bubble-grid
+        columns: 2
+        cards:
+          - {type:custom:bubble-card,card_type:button,icon:mdi:playlist-music,
+             name: Playlists, tap_action:{action:navigate,
+             navigation_path:#spotify-playlists}}
+          - {type:custom:bubble-card,card_type:button,icon:mdi:history,
+             name: Recent, tap_action:{action:navigate,
+             navigation_path:#spotify-recent}}

@@ -1,0 +1,56 @@
+module: climate_hub
+name: Climate Hub
+version: "1.1"
+template: |
+  type: vertical-stack
+  cards:
+    - type: custom:bubble-header
+      title: Climate
+      subtitle: |
+        {{state_attr('climate.dining_room','current_temperature')}}°
+        • {{state_attr('climate.dining_room','hvac_action')|title}}
+      icon: mdi:thermostat
+    - type: custom:bubble-card
+      card_type: thermostat
+      entity: climate.dining_room
+    - module: enhanced_fan   # keep fan card but unchanged
+    - type: custom:bubble-header
+      title: Energy & Runtime
+    - type: custom:bubble-grid
+      columns: 2
+      cards:
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_energy_today
+          name: Energy Today
+          icon: mdi:flash
+          unit: kWh
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_cost_today
+          name: Cost Today
+          icon: mdi:currency-usd
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_heating_duration_today
+          name: Heat Runtime
+          icon: mdi:fire
+        - type: custom:bubble-sensor
+          entity: sensor.hvac_cooling_duration_today
+          name: Cool Runtime
+          icon: mdi:snowflake
+    - type: custom:bubble-header
+      title: Temperature – 24 h / 7 d / 30 d
+    - type: custom:apexcharts-card
+      header: {show:false}
+      graph_span: 24h
+      series:
+        - {entity:sensor.dining_room_temperature, name:Dining, stroke_width:2}
+    - type: custom:apexcharts-card
+      header:{show:false}
+      graph_span: 7d
+      series:
+        - {entity:sensor.hvac_heating_runtime_daily,name:Heating}
+        - {entity:sensor.hvac_cooling_runtime_daily,name:Cooling}
+    - type: custom:apexcharts-card
+      header:{show:false}
+      graph_span: 30d
+      series:
+        - {entity:sensor.hvac_energy_daily,name:Energy kWh,type:column}

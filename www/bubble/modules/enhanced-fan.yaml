@@ -1,0 +1,23 @@
+module: enhanced_fan
+name: Enhanced Fan
+version: "1.0"
+template: |
+  type: custom:bubble-card
+  card_type: button
+  button_type: switch
+  entity: fan.hvac_fan
+  icon: mdi:fan
+  styles_javascript: |
+    `
+    ${designSystem.animations.spin}
+    .bubble-icon{animation:${state==='on'
+      ?`spin ${20/(attributes.percentage||50)}s linear infinite`:'none'}}
+    .bubble-icon-container::after{
+      content:'';position:absolute;inset:-4px;border-radius:50%;
+      border:3px solid ${
+        hass.states['climate.dining_room'].attributes.hvac_action==='heating'
+          ?designSystem.colors.danger
+          :hass.states['climate.dining_room'].attributes.hvac_action==='cooling'
+            ?designSystem.colors.info:'rgba(0,0,0,.3)'}
+      opacity:${state==='on'?'.7':'0'};transition:opacity .4s}
+    `

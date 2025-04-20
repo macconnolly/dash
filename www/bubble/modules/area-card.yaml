@@ -1,0 +1,75 @@
+module: area_card
+name: Smart Area Card
+version: "1.1"
+editor:
+  - variable: area
+    name: Area
+    selector:
+      text: {}
+  - variable: icon
+    name: Icon
+    selector:
+      icon: {}
+  - variable: light
+    name: Light Entity
+    selector:
+      entity:
+        domain: light
+  - variable: presence
+    name: Presence Sensor
+    selector:
+      entity:
+        domain: binary_sensor
+  - variable: temp
+    name: Temperature Sensor
+    selector:
+      entity:
+        domain: sensor
+  - variable: media
+    name: Media Player
+    selector:
+      entity:
+        domain: media_player
+template: |
+  type: custom:bubble-card
+  card_type: pop-up
+  hash: "#${variables.area.toLowerCase().replace(' ','_')}"
+  icon: "${variables.icon}"
+  name: "${variables.area}"
+  entity: "${variables.light}"
+  state_display: >
+    {% if is_state(variables.presence,'on') %}
+      Occupied • {{ states(variables.temp) }}°
+    {% else %}
+      {{ states(variables.temp) }}°
+    {% endif %}
+  sub_button:
+    - entity: "${variables.media}"
+      show: "{{ is_state(entity,'playing') or is_state(entity,'paused') }}"
+      icon: |
+        {% if is_state(entity,'playing') %}mdi:play-circle
+        {% elif is_state(entity,'paused') %}mdi:pause-circle
+        {% else %}mdi:music{% endif %}
+      state_display: |
+        {% if state_attr(entity,'media_title') %}
+          {{ state_attr(entity,'media_title')|truncate(14) }}
+        {% else %}{{ states(entity)|title }}{% endif %}
+      tap_action: {action: more-info}
+    - entity: "${variables.presence}"
+      icon: |
+        {{ 'mdi:account-check' if is_state(entity,'on')
+           else 'mdi:account-off' }}
+      show_state: false
+  styles_javascript: |
+    `
+    ${designSystem.animations.pulse}
+    ha-card{opacity:${hass.states[variables.presence].state==='on'?1:.45};
+      transition:opacity .3s}
+    .bubble-icon-container{animation:${
+      hass.states[variables.presence].state==='on'?'pulse 4s infinite':'none'}}
+    .bubble-button-background{
+      background:${state==='on'
+        ?designSystem.functions.gradient('on',designSystem.colors.areas[variables.area.toLowerCase()]||
+           designSystem.colors.primary)
+        :'none'}}
+    `

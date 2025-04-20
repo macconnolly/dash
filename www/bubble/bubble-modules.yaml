@@ -1,0 +1,9 @@
+# Central registry – REQUIRED for Bubble‑Card v3.5+
+modules:
+  - design_system
+  - enhanced_light
+  - enhanced_fan
+  - area_card
+  - climate_hub
+  - sonos_center
+  - weather_responsive

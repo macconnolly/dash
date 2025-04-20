@@ -1,0 +1,28 @@
+module: light-aggregator
+name: "Light Status Aggregator"
+version: "1.0"
+description: "Monitor adaptive lighting status across all groups"
+template: |
+  type: custom:bubble-card
+  card_type: sensor
+  entity: sensor.light_integrity
+  icon: mdi:lightbulb-auto
+  name: >
+    {{ 'All Adaptive' if state == 'adaptive' 
+       else 'Manual Override ×' ~ state_attr('sensor.light_integrity', 'manual_count') }}
+  styles_javascript: |
+    `
+    ${designSystem.animations.pulse}
+    .bubble-icon {
+      color: ${
+        state === 'adaptive' ? designSystem.colors.success :
+        state === 'partial' ? designSystem.colors.warning :
+                             designSystem.colors.danger
+      };
+      animation: ${state !== 'adaptive' ? 'pulse 2s infinite' : 'none'};
+    }
+    
+    .entity-state {
+      font-weight: ${state !== 'adaptive' ? 'bold' : 'normal'};
+    }
+    `

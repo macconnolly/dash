@@ -1,0 +1,220 @@
+# /www/bubble/modules/enhanced-light.yaml (Updated from light_module.yaml in feedback)
+module: enhanced_light
+name: "Enhanced Smart Light Control"
+version: "2.0"
+description: "Advanced light control with adaptive status, brightness indicators, and quick actions"
+editor:
+  - variable: entity
+    name: Light Entity
+    selector:
+      entity:
+        domain: light
+  - variable: name
+    name: Display Name
+    selector:
+      text:
+  - variable: adaptive_entity
+    name: Adaptive Lighting Control Entity
+    selector:
+      entity:
+        domain: input_boolean
+  - variable: area_color
+    name: Area Color (Optional)
+    selector:
+      color_rgb:
+    default: "rgba(var(--rgb-primary-color), 1)"
+  - variable: show_color_temp
+    name: Show Color Temperature Controls
+    selector:
+      boolean:
+    default: true
+  - variable: show_brightness
+    name: Show Brightness Indicator
+    selector:
+      boolean:
+    default: true
+template: |
+  type: custom:bubble-card
+  card_type: light
+  entity: "${variables.entity}"
+  name: "${variables.name}"
+  double_tap_action:
+    action: call-service
+    service: script.cycle_brightness
+    service_data:
+      entity_id: "${variables.entity}"
+  hold_action:
+    action: more-info
+  sub_button:
+    # Adaptive/Manual Override Button
+    - entity: "${variables.adaptive_entity}"
+      icon: >
+        {{ state === 'on' ? 'mdi:lightbulb-auto-off' : 'mdi:lightbulb-auto' }}
+      color: >
+        {{ state === 'on' ? '#FF9800' : '#8BC34A' }}
+      state_display: >
+        {{ state === 'on' ? 'Manual' : 'Auto' }}
+      tap_action:
+        action: call-service
+        service: >
+          {{ state === 'on' 
+            ? 'script.reset_al_override' # Assuming a script exists to reset the specific boolean
+            : 'adaptive_lighting.set_manual_control' }}
+        service_data: >
+          {{ state === 'on' 
+            ? {'entity_id': variables.adaptive_entity} # Pass boolean to reset script
+            : {'entity_id': variables.entity, 'manual_control': true} }}
+    
+    # Brightness Level Button (25%, 50%, 75%, 100%)
+    - entity: "${variables.entity}"
+      icon: >
+        {% if is_state(entity, 'on') %}
+          {% set bri = state_attr(entity, 'brightness')|int|default(0) %}
+          {% if bri < 65 %}mdi:brightness-2
+          {% elif bri < 128 %}mdi:brightness-4
+          {% elif bri < 192 %}mdi:brightness-6
+          {% else %}mdi:brightness-7{% endif %}
+        {% else %}
+          mdi:brightness-5
+        {% endif %}
+      state_display: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'brightness') %}
+          {{ (state_attr(entity, 'brightness') / 255 * 100) | round }}%
+        {% else %}
+          --
+        {% endif %}
+      tap_action:
+        action: call-service
+        service: script.cycle_brightness
+        service_data:
+          entity_id: "${variables.entity}"
+    
+    # Color Temperature Button
+    - entity: "${variables.entity}"
+      show: ${JSON.stringify(variables.show_color_temp !== false && 
+                (attributes.supported_color_modes && 
+                 (attributes.supported_color_modes.includes('color_temp') || 
+                  attributes.supported_color_modes.includes('xy') || 
+                  attributes.supported_color_modes.includes('rgb'))))}
+      icon: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'color_temp') %}
+          {% set temp = state_attr(entity, 'color_temp')|int %}
+          {% if temp < 300 %}mdi:thermometer-plus
+          {% elif temp < 400 %}mdi:thermometer
+          {% else %}mdi:thermometer-minus{% endif %}
+        {% else %}
+          mdi:palette
+        {% endif %}
+      state_display: >
+        {% if is_state(entity, 'on') and state_attr(entity, 'color_temp_kelvin') %}
+          {{ state_attr(entity, 'color_temp_kelvin')|int }}K
+        {% else %}
+          --
+        {% endif %}
+      styles: |
+        ${
+          (() => {
+            if (state !== 'on' || !attributes.color_temp_kelvin) return '';
+            // Calculate color based on temperature
+            const kelvin = attributes.color_temp_kelvin;
+            const temp = kelvin > 4000 
+              ? 'rgba(200, 230, 255, 0.2)' // Cool white
+              : kelvin > 3000 
+                ? 'rgba(255, 244, 229, 0.2)' // Neutral white
+                : 'rgba(255, 223, 189, 0.2)'; // Warm white
+            return `.bubble-sub-button-icon-container-3 { background: ${temp}; }`;
+          })()
+        }
+      tap_action:
+        action: more-info
+  styles_javascript: |
+    `
+    // Base animations
+    ${designSystem.animations.keyframes.spin}
+    ${designSystem.animations.keyframes.pulse}
+    ${designSystem.animations.keyframes.fadeIn}
+    ${designSystem.animations.keyframes.shimmer}
+    
+    // Card background based on state
+    .bubble-button-background {
+      background: ${designSystem.functions.stateGradient(
+        state, 
+        variables.area_color || 'var(--primary-color)'
+      )};
+      opacity: 1 !important;
+      transition: background 0.4s ease;
+    }
+    
+    // Apply light turn-on animation
+    .bubble-icon-container {
+      position: relative;
+      animation: ${state === 'on' ? 'fadeIn 0.3s ease-out' : 'none'};
+      transition: transform 0.2s ease-out;
+    }
+    
+    ha-card:active .bubble-icon-container {
+      transform: scale(0.95);
+    }
+    
+    // Brightness indicator bar
+    ${variables.show_brightness !== false ? `
+    .bubble-name::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: ${
+        state === 'on' && attributes.brightness
+          ? (attributes.brightness / 255 * 100) + '%'
+          : '0%'
+      };
+      height: 3px;
+      background: linear-gradient(
+        to right, 
+        ${variables.area_color || 'var(--primary-color)'}88, 
+        ${variables.area_color || 'var(--primary-color)'}FF
+      );
+      border-radius: 2px;
+      transition: width 0.4s ease-out;
+      opacity: ${state === 'on' ? 1 : 0};
+    }` : ''}
+    
+    // Color temperature visualization for color-capable lights
+    ${attributes.supported_color_modes && 
+      (attributes.supported_color_modes.includes('color_temp') || 
+       attributes.supported_color_modes.includes('xy') || 
+       attributes.supported_color_modes.includes('rgb')) ? `
+    .bubble-icon {
+      color: ${
+        state === 'on' && attributes.color_temp_kelvin
+          ? attributes.color_temp_kelvin > 4000
+            ? 'rgba(180, 220, 255, 1)' // Cool white
+            : attributes.color_temp_kelvin > 3000 
+              ? 'rgba(255, 255, 240, 1)' // Neutral white
+              : 'rgba(255, 210, 170, 1)' // Warm white
+          : 'var(--primary-text-color)'
+      };
+      transition: color 0.4s ease;
+    }` : ''}
+    
+    // Special shimmer animation for loading state (Example - adapt if needed)
+    /* 
+    ${entity_id.startsWith('light.') && hass.states[entity_id].attributes.entity_picture ? `
+    .bubble-icon {
+      animation: ${
+        hass.states[entity_id].state === 'unavailable' 
+          ? 'none' 
+          : (hass.states[entity_id].state === 'on' ? 'pulse 4s infinite' : 'none')
+      };
+    }` : ''} 
+    */
+    
+    // Sub-button styling
+    .bubble-sub-button-background {
+      transition: all 0.3s ease;
+    }
+    
+    .bubble-sub-button:active .bubble-sub-button-background {
+      transform: scale(0.95);
+    }
+    `
