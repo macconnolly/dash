@@ -1,0 +1,36 @@
+# Core Configuration for Home Assistant V1 Dashboard
+# Last Updated: April 20, 2025
+
+# Include package directories
+homeassistant:
+  # Use include_dir_named for cleaner package management
+  packages: !include_dir_named packages
+
+lovelace:
+  mode: yaml
+  resources:
+    - url: /www/community/Bubble-Card/bubble-card.js
+      type: module
+    - url: /www/community/lovelace-card-mod/card-mod.js
+      type: module
+  dashboards:
+    adaptive-living:
+      mode: yaml
+      title: Adaptive Living
+      icon: mdi:home-automation
+      show_in_sidebar: true
+      filename: dashboards/adaptive_living.yaml
+
+frontend:
+  extra_module_url:
+    - /www/community/lovelace-card-mod/card-mod.js
+
+# Fixed panel_custom configuration for persistent controls
+panel_custom:
+  - name: persistent-controls
+    sidebar_title: Dashboard Controls
+    sidebar_icon: "mdi:gesture-tap-button"
+    url_path: persistent-controls
+    module_url: /www/streamline/templates/persistent_controls.yaml
+    embed_iframe: false
+    require_admin: false

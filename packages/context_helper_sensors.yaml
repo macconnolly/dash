@@ -1,0 +1,116 @@
+# ======================================================
+# CONTEXT HELPER SENSORS PACKAGE - V1 IMPLEMENTATION
+# ======================================================
+# Fixed implementation of context helper sensors for V1 dashboard
+# 
+# Author: Mac Connolly (original) + AI Assistant (fixes)
+# Version: 1.0
+# Last Updated: April 20, 2025
+# ======================================================
+
+template:
+  # ======================================================
+  # CONTEXT SUMMARY SENSOR
+  # ======================================================
+  - sensor:
+      - name: "Context Summary"
+        unique_id: context_summary
+        icon: mdi:information-outline
+        state: >
+          {% if is_state('input_boolean.good_night_active', 'on') %}
+            Sleep Mode Active
+          {% elif is_state('input_boolean.home_occupied', 'off') %}
+            Away Mode Active  
+          {% elif is_state('input_boolean.movie_mode_active', 'on') %}
+            Movie Mode Active
+          {% elif is_state('input_boolean.guest_mode_active', 'on') %}
+            Guest Mode Active
+          {% elif is_state('binary_sensor.iphone_12_pro_focus', 'on') %}
+            Focus Mode Active
+          {% elif now().hour >= 6 and now().hour < 10 %}
+            Morning Mode
+          {% elif now().hour >= 17 and now().hour < 22 %}
+            Evening Mode
+          {% else %}
+            Standard Mode
+          {% endif %}
+
+  # ======================================================
+  # ATTRIBUTES HANDLED AS SEPARATE SENSORS
+  # ======================================================
+  - sensor:
+      - name: "Context Weather Status"
+        unique_id: context_weather_status
+        icon: mdi:weather-partly-cloudy
+        state: >
+          {% set weather_entity = 'weather.home_2' %}
+          {{ states(weather_entity) }}
+      
+      - name: "Context Temperature"
+        unique_id: context_temperature
+        icon: mdi:thermometer
+        unit_of_measurement: "°C"
+        state: >
+          {% set weather_entity = 'weather.home_2' %}
+          {{ state_attr(weather_entity, 'temperature') | float(21) | round(1) }}
+      
+      - name: "Context Is Rainy"
+        unique_id: context_is_rainy
+        icon: mdi:weather-rainy
+        state: >
+          {% set weather_entity = 'weather.home_2' %}
+          {% set condition = states(weather_entity) %}
+          {{ condition in ['rainy', 'pouring', 'lightning', 'lightning-rainy'] }}
+      
+      - name: "Context Climate Mode"
+        unique_id: context_climate_mode
+        icon: mdi:thermostat
+        state: >
+          {% set climate_entity = 'climate.dining_room' %}
+          {{ state_attr(climate_entity, 'hvac_mode') }}
+      
+      - name: "Context Climate Action"
+        unique_id: context_climate_action
+        icon: >
+          {% set climate_entity = 'climate.dining_room' %}
+          {% set action = state_attr(climate_entity, 'hvac_action') %}
+          {% if action == 'heating' %}
+            mdi:fire
+          {% elif action == 'cooling' %}
+            mdi:snowflake
+          {% elif action == 'idle' %}
+            mdi:thermostat
+          {% else %}
+            mdi:hvac-off
+          {% endif %}
+        state: >
+          {% set climate_entity = 'climate.dining_room' %}
+          {{ state_attr(climate_entity, 'hvac_action') }}
+      
+      - name: "Context Media Active"
+        unique_id: context_media_active
+        icon: mdi:speaker
+        state: >
+          {% set media_active = false %}
+          {% for entity_id in ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.master_bedroom'] %}
+            {% if is_state(entity_id, 'playing') %}
+              {% set media_active = true %}
+            {% endif %}
+          {% endfor %}
+          {{ media_active }}
+      
+      - name: "Context Active Areas"
+        unique_id: context_active_areas
+        icon: mdi:floor-plan
+        state: >
+          {% set active_areas = [] %}
+          {% if is_state('binary_sensor.living_room_presence', 'on') %}
+            {% set active_areas = active_areas + ['living_room'] %}
+          {% endif %}
+          {% if is_state('binary_sensor.kitchen_presence', 'on') %}
+            {% set active_areas = active_areas + ['kitchen'] %}
+          {% endif %}
+          {% if is_state('binary_sensor.dining_room_presence', 'on') %}
+            {% set active_areas = active_areas + ['dining_room'] %}
+          {% endif %}
+          {{ active_areas | join(', ') if active_areas | count > 0 else 'none' }}

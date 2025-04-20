@@ -1,0 +1,332 @@
+# ======================================================
+# SYSTEM MONITOR CONTROL PACKAGE - V1 IMPLEMENTATION
+# ======================================================
+# Fixed implementation of system monitor control package for V1 dashboard
+#
+# Author: Mac Connolly (original) + AI Assistant (fixes)
+# Version: 1.0
+# Last Updated: April 20, 2025
+# ======================================================
+
+template:
+  # --- Adaptive Lighting Sensors ---
+  - sensor:
+      - name: "Adaptive Lighting Brightness"
+        unique_id: adaptive_lighting_brightness_pct_monitor
+        unit_of_measurement: "%"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'brightness_pct') | float(0) | round(1) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Color Temperature"
+        unique_id: adaptive_lighting_color_temp_k_monitor
+        unit_of_measurement: "K"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'color_temp_kelvin') | int(2700) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Color Temp Mired"
+        unique_id: adaptive_lighting_color_temp_mired_monitor
+        unit_of_measurement: "mired"
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'color_temp_mired') | int(370) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+      - name: "Adaptive Lighting Sun Position"
+        unique_id: adaptive_lighting_sun_position_monitor
+        unit_of_measurement: "°"
+        icon: mdi:sun-angle
+        state: "{{ state_attr('switch.adaptive_lighting_hue_adapt', 'sun_position') | float(0) | round(1) }}"
+        availability: "{{ states('switch.adaptive_lighting_hue_adapt') not in ['unavailable', 'unknown'] }}"
+
+  # --- Dashboard Context & Summary Sensors ---
+  - sensor:
+      - name: "Living Room Lights Summary"
+        unique_id: living_room_lights_summary
+        icon: mdi:lightbulb-group-outline
+        state: >
+          {% set lights_in_area = expand(['light.al_group_track_lights', 'light.al_group_hue_adapt'])
+                                   | selectattr('attributes.entity_id', 'defined')
+                                   | map(attribute='attributes.entity_id') | sum(start=[]) 
+                                   | unique | list %}
+          {% set living_room_entities = expand(['light.living_room_spot_lights', 'light.couch_lamp', 'light.credenza_light', 'light.living_room_floor_lamp', 'light.entry_lamp']) | map(attribute='entity_id') | list %}
+          {% set relevant_lights = expand(lights_in_area) | selectattr('entity_id', 'in', living_room_entities) | list %}
+          {% set lights_on = relevant_lights | selectattr('state', 'eq', 'on') | list %}
+          {% set count_on = lights_on | count %}
+          {% set count_total = relevant_lights | count %}
+          {% if count_on == 0 %}
+            All Off
+          {% else %}
+            {% set brightness_list = lights_on | map(attribute='attributes.brightness') | select('number') | list %}
+            {% set avg_brightness = (brightness_list | sum / brightness_list | count * 2.55) | round(0) if brightness_list | count > 0 else 0 %}
+            {{ count_on }}/{{ count_total }} On @ {{ avg_brightness }}%
+          {% endif %}
+
+# --- Input Helpers with unique keys ---
+input_boolean:
+  living_room_occupied_v1:
+    name: Living Room Occupied
+    icon: mdi:sofa-outline
+  kitchen_occupied_v1:
+    name: Kitchen Occupied
+    icon: mdi:countertop-outline
+  dining_room_occupied_v1:
+    name: Dining Room Occupied
+    icon: mdi:table-chair
+  home_occupied_v1:
+    name: Home Occupied
+    icon: mdi:home-account
+  scene_controller_b2_holding_v1:
+    name: Scene Controller Button 2 Holding
+    icon: mdi:arrow-up-bold-box-outline
+  scene_controller_b3_holding_v1:
+    name: Scene Controller Button 3 Holding
+    icon: mdi:arrow-down-bold-box-outline
+  scene_controller_b4_holding_v1:
+    name: Scene Controller Button 4 Holding
+    icon: mdi:arrow-down-bold-box-outline
+  guest_mode_active_v1:
+    name: Guest Mode Active
+    icon: mdi:account-group-outline
+  movie_mode_active_v1:
+    name: Movie Mode Active
+    icon: mdi:movie-open-outline
+  follow_me_audio_enabled_v1:
+    name: Follow Me Audio Enabled
+    icon: mdi:speaker-multiple
+  good_night_active_v1:
+    name: Good Night Active
+    icon: mdi:weather-night
+  living_room_vacant_long_enough_v1:
+    name: Living Room Vacant Long Enough
+    initial: false
+    icon: mdi:timer-sand-empty
+
+input_number:
+  al_temp_brightness_boost_v1:
+    name: Adaptive Lighting Temporary Brightness Boost
+    icon: mdi:brightness-percent
+    min: -25
+    max: 25
+    step: 5
+    unit_of_measurement: "%"
+
+input_datetime:
+  sonos_alarm_time_v1:
+    name: Sonos Alarm Time
+    has_date: false
+    has_time: true
+    icon: mdi:alarm
+
+input_text:
+  sonos_active_group_master_v1:
+    name: Sonos Active Group Master
+    icon: mdi:speaker-wireless
+    initial: "media_player.kitchen"
+
+input_select:
+  zen32_b5_light_cycle_v1:
+    name: ZEN32 Button 5 Light Cycle State
+    options:
+      - 'OFF'    # Represents the state after all_common_off
+      - 'ACCENT' # Represents the state after accent_only
+      - 'BRIGHT' # Represents the state after general_bright
+    initial: 'OFF'
+    icon: mdi:lightbulb-cycle
+
+# --- Scene Definitions ---
+scene:
+  - id: v1_general_bright
+    name: General Bright V1
+    entities:
+      light.al_group_non_hue:
+        state: on
+        brightness_pct: 65
+      light.al_group_track_lights:
+        state: on
+        brightness_pct: 20
+      light.al_group_hue_adapt:
+        state: on
+        brightness_pct: 75
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 75
+      light.master_bedroom_table_lamps:
+        state: on
+
+  - id: v1_relax_evening
+    name: Relax Evening V1
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt:
+        state: on
+        brightness_pct: 40
+        color_temp_kelvin: 2700
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 25
+        color_temp_kelvin: 2700
+      light.master_bedroom_table_lamps:
+        state: off
+
+  - id: v1_all_common_off
+    name: All Common Off V1
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt:
+        state: off
+      light.kitchen_island_pendants:
+        state: off
+
+  - id: v1_accent_only
+    name: Accent Only V1
+    entities:
+      light.al_group_non_hue:
+        state: off
+      light.al_group_track_lights:
+        state: off
+      light.al_group_hue_adapt:
+        state: on
+        brightness_pct: 15
+        color_temp_kelvin: 2700
+      light.kitchen_island_pendants:
+        state: on
+        brightness_pct: 15
+        color_temp_kelvin: 2700
+      light.master_bedroom_table_lamps:
+        state: on
+
+# --- Script Definitions with unique aliases ---
+script:
+  scene_controller_gradual_brighten_v1:
+    alias: Scene Controller - Gradual Brighten V1
+    mode: single
+    icon: mdi:brightness-auto
+    sequence:
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.scene_controller_b2_holding_v1
+              state: 'on'
+          sequence:
+            - service: light.turn_on
+              data:
+                brightness_step_pct: 5
+                transition: 0.5
+              target:
+                entity_id: >
+                  {% set max_brightness = 95 %}
+                  {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                    | selectattr('state', 'eq', 'on') %}
+                  {% set brightenable_entities = [] %}
+                  {% for entity in entities %}
+                    {% set brightness = entity.attributes.brightness | default(0) %}
+                    {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                    {% if brightness_pct < max_brightness %}
+                      {% set brightenable_entities = brightenable_entities + [entity.entity_id] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ brightenable_entities }}
+            - delay: '00:00:00.250'
+            
+  scene_controller_gradual_dim_v1:
+    alias: Scene Controller - Gradual Dim V1
+    mode: single
+    icon: mdi:brightness-percent
+    sequence:
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.scene_controller_b3_holding_v1
+              state: 'on'
+          sequence:
+            - service: light.turn_on
+              data:
+                brightness_step_pct: -5
+                transition: 0.5
+              target:
+                entity_id: >
+                  {% set min_brightness = 2 %}
+                  {% set entities = expand(['light.al_group_non_hue', 'light.al_group_track_lights', 'light.al_group_hue_adapt', 'light.kitchen_island_pendants']) 
+                    | selectattr('state', 'eq', 'on') %}
+                  {% set dimmable_entities = [] %}
+                  {% for entity in entities %}
+                    {% set brightness = entity.attributes.brightness | default(0) %}
+                    {% set brightness_pct = (brightness / 255 * 100) | round(0) %}
+                    {% if brightness_pct > min_brightness %}
+                      {% set dimmable_entities = dimmable_entities + [entity.entity_id] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ dimmable_entities }}
+            - delay: '00:00:00.500'
+
+  reset_al_living_room_v1:
+    alias: Reset AL Manual Control - Living Room V1
+    icon: mdi:sofa-outline
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_track_lights
+          lights: light.living_room_spot_lights
+          manual_control: false
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_hue_adapt
+          lights: >
+            {{ ['light.couch_lamp', 'light.credenza_light', 'light.living_room_floor_lamp', 'light.entry_lamp']
+               | select('in', state_attr('switch.adaptive_lighting_hue_adapt', 'manual_control') | default([])) | list }}
+          manual_control: false
+      - service: system_log.write
+        data:
+          message: "Living Room AL Manual Control Reset for V1"
+          level: info
+
+  reset_al_kitchen_v1:
+    alias: Reset AL Manual Control - Kitchen V1
+    icon: mdi:countertop-outline
+    mode: single
+    sequence:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_non_hue
+          lights: light.kitchen_main_lights
+          manual_control: false
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_kitchen_island
+          lights: light.kitchen_island_pendants
+          manual_control: false
+      - service: system_log.write
+        data:
+          message: "Kitchen AL Manual Control Reset for V1"
+          level: info
+
+  cycle_brightness_v1:
+    alias: Cycle Light Brightness V1
+    description: Cycles a light through preset brightness levels (25%, 50%, 75%, 100%)
+    fields:
+      entity_id:
+        description: The light entity to control
+        example: light.living_room_lamp
+    sequence:
+      - service: homeassistant.turn_on
+        target:
+          entity_id: "{{ entity_id }}"
+        data:
+          brightness: >
+            {% if state_attr(entity_id, 'brightness') is not none %}
+              {% set current = state_attr(entity_id, 'brightness') %}
+              {% if current < 65 %}
+                128
+              {% elif current < 192 %}
+                255
+              {% else %}
+                64
+              {% endif %}
+            {% else %}
+              64
+            {% endif %}
