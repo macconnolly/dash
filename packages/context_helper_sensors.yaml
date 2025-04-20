@@ -456,6 +456,7 @@ binary_sensor:
       context_sleep_mode:
         friendly_name: "Sleep Mode Active"
         icon_template: mdi:sleep
+        device_class: occupancy
         value_template: "{{ is_state('input_boolean.good_night_active', 'on') }}"
       
       context_away_mode:
