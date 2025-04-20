@@ -204,11 +204,11 @@ views:
               secondary: >
                 {% set climate = 'climate.dining_room' %}
                 {% if is_state_attr(climate, 'hvac_action', 'heating') %}
-                  Heating to {{ state_attr(climate, 'temperature') }}°
+                  Heating to {{ state_attr(climate, 'temperature') }}Â°
                 {% elif is_state_attr(climate, 'hvac_action', 'cooling') %}
-                  Cooling to {{ state_attr(climate, 'temperature') }}°
+                  Cooling to {{ state_attr(climate, 'temperature') }}Â°
                 {% elif is_state_attr(climate, 'hvac_action', 'idle') %}
-                  Idle at {{ state_attr(climate, 'temperature') }}°
+                  Idle at {{ state_attr(climate, 'temperature') }}Â°
                 {% else %}
                   Off
                 {% endif %}

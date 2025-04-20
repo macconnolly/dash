@@ -210,13 +210,13 @@
 {# Format temperature display with trend indicator #}
 {% macro format_temp_with_trend(temperature, previous_temperature) %}
   {% set trend = temperature - previous_temperature %}
-  {{ temperature | round(1) }}°
+  {{ temperature | round(1) }}Â°
   {% if trend > 0.5 %}
-    ↑
+    â†‘
   {% elif trend < -0.5 %}
-    ↓
+    â†“
   {% else %}
-    ↔
+    â†”
   {% endif %}
 {% endmacro %}
 
