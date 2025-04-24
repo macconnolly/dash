@@ -1,0 +1,284 @@
+# ======================================================
+# PERSISTENT CONTROLS BAR
+# ======================================================
+# A fixed-position bar that provides always-accessible controls
+# regardless of the current context or area activity.
+# Mobile-optimized with adequate touch targets.
+#
+# Parameters:
+# - context_entity: Entity containing context information (default: sensor.dashboard_context)
+# - activity_entity: Entity detecting activity in open concept area (default: sensor.open_area_activity)
+# - media_entity: Entity for detecting active media players (default: sensor.open_area_activity.active_media_player)
+#
+# Last Updated: April 19, 2025
+# ======================================================
+
+type: custom:mushroom-chips-card
+alignment: justify
+card_mod:
+  style: |
+    :host {
+      --chip-height: var(--designSystem-sizing-touchTarget, 44px);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 8px 8px calc(8px + var(--designSystem-sizing-safeAreaBottom, 0px));
+      background: rgba(var(--card-background-color), 0.9);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      border-top: 1px solid rgba(var(--primary-color), 0.1);
+    }
+    .chip {
+      min-width: 60px !important;
+    }
+chips:
+  # Media control - Shows current media or a button to activate media
+  - type: template
+    entity: sensor.open_area_activity
+    icon: >
+      {% if state_attr('sensor.open_area_activity', 'media_active') %}
+        mdi:music
+      {% else %}
+        mdi:music-off
+      {% endif %}
+    content: >
+      {% set media_player = state_attr('sensor.open_area_activity', 'active_media_player') %}
+      {% if media_player != 'none' %}
+        {{ states[media_player].attributes.media_title|default('Media')|truncate(10) }}
+      {% else %}
+        Media
+      {% endif %}
+    icon_color: >
+      {% if state_attr('sensor.open_area_activity', 'media_active') %}
+        {{ states('sensor.dashboard_context') }}
+      {% else %}
+        gray
+      {% endif %}
+    tap_action:
+      action: fire-dom-event
+      browser_mod:
+        service: browser_mod.popup
+        data:
+          title: Media Controls
+          content:
+            type: custom:vertical-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set media_player = state_attr('sensor.open_area_activity', 'active_media_player') %}
+                  {% if media_player != 'none' %}
+                    {{ states[media_player].attributes.media_title|default('No media playing') }}
+                  {% else %}
+                    No media playing
+                  {% endif %}
+                secondary: >
+                  {% set media_player = state_attr('sensor.open_area_activity', 'active_media_player') %}
+                  {% if media_player != 'none' %}
+                    {{ states[media_player].attributes.media_artist|default('') }}
+                  {% else %}
+                    Select a player below
+                  {% endif %}
+                icon: >
+                  {% if state_attr('sensor.open_area_activity', 'media_active') %}
+                    mdi:music
+                  {% else %}
+                    mdi:music-off
+                  {% endif %}
+              - type: conditional
+                conditions:
+                  - entity: sensor.open_area_activity.active_media_player
+                    state_not: "none"
+                card:
+                  type: custom:mushroom-media-player-card
+                  entity: >
+                    {{ state_attr('sensor.open_area_activity', 'active_media_player') }}
+                  fill_container: true
+                  use_media_info: true
+                  show_volume_level: true
+                  media_controls:
+                    - on_off
+                    - shuffle
+                    - previous
+                    - play_pause_stop
+                    - next
+                    - repeat
+                  volume_controls:
+                    - volume_mute
+                    - volume_set
+                    - volume_buttons
+              - type: custom:mushroom-title-card
+                title: Available Players
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-entity-card
+                    entity: media_player.living_room
+                    name: Living Room
+                    icon: mdi:speaker
+                    tap_action:
+                      action: call-service
+                      service: media_player.turn_on
+                      data:
+                        entity_id: media_player.living_room
+                  - type: custom:mushroom-entity-card
+                    entity: media_player.kitchen
+                    name: Kitchen
+                    icon: mdi:speaker
+                    tap_action:
+                      action: call-service
+                      service: media_player.turn_on
+                      data:
+                        entity_id: media_player.kitchen
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-entity-card
+                    entity: media_player.dining_room
+                    name: Dining
+                    icon: mdi:speaker
+                    tap_action:
+                      action: call-service
+                      service: media_player.turn_on
+                      data:
+                        entity_id: media_player.dining_room
+                  - type: custom:mushroom-entity-card
+                    entity: media_player.master_bedroom
+                    name: Bedroom
+                    icon: mdi:speaker
+                    tap_action:
+                      action: call-service
+                      service: media_player.turn_on
+                      data:
+                        entity_id: media_player.master_bedroom
+  
+  # Active area indicator - Shows which area is active in open concept
+  - type: template
+    entity: sensor.open_area_activity
+    icon: >
+      {% set area = states('sensor.open_area_activity') %}
+      {% if area == 'living' %}
+        mdi:sofa
+      {% elif area == 'kitchen' %}
+        mdi:countertop
+      {% elif area == 'dining' %}
+        mdi:table-chair
+      {% else %}
+        mdi:floor-plan
+      {% endif %}
+    content: >
+      {% set area = states('sensor.open_area_activity') %}
+      {% if area == 'living' %}
+        Living
+      {% elif area == 'kitchen' %}
+        Kitchen
+      {% elif area == 'dining' %}
+        Dining
+      {% else %}
+        Open Plan
+      {% endif %}
+    icon_color: >
+      {% set context = states('sensor.dashboard_context') %}
+      {{ context }}
+    card_mod:
+      style: |
+        :host {
+          animation: presence-pulse 2s infinite;
+        }
+        @keyframes presence-pulse {
+          0% { opacity: 0.7; transform: scale(0.97); }
+          50% { opacity: 1; transform: scale(1.03); }
+          100% { opacity: 0.7; transform: scale(0.97); }
+        }
+    tap_action:
+      action: navigate
+      navigation_path: >
+        {% set area = states('sensor.open_area_activity') %}
+        {% if area == 'living' %}
+          /popup/living
+        {% elif area == 'kitchen' %}
+          /popup/kitchen
+        {% elif area == 'dining' %}
+          /popup/dining
+        {% else %}
+          /popup/openplan
+        {% endif %}
+  
+  # Open area lights control
+  - type: entity
+    entity: light.open_area_all_lights
+    name: Lights
+    icon: mdi:lightbulb-group
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    double_tap_action:
+      action: fire-dom-event
+      browser_mod:
+        service: browser_mod.popup
+        data:
+          title: Open Area Lights
+          content:
+            type: custom:vertical-stack
+            cards:
+              - type: custom:mushroom-light-card
+                entity: light.open_area_all_lights
+                name: All Lights
+                use_light_color: true
+                show_brightness_control: true
+                collapsible_controls: false
+              - type: custom:mushroom-title-card
+                title: Individual Lights
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-light-card
+                    entity: light.living_room
+                    name: Living
+                    use_light_color: true
+                    show_brightness_control: true
+                    collapsible_controls: true
+                  - type: custom:mushroom-light-card
+                    entity: light.kitchen_main_lights
+                    name: Kitchen
+                    use_light_color: true
+                    show_brightness_control: true
+                    collapsible_controls: true
+              - type: horizontal-stack
+                cards:
+                  - type: custom:mushroom-light-card
+                    entity: light.dining_room_spot_lights
+                    name: Dining
+                    use_light_color: true
+                    show_brightness_control: true
+                    collapsible_controls: true
+                  - type: custom:mushroom-light-card
+                    entity: light.accent_lights
+                    name: Accents
+                    use_light_color: true
+                    show_brightness_control: true
+                    collapsible_controls: true
+  
+  # Context-dependent action
+  - type: template
+    entity: sensor.dashboard_context
+    icon: >
+      {% set context = states('sensor.dashboard_context') %}
+      {% set actions = state_attr('sensor.dashboard_context', 'quick_actions')|from_json %}
+      {{ actions[0].icon }}
+    content: >
+      {% set context = states('sensor.dashboard_context') %}
+      {% set actions = state_attr('sensor.dashboard_context', 'quick_actions')|from_json %}
+      {{ actions[0].name|truncate(8) }}
+    icon_color: >
+      {% set context = states('sensor.dashboard_context') %}
+      {{ context }}
+    tap_action:
+      action: call-service
+      service: >
+        {% set context = states('sensor.dashboard_context') %}
+        {% set actions = state_attr('sensor.dashboard_context', 'quick_actions')|from_json %}
+        {{ actions[0].service }}
+      service_data:
+        entity_id: >
+          {% set context = states('sensor.dashboard_context') %}
+          {% set actions = state_attr('sensor.dashboard_context', 'quick_actions')|from_json %}
+          {{ actions[0].entity_id }}

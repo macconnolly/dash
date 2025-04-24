@@ -134,7 +134,8 @@ template:
             {% endfor %}
             {{ (total_temp.val / count.val) | round(0) if count.val > 0 else 3000 }}
           {% else %}
-            {{ states('sensor.adaptive_lighting_color_temp_k_monitor') | int(3000) }}
+            {# Fallback to adaptive_lighting_status sensor attribute if no Hue lights active #}
+            {{ state_attr('sensor.adaptive_lighting_status', 'adaptive_lights').color_temp | default(3000) | int }}
           {% endif %}
 
   # ======================================================

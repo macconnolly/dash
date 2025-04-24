@@ -1,4 +1,4 @@
- # Home Assistant Package for Adaptive Lighting Configuration
+# Home Assistant Package for Adaptive Lighting Configuration
 
 # Light Groups for Adaptive Lighting
 light:
@@ -33,35 +33,6 @@ adaptive_lighting:
     interval: 5.0
     transition: 1.0
     initial_transition: 1.0
-    min_brightness: 1
-    max_brightness: 40
-    min_color_temp: 2000
-    max_color_temp: 5500
-    prefer_rgb_color: false
-    sleep_brightness: 1
-    sleep_rgb_or_color_temp: "color_temp"
-    sleep_color_temp: 1000
-    sleep_rgb_color: [255, 56, 0]
-    sleep_transition: 1.0
-    transition_until_sleep: false
-    # Removed all null entries
-    sunrise_offset: 10000.0
-    sunset_offset: -5603.0
-    brightness_mode: "linear"
-    brightness_mode_time_dark: 900.0
-    brightness_mode_time_light: 3600.0
-    take_over_control: true
-    detect_non_ha_changes: true
-    autoreset_control_seconds: 7200
-    only_once: false
-    adapt_only_on_bare_turn_on: false
-    separate_turn_on_commands: false
-    send_split_delay: 0
-    adapt_delay: 0.0
-    skip_redundant_commands: false
-    intercept: true
-    multi_light_intercept: true
-    include_config_in_attributes: true
 
   # Kitchen Island configuration
   - name: "Kitchen Island"
@@ -70,35 +41,7 @@ adaptive_lighting:
     interval: 5.0
     transition: 1.0
     initial_transition: 1.0
-    min_brightness: 22
-    max_brightness: 92
-    min_color_temp: 2000
-    max_color_temp: 5500
-    prefer_rgb_color: false
-    sleep_brightness: 1
-    sleep_rgb_or_color_temp: "color_temp"
-    sleep_color_temp: 1000
-    sleep_rgb_color: [255, 56, 0]
-    sleep_transition: 1.0
-    transition_until_sleep: false
-    # Removed all null entries
-    sunrise_offset: 10000.0
-    sunset_offset: -10000.0
-    brightness_mode: "default"
-    brightness_mode_time_dark: 900.0
-    brightness_mode_time_light: 3600.0
-    take_over_control: true
-    detect_non_ha_changes: true
-    autoreset_control_seconds: 7200
-    only_once: false
-    adapt_only_on_bare_turn_on: false
-    separate_turn_on_commands: false
-    send_split_delay: 0
-    adapt_delay: 0.0
-    skip_redundant_commands: false
-    intercept: true
-    multi_light_intercept: true
-    include_config_in_attributes: true
+   
 
   # Master-Adapt configuration
   - name: "Master-Adapt"
@@ -107,71 +50,14 @@ adaptive_lighting:
     interval: 5.0
     transition: 1.0
     initial_transition: 1.0
-    min_brightness: 15
-    max_brightness: 100
-    min_color_temp: 2000
-    max_color_temp: 5500
-    prefer_rgb_color: false
-    sleep_brightness: 1
-    sleep_rgb_or_color_temp: "color_temp"
-    sleep_color_temp: 1000
-    sleep_rgb_color: [255, 56, 0]
-    sleep_transition: 1.0
-    transition_until_sleep: false
-    # Removed all null entries
-    sunrise_offset: 10000.0
-    sunset_offset: 0.0
-    brightness_mode: "default"
-    brightness_mode_time_dark: 900.0
-    brightness_mode_time_light: 3600.0
-    take_over_control: true
-    detect_non_ha_changes: true
-    autoreset_control_seconds: 7200
-    only_once: false
-    adapt_only_on_bare_turn_on: false
-    separate_turn_on_commands: false
-    send_split_delay: 0
-    adapt_delay: 0.0
-    skip_redundant_commands: false
-    intercept: true
-    multi_light_intercept: true
-    include_config_in_attributes: true
+  
 
   # Track Lights configuration
   - name: "Track Lights"
     lights: light.al_group_track_lights
     interval: 5.0
     transition: 1.0
-    initial_transition: 1.0
-    min_brightness: 10
-    max_brightness: 40
-    min_color_temp: 2000
-    max_color_temp: 5500
-    prefer_rgb_color: false
-    sleep_brightness: 1
-    sleep_rgb_or_color_temp: "color_temp"
-    sleep_color_temp: 1000
-    sleep_rgb_color: [255, 56, 0]
-    sleep_transition: 1.0
-    transition_until_sleep: false
-    # Removed all null entries
-    sunrise_offset: 0.0
-    sunset_offset: -2400.0
-    brightness_mode: "default"
-    brightness_mode_time_dark: 900.0
-    brightness_mode_time_light: 3600.0
-    take_over_control: true
-    detect_non_ha_changes: true
-    autoreset_control_seconds: 7200
-    only_once: false
-    adapt_only_on_bare_turn_on: false
-    separate_turn_on_commands: false
-    send_split_delay: 0
-    adapt_delay: 0.0
-    skip_redundant_commands: false
-    intercept: true
-    multi_light_intercept: true
-    include_config_in_attributes: true
+
 
   # Hue-Adapt configuration
   - name: "Hue-Adapt"
@@ -179,36 +65,7 @@ adaptive_lighting:
     interval: 5.0
     transition: 3.0
     initial_transition: 1.0
-    min_brightness: 100
-    max_brightness: 100
-    min_color_temp: 2550
-    max_color_temp: 3500
-    prefer_rgb_color: false
-    sleep_brightness: 1
-    sleep_rgb_or_color_temp: "color_temp"
-    sleep_color_temp: 1000
-    sleep_rgb_color: [255, 56, 0]
-    sleep_transition: 1.0
-    transition_until_sleep: false
-    # Removed all null entries
-    sunrise_offset: 0.0
-    sunset_offset: 0.0
-    brightness_mode: "default"
-    brightness_mode_time_dark: 900.0
-    brightness_mode_time_light: 3600.0
-    take_over_control: true
-    detect_non_ha_changes: true
-    autoreset_control_seconds: 7200
-    only_once: false
-    adapt_only_on_bare_turn_on: false
-    separate_turn_on_commands: true
-    send_split_delay: 0
-    adapt_delay: 0.0
-    skip_redundant_commands: false
-    intercept: true
-    multi_light_intercept: true
-    include_config_in_attributes: true
-
+  
 # Scripts related to Adaptive Lighting
 script:
   # --- Adaptive Lighting Manual Control (Parameterized) ---
@@ -278,41 +135,9 @@ script:
       # Consider using labels applied by the main script for a more robust solution.
       - data:
           entity_id: >
-            {% set hue_lights_std = [
-              'light.living_room_couch_lamp', 'light.entryway_lamp',
-              'light.living_room_credenza_light', 'light.living_room_floor_lamp',
-              'light.office_desk_lamp'
-            ] %}
-            {% set non_hue_lights_std = [
-              'light.kitchen_main_lights', 'light.living_room_hallway_lights'
-            ] %}
-            {% set track_lights_std = [
-              'light.dining_room_spot_lights', 'light.living_room_spot_lights'
-            ] %}
-            {% set island_lights_std = ['light.kitchen_island_pendants'] %}
-            {% set master_lights_std = ['light.master_bedroom_table_lamps'] %}
-
-            {% set found_hue = namespace(count=0) %}
-            {% set found_non_hue = namespace(count=0) %}
-            {% set found_track = namespace(count=0) %}
-            {% set found_island = namespace(count=0) %}
-            {% set found_master = namespace(count=0) %}
-
-            {% for light in area_lights %}
-              {% if light in hue_lights_std %}{% set found_hue.count = found_hue.count + 1 %}
-              {% elif light in non_hue_lights_std %}{% set found_non_hue.count = found_non_hue.count + 1 %}
-              {% elif light in track_lights_std %}{% set found_track.count = found_track.count + 1 %}
-              {% elif light in island_lights_std %}{% set found_island.count = found_island.count + 1 %}
-              {% elif light in master_lights_std %}{% set found_master.count = found_master.count + 1 %}
-              {% endif %}
-            {% endfor %}
-
-            {% if found_hue.count > 0 %}switch.adaptive_lighting_hue_adapt
-            {% elif found_non_hue.count > 0 %}switch.adaptive_lighting_non_hue
-            {% elif found_track.count > 0 %}switch.adaptive_lighting_track_lights
-            {% elif found_island.count > 0 %}switch.adaptive_lighting_kitchen_island
-            {% elif found_master.count > 0 %}switch.adaptive_lighting_master_adapt
-            {% else %}''{% endif %}
+            {% set area_obj = area_id | area_id %}
+            {% set al_switch = 'switch.adaptive_lighting_' + area_obj.name | lower | replace(' ', '_') %}
+            {{ al_switch if states(al_switch) != 'unavailable' else '' }}
           lights: '{{ area_lights }}'
           transition: '{{ transition }}'
         action: adaptive_lighting.apply
@@ -334,6 +159,7 @@ script:
       - repeat:
           for_each: "{{ al_switches }}"
           sequence:
+            # Only reset if manual control is actually active for the switch
             - condition: template
               value_template: "{{ state_attr(repeat.item, 'manual_control') | list | length > 0 }}"
             - service: adaptive_lighting.apply
@@ -393,7 +219,89 @@ script:
           transition: 3
         action: adaptive_lighting.apply
 
-# Input Booleans for tracking manual control status
+# Automations to manage input booleans and potentially other AL logic
+automation:
+  - alias: "AL Update Manual Control Booleans (Consolidated)"
+    id: al_update_manual_control_booleans_consolidated
+    description: Updates manual control input booleans based on Adaptive Lighting switch states.
+    trigger:
+      - platform: state
+        entity_id:
+          - switch.adaptive_lighting_non_hue
+          - switch.adaptive_lighting_kitchen_island
+          - switch.adaptive_lighting_master_adapt
+          - switch.adaptive_lighting_track_lights
+          - switch.adaptive_lighting_hue_adapt
+        attribute: manual_control
+    action:
+      - variables:
+          al_switch_entity_id: "{{ trigger.entity_id }}"
+          manual_control_active: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
+          target_boolean_entity_id: "{{ al_switch_entity_id | replace('switch.adaptive_lighting_', 'input_boolean.al_manual_control_') }}"
+      - service: "input_boolean.turn_{{ 'on' if manual_control_active else 'off' }}"
+        target:
+          entity_id: "{{ target_boolean_entity_id }}"
+    mode: parallel
+    max: 10
+
+# New sensor replacing light_integrity
+  - sensor:
+      - name: adaptive_lighting_status
+        unique_id: adaptive_lighting_status # Added unique_id
+        state: >
+          {% set manual_groups = namespace(count=0, list=[]) %}
+          {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+            {% if is_state(entity_id, 'on') %}
+              {% set manual_groups.count = manual_groups.count + 1 %}
+              {% set manual_groups.list = manual_groups.list + [entity_id] %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if manual_groups.count == 0 %}
+            fully_adaptive
+          {% elif manual_groups.count >= 4 %}
+            mostly_manual
+          {% else %}
+            partially_manual
+          {% endif %}
+        attributes:
+          manual_count: >
+            {% set count = namespace(value=0) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set count.value = count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ count.value }}
+          manual_groups: >
+            {% set groups = namespace(list=[]) %}
+            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
+              {% if is_state(entity_id, 'on') %}
+                {% set groups.list = groups.list + [entity_id] %}
+              {% endif %}
+            {% endfor %}
+            {{ groups.list | join(',') }}
+          adaptive_lights: >
+            {% set al_info = namespace(current_values={}) %}
+            {% set al_switches = ['switch.adaptive_lighting_non_hue', 'switch.adaptive_lighting_kitchen_island', 'switch.adaptive_lighting_master_adapt', 'switch.adaptive_lighting_track_lights', 'switch.adaptive_lighting_hue_adapt'] %}
+            {% set brightness = 0 %}
+            {% set color_temp_kelvin = 0 %}
+            {% set sun_position = 0 %}
+            {% set switch_count = 0 %}
+            {% for al_switch in al_switches %}
+              {% if states(al_switch) != 'unavailable' %}
+                {% set brightness = brightness + (state_attr(al_switch, 'brightness') | int(0)) %}
+                {% set color_temp_kelvin = color_temp_kelvin + (state_attr(al_switch, 'color_temp_kelvin') | int(0)) %}
+                {% set sun_position = sun_position + (state_attr(al_switch, 'sun_position') | float(0)) %}
+                {% set switch_count = switch_count + 1 %}
+              {% endif %}
+            {% endfor %}
+            {% if switch_count > 0 %}
+              {% set al_info.current_values = {'color_temp': (color_temp_kelvin / switch_count) | int,
+                 'brightness': (brightness / switch_count) | int,
+                 'sun_position': (sun_position / switch_count) | float} %}
+            {% endif %}
+            {{ al_info.current_values | to_json }}
 input_boolean:
   al_manual_control_non_hue:
     name: AL Manual Control Non-Hue
@@ -410,429 +318,3 @@ input_boolean:
   al_manual_control_hue_adapt:
     name: AL Manual Control Hue Adapt
     icon: mdi:hand-back-right-outline
-
-# Automations to manage input booleans and potentially other AL logic
-automation:
-  - alias: "AL Update Manual Control Boolean - Non-Hue"
-    id: al_update_manual_control_boolean_non_hue # Optional but recommended unique ID
-    trigger:
-      - platform: state
-        entity_id: switch.adaptive_lighting_non_hue
-        attribute: manual_control
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
-            sequence:
-              - service: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.al_manual_control_non_hue
-        default:
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.al_manual_control_non_hue
-    mode: single
-
-  - alias: "AL Update Manual Control Boolean - Kitchen Island"
-    id: al_update_manual_control_boolean_kitchen_island
-    trigger:
-      - platform: state
-        entity_id: switch.adaptive_lighting_kitchen_island
-        attribute: manual_control
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
-            sequence:
-              - service: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.al_manual_control_kitchen_island
-        default:
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.al_manual_control_kitchen_island
-    mode: single
-
-  - alias: "AL Update Manual Control Boolean - Master Adapt"
-    id: al_update_manual_control_boolean_master_adapt
-    trigger:
-      - platform: state
-        entity_id: switch.adaptive_lighting_master_adapt
-        attribute: manual_control
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
-            sequence:
-              - service: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.al_manual_control_master_adapt
-        default:
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.al_manual_control_master_adapt
-    mode: single
-
-  - alias: "AL Update Manual Control Boolean - Track Lights"
-    id: al_update_manual_control_boolean_track_lights
-    trigger:
-      - platform: state
-        entity_id: switch.adaptive_lighting_track_lights
-        attribute: manual_control
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
-            sequence:
-              - service: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.al_manual_control_track_lights
-        default:
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.al_manual_control_track_lights
-    mode: single
-
-  - alias: "AL Update Manual Control Boolean - Hue Adapt"
-    id: al_update_manual_control_boolean_hue_adapt
-    trigger:
-      - platform: state
-        entity_id: switch.adaptive_lighting_hue_adapt
-        attribute: manual_control
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.attributes.manual_control | list | length > 0 }}"
-            sequence:
-              - service: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.al_manual_control_hue_adapt
-        default:
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.al_manual_control_hue_adapt
-    mode: single
-
-
-  # --- Consolidated Reset Automations ---
-  - id: al_reset_sunrise # New consolidated ID
-    alias: "AL Reset All Manual Control at Sunrise" # Updated alias
-    description: Resets manual control for all Adaptive Lighting switches 15 minutes after sunrise.
-    trigger:
-      - platform: sun
-        event: sunrise
-        offset: "+00:15:00"
-    action:
-      - variables:
-          al_switches: # List known AL switches from the package
-            - switch.adaptive_lighting_non_hue
-            - switch.adaptive_lighting_kitchen_island
-            - switch.adaptive_lighting_master_adapt
-            - switch.adaptive_lighting_track_lights
-            - switch.adaptive_lighting_hue_adapt
-      - repeat:
-          for_each: "{{ al_switches }}"
-          sequence:
-            # Only reset if manual control is actually active for the switch
-            - condition: template
-              value_template: "{{ state_attr(repeat.item, 'manual_control') | list | length > 0 }}"
-            - service: adaptive_lighting.set_manual_control
-              data:
-                entity_id: "{{ repeat.item }}"
-                manual_control: false
-      - service: system_log.write # Keep logging
-        data:
-          level: info
-          message: All active adaptive lighting manual controls have been reset at sunrise.
-    mode: single # Keep single mode
-
-  - id: al_reset_manual_control_hourly # New consolidated ID
-    alias: "AL Reset Manual Control After 2 Hours" # Updated alias
-    description: Resets manual control flag for a light 2 hours after it was manually changed.
-    trigger:
-      - platform: event
-        event_type: adaptive_lighting.manual_control
-    variables:
-      light_id: "{{ trigger.event.data.entity_id }}"
-      # Attempt to find the corresponding AL switch for the light
-      al_switch: >
-        {% set light_groups = {
-          'switch.adaptive_lighting_non_hue': states.light.al_group_non_hue.attributes.entity_id,
-          'switch.adaptive_lighting_kitchen_island': ['light.kitchen_island_pendants'],
-          'switch.adaptive_lighting_master_adapt': ['light.master_bedroom_table_lamps'],
-          'switch.adaptive_lighting_track_lights': states.light.al_group_track_lights.attributes.entity_id,
-          'switch.adaptive_lighting_hue_adapt': states.light.al_group_hue_adapt.attributes.entity_id
-        } %}
-        {% for switch, lights in light_groups.items() %}
-          {% if light_id in lights %}
-            {{ switch }}
-          {% endif %}
-        {% endfor %}
-    action:
-      - service: system_log.write
-        data:
-          level: info
-          message: "Manual control detected for {{ light_id }} (AL Switch: {{ al_switch }}), will reset in 2 hours"
-      - delay:
-          hours: 2
-      # Check if the specific AL switch still has manual control for this light_id
-      - condition: template
-        value_template: "{{ light_id in state_attr(al_switch, 'manual_control') | default([]) }}"
-      - service: adaptive_lighting.set_manual_control
-        data:
-          entity_id: "{{ al_switch }}" # Target the specific AL switch
-          lights: "{{ light_id }}"     # Reset only the specific light
-          manual_control: false
-      - service: system_log.write
-        data:
-          level: info
-          message: "Manual control for {{ light_id }} (AL Switch: {{ al_switch }}) has been reset after 2 hours"
-    mode: queued # Keep queued mode
-    max: 10 # Add a reasonable max for queued runs
-
-  # --- Room Control Automations (Moved from automations.yaml) ---
-  - id: al_control_living_room # Updated ID
-    alias: "AL Control Living Room Lights" # Updated alias
-    description: Turns on Living Room lights and applies Adaptive Lighting settings.
-    trigger:
-      # Keeping original triggers, assuming input_boolean/switch logic is desired
-      - platform: state
-        entity_id:
-          - input_boolean.living_room_lights # Assuming these exist
-          - switch.living_room_lights       # Assuming these exist
-        to: 'on'
-    action:
-      - service: light.turn_on
-        target:
-          # Using light groups defined in the package where possible
-          entity_id:
-            - light.al_group_track_lights # Contains living_room_spot_lights
-            - light.al_group_hue_adapt    # Contains couch_lamp, credenza_light, living_room_floor_lamp
-        data:
-          transition: 1
-      - delay:
-          seconds: 1 # Keep delay for lights to turn on
-      # Apply AL using the correct switches and light groups/entities
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_track_lights
-          lights: light.al_group_track_lights # Apply to the group
-          transition: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_hue_adapt
-          lights: light.al_group_hue_adapt # Apply to the group
-          transition: 3 # Keep original transition for Hue
-    mode: restart # Keep restart mode
-
-  - id: al_control_kitchen # Updated ID
-    alias: "AL Control Kitchen Lights" # Updated alias
-    description: Turns on Kitchen lights and applies Adaptive Lighting settings.
-    trigger:
-      - platform: state
-        entity_id:
-          - input_boolean.kitchen_lights # Assuming these exist
-          - switch.kitchen_lights       # Assuming these exist
-        to: 'on'
-    action:
-      - service: light.turn_on
-        target:
-          entity_id:
-            - light.al_group_non_hue # Contains kitchen_main_lights
-            - light.kitchen_island_pendants
-        data:
-          transition: 1
-      - delay:
-          seconds: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_non_hue
-          lights: light.al_group_non_hue # Apply to the group
-          transition: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_kitchen_island
-          lights: light.kitchen_island_pendants # Apply to the specific light
-          transition: 1
-    mode: restart
-
-  - id: al_control_dining_room # Updated ID
-    alias: "AL Control Dining Room Lights" # Updated alias
-    description: Turns on Dining Room lights and applies Adaptive Lighting settings.
-    trigger:
-      - platform: state
-        entity_id:
-          - switch.dining_room_lights # Assuming this exists
-        to: 'on'
-    action:
-      - service: light.turn_on
-        target:
-          entity_id:
-            - light.al_group_track_lights # Contains dining_room_spot_lights
-        data:
-          transition: 1
-      - delay:
-          seconds: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_track_lights
-          lights: light.al_group_track_lights # Apply to the group
-          transition: 1
-    mode: restart
-
-  - id: al_control_master_bedroom # Updated ID
-    alias: "AL Control Master Bedroom Lights" # Updated alias
-    description: Turns on Master Bedroom lights and applies Adaptive Lighting settings.
-    trigger:
-      - platform: state
-        entity_id:
-          - input_boolean.master_bedroom_lights # Assuming these exist
-          - switch.master_bedroom_lights       # Assuming these exist
-        to: 'on'
-    action:
-      - service: light.turn_on
-        target:
-          entity_id:
-            - light.master_bedroom_table_lamps
-        data:
-          transition: 1
-      - delay:
-          seconds: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_master_adapt
-          lights: light.master_bedroom_table_lamps # Apply to the specific light
-          transition: 1
-    mode: restart
-
-  - id: al_control_entryway # Updated ID
-    alias: "AL Control Entryway Lights" # Updated alias
-    description: Turns on Entryway lights and applies Adaptive Lighting settings.
-    trigger:
-      - platform: state
-        entity_id:
-          - input_boolean.entryway_lights # Assuming this exists
-        to: 'on'
-    action:
-      - service: light.turn_on
-        target:
-          entity_id:
-            - light.entry_lamp # Specific light within the Hue group
-        data:
-          transition: 1
-      - delay:
-          seconds: 1
-      - service: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_hue_adapt
-          lights: light.entry_lamp # Apply AL specifically to this light
-          transition: 3
-    mode: restart
-
-  # --- Automations that interact with AL Switches during Good Night ---
-  - alias: Dim Lights on Presence During Good Night
-    id: dim_lights_on_presence_good_night # Ensure unique ID
-    description: Turns on specific lights dimly when presence detected in Living Room and Good Night is active
-    trigger:
-      - platform: state
-        entity_id:
-          - binary_sensor.living_room_presence
-          - binary_sensor.living_room_overall_presence
-          - binary_sensor.couch_presence
-        to: 'on'
-        id: 'lr_presence_on' # Trigger ID for clarity
-    condition:
-      - condition: state
-        entity_id: input_boolean.good_night_active
-        state: 'on'
-    action:
-      # 1. Turn OFF the relevant AL switches
-      - service: switch.turn_off
-        target:
-          entity_id:
-            - switch.adaptive_lighting_hue_adapt
-            - switch.adaptive_lighting_kitchen_island # Added
-        alias: "Turn OFF AL Switches (Hue Adapt & Kitchen Island)"
-
-      # 2. Turn ON lights with specific settings
-      - service: light.turn_on
-        target:
-          entity_id: light.living_room_corner_accent
-        data:
-          brightness_pct: 45
-          color_temp_kelvin: 2000
-          transition: 0
-        alias: "Turn on Corner Accent (Night Presence)"
-      - service: light.turn_on
-        target:
-          entity_id: light.entryway_lamp
-        data:
-          brightness_pct: 15
-          color_temp_kelvin: 2000
-          transition: 0
-        alias: "Turn on Entryway Lamp (Night Presence)"
-      - service: light.turn_on
-        target:
-          entity_id: light.living_room_credenza_light
-        data:
-          brightness_pct: 10
-          color_temp_kelvin: 2000
-          transition: 0
-        alias: "Turn on Credenza Light (Night Presence)"
-      - service: light.turn_on # Added Kitchen Light
-        target:
-          entity_id: light.kitchen_island_pendants
-        data:
-          brightness_pct: 2
-          color_temp_kelvin: 2000
-          transition: 0
-        alias: "Turn on Kitchen Pendants (Night Presence)"
-
-      # Steps 3 & 4 (Wait and Re-enable AL) removed - AL will be re-enabled by the 'Turn Off' automation
-    mode: single # Prevent multiple simultaneous runs
-
-  - alias: Turn Off Dim Lights on No Presence During Good Night
-    id: turn_off_dim_lights_no_presence_good_night # Ensure unique ID
-    description: Turns off specific lights when presence is no longer detected in Living Room and Good Night is active
-    trigger:
-      - platform: state
-        entity_id:
-          - binary_sensor.living_room_presence
-          - binary_sensor.living_room_overall_presence
-          - binary_sensor.couch_presence
-        to: 'off'
-        for:
-          minutes: 1 # Wait 1 minute after presence stops
-        id: 'lr_presence_off'
-    condition:
-      - condition: state
-        entity_id: input_boolean.good_night_active
-        state: 'on'
-    action:
-      # 1. Turn ON the AL switches again FIRST
-      - service: switch.turn_on
-        target:
-          entity_id:
-            - switch.adaptive_lighting_hue_adapt
-            - switch.adaptive_lighting_kitchen_island
-        alias: "Re-enable AL Switches (Hue Adapt & Kitchen Island)"
-
-      # 2. Turn off the lights
-      - service: light.turn_off
-        target:
-          entity_id:
-            - light.living_room_corner_accent
-            - light.entryway_lamp
-            - light.living_room_credenza_light
-            - light.kitchen_island_pendants # Added
-        data:
-          transition: 2 # Optional: smooth transition
-        alias: "Turn off night presence lights"
-    mode: single
-
-

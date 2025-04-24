@@ -1,0 +1,207 @@
+# ======================================================
+# UNIFIED DESIGN SYSTEM
+# ======================================================
+# This file serves as the single source of truth for the design system
+# used throughout the mobile-first context-aware dashboard.
+#
+# Author: Mac Connolly (original) + AI Assistant (consolidation)
+# Version: 1.0
+# Last Updated: April 19, 2025
+# ======================================================
+
+lovelace:
+  mode: yaml
+  resources:
+    # Add any necessary resources here, e.g., custom card resources
+    # - url: /local/community/bubble-card/bubble-card.js
+    #   type: module
+    # - url: /local/community/mini-media-player/mini-media-player-bundle.js
+    #   type: module
+    # - url: /local/community/apexcharts-card/apexcharts-card.js
+    #   type: module
+    # - url: /local/community/mushroom/mushroom.js
+    #   type: module
+    # - url: /local/community/auto-entities/auto-entities.js
+    # - url: /local/community/card-mod/card-mod.js
+
+  # Design tokens and styles
+  designSystem:
+    # Core design tokens
+    colors:
+      # Base palette
+      primary:
+        main: "rgb(var(--primary-color))"
+        transparent: "rgba(var(--primary-color), 0.2)"
+        light: "rgba(var(--primary-color), 0.6)"
+        dark: "rgb(var(--primary-dark-color))"
+      secondary:
+        main: "rgb(var(--accent-color))"
+        transparent: "rgba(var(--accent-color), 0.2)"
+      background:
+        card: "rgba(var(--card-background-color), 0.8)"
+        popup: "rgba(var(--card-background-color), 0.9)"
+        translucent: "rgba(var(--card-background-color), 0.7)"
+      
+      # Context-specific colors
+      context:
+        morning:
+          main: "rgb(255, 190, 92)"
+          transparent: "rgba(255, 190, 92, 0.2)"
+          secondary: "rgb(92, 173, 255)"
+          accent: "rgb(3, 169, 244)"
+        day:
+          main: "rgb(76, 175, 80)"
+          transparent: "rgba(76, 175, 80, 0.2)"
+          secondary: "rgb(165, 214, 167)"
+          accent: "rgb(33, 150, 243)"
+        evening:
+          main: "rgb(233, 30, 99)"
+          transparent: "rgba(233, 30, 99, 0.2)"
+          secondary: "rgb(244, 143, 177)"
+          accent: "rgb(156, 39, 176)"
+        night:
+          main: "rgb(63, 81, 181)"
+          transparent: "rgba(63, 81, 181, 0.2)"
+          secondary: "rgb(159, 168, 218)"
+          accent: "rgb(103, 58, 183)"
+        sleeping:
+          main: "rgb(63, 81, 181)"
+          transparent: "rgba(63, 81, 181, 0.1)"
+          secondary: "rgb(159, 168, 218)"
+          accent: "rgb(103, 58, 183)"
+        away:
+          main: "rgb(158, 158, 158)"
+          transparent: "rgba(158, 158, 158, 0.2)"
+          secondary: "rgb(224, 224, 224)"
+          accent: "rgb(96, 125, 139)"
+        movie:
+          main: "rgb(96, 125, 139)"
+          transparent: "rgba(96, 125, 139, 0.2)"
+          secondary: "rgb(176, 190, 197)"
+          accent: "rgb(255, 87, 34)"
+        guest:
+          main: "rgb(121, 85, 72)"
+          transparent: "rgba(121, 85, 72, 0.2)"
+          secondary: "rgb(188, 170, 164)"
+          accent: "rgb(255, 193, 7)"
+        focus:
+          main: "rgb(0, 150, 136)"
+          transparent: "rgba(0, 150, 136, 0.2)"
+          secondary: "rgb(128, 203, 196)"
+          accent: "rgb(255, 152, 0)"
+    
+    # Mobile optimization parameters
+    sizing:
+      touchTarget: "44px"  # Minimum touch target size
+      touchTargetSlider: "56px"  # Minimum slider height for better control
+      safeAreaTop: "env(safe-area-inset-top, 0px)"
+      safeAreaBottom: "env(safe-area-inset-bottom, 0px)"
+      safeAreaLeft: "env(safe-area-inset-left, 0px)"
+      safeAreaRight: "env(safe-area-inset-right, 0px)"
+      
+      # Common spacing values
+      spacing:
+        xs: "4px"
+        sm: "8px"
+        md: "16px"
+        lg: "24px"
+        xl: "32px"
+        xxl: "40px" # Added xxl spacing
+      
+      # Card specific sizing
+      card:
+        standard: "110px"  # Standard card height
+        mini: "72px"  # Mini card height
+        borderRadius: "var(--ha-card-border-radius, 12px)"
+    
+    # Typography
+    typography:
+      fontSizes:
+        xs: "12px"
+        sm: "14px"
+        md: "16px"
+        lg: "20px"
+        xl: "24px"
+        xxl: "32px"
+      fontWeights:
+        light: "300"
+        regular: "400"
+        medium: "500"
+        bold: "700"
+      lineHeights:
+        tight: "1.2"
+        normal: "1.5"
+        loose: "1.8"
+    
+    # Animation standards
+    animation:
+      standard: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+      fast: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)"
+      slow: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)"
+      presence:
+        keyframes: |
+          @keyframes presence-pulse {
+            0% { opacity: 0.7; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.7; transform: scale(0.95); }
+          }
+        animation: "presence-pulse 2s infinite"
+      activity:
+        keyframes: |
+          @keyframes activity-glow {
+            0% { box-shadow: 0 0 5px 0px var(--activity-color); }
+            50% { box-shadow: 0 0 10px 3px var(--activity-color); }
+            100% { box-shadow: 0 0 5px 0px var(--activity-color); }
+          }
+        animation: "activity-glow 3s infinite"
+    
+    # Shadows and elevation
+    shadows:
+      low: "0 2px 4px 0 rgba(0,0,0,0.15)"
+      medium: "0 4px 8px 0 rgba(0,0,0,0.2)"
+      high: "0 8px 16px 0 rgba(0,0,0,0.25)"
+      inset: "inset 0 2px 4px 0 rgba(0,0,0,0.1)"
+    
+    # Common styles for card elements
+    styles:
+      card:
+        base: |
+          border-radius: var(--designSystem-sizing-card-borderRadius);
+          padding: var(--designSystem-sizing-spacing-md);
+          background-color: var(--designSystem-colors-background-card);
+          backdrop-filter: blur(10px);
+          transition: var(--designSystem-animation-standard);
+        active: |
+          transform: scale(1.02);
+          box-shadow: var(--designSystem-shadows-medium);
+      
+      popup:
+        base: |
+          border-radius: var(--designSystem-sizing-card-borderRadius);
+          background-color: var(--designSystem-colors-background-popup);
+          backdrop-filter: blur(15px);
+          max-width: 95vw;
+          max-height: calc(100vh - 50px);
+          overflow-y: auto;
+        header: |
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background-color: var(--designSystem-colors-background-popup);
+          backdrop-filter: blur(15px);
+          padding: var(--designSystem-sizing-spacing-md);
+          border-bottom: 1px solid rgba(var(--primary-color), 0.2);
+        
+      buttonBar:
+        base: |
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: var(--designSystem-sizing-spacing-sm) var(--designSystem-sizing-spacing-sm) calc(var(--designSystem-sizing-spacing-sm) + var(--designSystem-sizing-safeAreaBottom));
+          background-color: var(--designSystem-colors-background-popup);
+          backdrop-filter: blur(10px);
+          z-index: 100;
+          display: flex;
+          justify-content: space-between;
+          border-top: 1px solid rgba(var(--primary-color), 0.1);

@@ -17,12 +17,13 @@
 # - Adaptive Lighting Package
 #
 
-dashboard_context:
+template:
   sensor:
     - name: "dashboard_context"
-      state: >
-        {% set context = states('sensor.home_context_engine') %}
-        {{ context }}
+      # State is redundant, use sensor.home_context_engine directly
+      # state: >
+      #  {% set context = states('sensor.home_context_engine') %}
+      #  {{ context }}
       icon: >
         {% set context = states('sensor.home_context_engine') %}
         {% if context == 'morning' %}
@@ -114,10 +115,8 @@ dashboard_context:
             sunny
           {% endif %}
         adaptive_lighting_active: >
-          {% set adaptive_entities = expand('light.all') | selectattr('attributes.adaptive_lighting', 'defined') | list %}
-          {% set active_count = adaptive_entities | selectattr('attributes.adaptive_lighting', 'eq', true) | list | count %}
-          {% set total_adaptive = adaptive_entities | count %}
-          {{ active_count > 0 and active_count / total_adaptive > 0.5 if total_adaptive > 0 else false }}
+          {# Use the dedicated status sensor #}
+          {{ is_state('sensor.adaptive_lighting_status', 'fully_adaptive') or is_state('sensor.adaptive_lighting_status', 'partially_manual') }}
         home_occupancy: >
           {% set occupancy = is_state('binary_sensor.home_occupied', 'on') %}
           {{ 'occupied' if occupancy else 'vacant' }}
@@ -178,7 +177,6 @@ dashboard_context:
           {% elif context == 'day' %}
             light
           {% elif context == 'evening' %}
-            sunset
           {% elif context == 'night' or context == 'sleeping' %}
             dark
           {% elif context == 'movie' %}
@@ -195,7 +193,6 @@ dashboard_context:
           {% elif context == 'evening' %}
             {"primary":"#E91E63","secondary":"#F48FB1","tertiary":"#FCE4EC","accent":"#9C27B0"}
           {% elif context == 'night' or context == 'sleeping' %}
-            {"primary":"#3F51B5","secondary":"#9FA8DA","tertiary":"#E8EAF6","accent":"#673AB7"}
           {% elif context == 'movie' %}
             {"primary":"#607D8B","secondary":"#B0BEC5","tertiary":"#ECEFF1","accent":"#FF5722"}
           {% elif context == 'away' %}
@@ -203,57 +200,7 @@ dashboard_context:
           {% else %}
             {"primary":"#2196F3","secondary":"#90CAF9","tertiary":"#E3F2FD","accent":"#FF9800"}
           {% endif %}
-        quick_actions: >
-          {% set context = states('sensor.home_context_engine') %}
-          {% if context == 'morning' %}
-            [
-              {"name":"Morning Lights","icon":"mdi:lightbulb-group","service":"scene.turn_on","entity_id":"scene.morning_lights"},
-              {"name":"Make Coffee","icon":"mdi:coffee","service":"switch.turn_on","entity_id":"switch.coffee_maker"},
-              {"name":"Morning News","icon":"mdi:newspaper","service":"script.morning_news"}
-            ]
-          {% elif context == 'day' %}
-            [
-              {"name":"Daylight Mode","icon":"mdi:white-balance-sunny","service":"scene.turn_on","entity_id":"scene.daylight_mode"},
-              {"name":"Home Office","icon":"mdi:desk","service":"script.home_office"},
-              {"name":"Eco Mode","icon":"mdi:leaf","service":"script.eco_mode"}
-            ]
-          {% elif context == 'evening' %}
-            [
-              {"name":"Evening Mood","icon":"mdi:weather-sunset","service":"scene.turn_on","entity_id":"scene.evening_mood"},
-              {"name":"Dinner Time","icon":"mdi:food-variant","service":"script.dinner_time"},
-              {"name":"Relax Mode","icon":"mdi:sofa","service":"script.relax_mode"}
-            ]
-          {% elif context == 'night' %}
-            [
-              {"name":"Night Mode","icon":"mdi:weather-night","service":"scene.turn_on","entity_id":"scene.night_mode"},
-              {"name":"Good Night","icon":"mdi:sleep","service":"script.good_night"},
-              {"name":"Security Check","icon":"mdi:shield-home","service":"script.security_check"}
-            ]
-          {% elif context == 'sleeping' %}
-            [
-              {"name":"Sleep Scene","icon":"mdi:sleep","service":"scene.turn_on","entity_id":"scene.sleep_scene"},
-              {"name":"All Off","icon":"mdi:power","service":"script.all_off"},
-              {"name":"Night Light","icon":"mdi:lightbulb-night","service":"light.turn_on","entity_id":"light.night_light"}
-            ]
-          {% elif context == 'movie' %}
-            [
-              {"name":"Movie Mode","icon":"mdi:movie-open","service":"scene.turn_on","entity_id":"scene.movie_mode"},
-              {"name":"Pause","icon":"mdi:pause","service":"media_player.media_pause","entity_id":"media_player.living_room"},
-              {"name":"Lights Toggle","icon":"mdi:lightbulb","service":"light.toggle","entity_id":"light.living_room"}
-            ]
-          {% elif context == 'away' %}
-            [
-              {"name":"Away Mode","icon":"mdi:home-export-outline","service":"scene.turn_on","entity_id":"scene.away_mode"},
-              {"name":"All Off","icon":"mdi:power","service":"script.all_off"},
-              {"name":"Check Cameras","icon":"mdi:cctv","service":"script.check_cameras"}
-            ]
-          {% else %}
-            [
-              {"name":"Home Mode","icon":"mdi:home","service":"scene.turn_on","entity_id":"scene.home_mode"},
-              {"name":"Lights On","icon":"mdi:lightbulb-group","service":"light.turn_on","entity_id":"light.all_lights"},
-              {"name":"Lights Off","icon":"mdi:lightbulb-group-off","service":"light.turn_off","entity_id":"light.all_lights"}
-            ]
-          {% endif %}
+        # quick_actions attribute removed - implement directly in dashboard state-switch
         last_updated: >
           {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
 

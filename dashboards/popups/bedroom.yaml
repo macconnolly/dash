@@ -118,12 +118,11 @@ cards:
               service_data:
                 title: "Sleep Mode"
                 content:
-                  type: custom:bubble-card
-                  card_type: template
+                  # Replace missing template with simple entities
+                  type: entities
                   entities:
-                    - input_boolean.sleep_mode
-                    - input_boolean.all_lights
-                  template: /www/streamline/templates/sleep_mode.yaml
+                    - input_boolean.good_night_active
+                    - input_boolean.all_lights # Assuming this exists
 
         # Sleep Context Actions
         - type: conditional
@@ -269,8 +268,8 @@ cards:
     template: /www/bubble/modules/enhanced-light.yaml
     variables:
       entity: light.bedroom_lights
-      al_manual_control: input_boolean.bedroom_adaptive_lighting_manual_control
-      reset_al_script: script.reset_bedroom_adaptive_lighting_manual
+      al_manual_control: input_boolean.bedroom_adaptive_lighting_manual_control # Assuming this boolean exists
+      reset_al_script: script.reset_al_manual_control_master_bedroom # Corrected script name
       show_color_temp: true
       show_rgb: true
       accent_color: "#673AB7"
@@ -547,12 +546,11 @@ cards:
           service_data:
             title: "Bedtime Routine"
             content:
-              type: custom:bubble-card
-              card_type: template
+              # Replace missing template with simple entities
+              type: entities
               entities:
                 - script.bedroom_bedtime_routine
-                - input_boolean.sleep_mode
-              template: /www/streamline/templates/bedtime_routine.yaml
+                - input_boolean.good_night_active # Use the correct boolean
         styles:
           icon:
             - color: "rgba(103, 58, 183, 0.7)"

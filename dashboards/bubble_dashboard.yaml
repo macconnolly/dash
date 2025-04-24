@@ -50,9 +50,9 @@ views:
               mdi:home
             {% endif %}
           context_entity: sensor.current_dashboard_context
-          temperature_entity: sensor.outdoor_temperature
-          time_entity: sensor.time
-          date_entity: sensor.date
+          temperature_entity: weather.home_2 # Using weather.home_2 temperature
+          time_entity: sensor.time # Still referenced, will address later
+          date_entity: sensor.date_long # Still referenced, will address later
           show_weather: true
           show_quick_actions: true
           avatar_url: ""
@@ -73,7 +73,7 @@ views:
               action: call-service
               service: scene.turn_on
               service_data:
-                entity_id: scene.general_bright
+                entity_id: scene.general_bright_v1
           
           - name: "Evening"
             icon: mdi:weather-sunset
@@ -85,7 +85,7 @@ views:
               action: call-service
               service: scene.turn_on
               service_data:
-                entity_id: scene.relax_evening
+                entity_id: scene.relax_evening_v1
           
           - name: "Accent"
             icon: mdi:lamps
@@ -97,7 +97,7 @@ views:
               action: call-service
               service: scene.turn_on
               service_data:
-                entity_id: scene.accent_only
+                entity_id: scene.accent_only_v1
           
           - name: "All Off"
             icon: mdi:power-sleep
@@ -109,7 +109,85 @@ views:
               action: call-service
               service: scene.turn_on
               service_data:
-                entity_id: scene.all_common_off
+                entity_id: scene.all_common_off_v1
+      
+      # Open floor plan card - unified control for connected spaces
+      - type: custom:streamline-card
+        template: open_floor_plan_card
+        variables:
+          style: bubble
+          title: "Open Living Space"
+          rooms: 
+            - living_room
+            - kitchen
+            - dining_room
+          room_names:
+            - Living Room
+            - Kitchen
+            - Dining Room
+          presence_entities:
+            - binary_sensor.living_room_presence
+            - binary_sensor.kitchen_presence
+            - binary_sensor.dining_room_presence
+          light_entities:
+            - light.living_room # Adjust if needed
+            - light.al_group_non_hue # Using group for kitchen
+            - light.al_group_track_lights # Using group for dining room
+          temperature_entities:
+            - sensor.dining_room_temperature # Using dining as proxy
+            - sensor.dining_room_temperature # Using dining as proxy
+            - sensor.dining_room_temperature
+          media_entities:
+            - media_player.living_room
+            - media_player.kitchen
+          # Removed scene variables as most scenes were missing
+          # scene_entities:
+          #   - scene.open_area_bright
+          #   - scene.open_area_warm
+          #   - scene.open_area_cozy
+          #   - scene.open_area_movie
+          # scene_names:
+          #   - Bright
+          #   - Warm
+          #   - Cozy
+          #   - Movie
+          # scene_icons:
+          #   - mdi:brightness-7
+          #   - mdi:brightness-6
+          #   - mdi:lightbulb-outline
+          #   - mdi:movie-outline
+          climate_entity: climate.dining_room # Using dining climate
+          context_entity: sensor.home_context_engine
+          adaptive_lighting_switch: switch.adaptive_lighting_track_lights # Using track lights AL switch
+      
+      # Sonos Multi-Room Control - specially designed for open floor plan
+      - type: custom:streamline-card
+        template: sonos_group_control
+        variables:
+          style: bubble
+          title: "Open Area Audio"
+          main_player: media_player.living_room
+          players:
+            - media_player.living_room
+            - media_player.kitchen
+          player_names:
+            - Living Room
+            - Kitchen
+          show_artwork: true
+          show_groups: true
+          show_presets: false # Set to false as preset scripts are missing
+          # preset_scripts:
+          #   - script.sonos_preset_all_rooms
+          #   - script.sonos_preset_kitchen_dining
+          #   - script.sonos_preset_living_only
+          # preset_names:
+          #   - All Rooms
+          #   - Kitchen & Dining
+          #   - Living Room
+          # preset_icons:
+          #   - mdi:speaker-multiple
+          #   - mdi:silverware-fork-knife
+          #   - mdi:sofa
       
       # Context-Based Information Card (Weather/Calendar for Morning, etc.)
       - type: conditional
@@ -130,118 +208,100 @@ views:
               opacity: 1 !important;
             }
       
-      # Open Concept Area Headers
-      - type: custom:bubble-header
-        title: "Open Concept Living Space"
+      # Grid of other rooms that are separate from the open floor plan
+      - type: custom:bubble-grid
+        columns: 2
+        square: false
+        cards:
+          # Bedroom Card (Using Bubble Card Area Module)
+          - type: custom:bubble-card
+            card_type: template
+            template: www/bubble/modules/area-card.yaml
+            variables:
+              title: "Bedroom"
+              icon: mdi:bed
+              area_color: "rgba(180, 120, 220, 1)" # Soft Purple
+              light_group: light.master_bedroom_table_lamps # Using existing light entity
+              # Removed occupancy_sensor as it doesn't exist
+              # Removed temperature_sensor as it doesn't exist
+              # Removed media_player as it doesn't exist
+              al_manual_control: input_boolean.al_manual_control_master_adapt
+              al_switch: switch.adaptive_lighting_master_adapt
+              popup_hash: '#bedroom-popup' # Ensure this popup is defined
+
+          # Bathroom Card (Removed as requested)
       
-      # Living Room Area Card
-      - type: custom:bubble-card
-        card_type: template
-        template: www/streamline/templates/room_card.yaml
-        variables:
-          room_name: "Living Room"
-          area_id: "living_room"
-          presence_entity: "binary_sensor.living_room_presence"
-          temperature_entity: "sensor.living_room_temperature"
-          light_entity: "light.living_room"
-          media_entity: "media_player.living_room"
-          show_climate: true
-          climate_entity: "climate.living_room"
-          show_vacuum: false
-          icon: "mdi:sofa"
-          adaptive_lighting_switch: "switch.adaptive_lighting_track_lights"
-          context_relevance: 8
+      # Climate & Weather Row
+      - type: horizontal-stack
+        cards:
+          # Climate Overview Card
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#climate-control'
+            icon: mdi:thermostat
+            name: "Climate"
+            entity: climate.dining_room
+            state_display: >
+              {{ state_attr('climate.dining_room', 'current_temperature') }}° → 
+              {{ state_attr('climate.dining_room', 'temperature') }}°
+            styles: |
+              .bubble-button-background {
+                background: ${
+                  (() => {
+                    const hvacAction = hass.states['climate.dining_room']?.attributes?.hvac_action;
+                    if (hvacAction === 'heating') return 'linear-gradient(135deg, rgba(255,150,64,0.3) 0%, rgba(255,150,64,0.05) 100%)';
+                    if (hvacAction === 'cooling') return 'linear-gradient(135deg, rgba(64,150,255,0.3) 0%, rgba(64,150,255,0.05) 100%)';
+                    if (hvacAction === 'idle') return 'linear-gradient(135deg, rgba(180,180,180,0.2) 0%, rgba(180,180,180,0.05) 100%)';
+                    return 'none';
+                  })()
+                } !important;
+                opacity: 1 !important;
+              }
+              
+              .bubble-icon {
+                color: ${
+                  (() => {
+                    const hvacAction = hass.states['climate.dining_room']?.attributes?.hvac_action;
+                    if (hvacAction === 'heating') return 'rgba(255,150,64,1)';
+                    if (hvacAction === 'cooling') return 'rgba(64,150,255,1)';
+                    if (hvacAction === 'idle') return 'rgba(180,180,180,1)';
+                    return 'var(--primary-text-color)';
+                  })()
+                } !important;
+              }
+          
+          # Weather Card
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#morning-weather' # Reusing morning weather popup for simplicity
+            icon: mdi:weather-partly-cloudy
+            name: "Weather"
+            state_display: "{{ states('weather.home_2') }}"
+            styles: |
+              .bubble-button-background {
+                background: linear-gradient(135deg, rgba(150,200,255,0.3) 0%, rgba(150,200,255,0.05) 100%) !important;
+                opacity: 1 !important;
+              }
       
-      # Kitchen Area Card
-      - type: custom:bubble-card
-        card_type: template
-        template: www/streamline/templates/room_card.yaml
-        variables:
-          room_name: "Kitchen"
-          area_id: "kitchen"
-          presence_entity: "binary_sensor.kitchen_presence"
-          temperature_entity: "sensor.kitchen_temperature"
-          light_entity: "light.kitchen_main_lights"
-          media_entity: "media_player.kitchen"
-          show_climate: false
-          climate_entity: ""
-          show_vacuum: false
-          icon: "mdi:countertop"
-          adaptive_lighting_switch: "switch.adaptive_lighting_non_hue"
-          context_relevance: 7
-      
-      # Dining Room Area Card
-      - type: custom:bubble-card
-        card_type: template
-        template: www/streamline/templates/room_card.yaml
-        variables:
-          room_name: "Dining Room"
-          area_id: "dining_room"
-          presence_entity: "binary_sensor.dining_room_presence"
-          temperature_entity: "sensor.dining_room_temperature"
-          light_entity: "light.dining_room_spot_lights"
-          media_entity: "media_player.dining_room"
-          show_climate: true
-          climate_entity: "climate.dining_room"
-          show_vacuum: false
-          icon: "mdi:table-chair"
-          adaptive_lighting_switch: "switch.adaptive_lighting_track_lights"
-          context_relevance: 6
-      
-      # Climate Control Summary
+      # Adaptive System Status
       - type: custom:bubble-card
         card_type: pop-up
-        hash: '#climate-control'
-        icon: mdi:thermostat
-        name: "Climate"
-        entity: climate.dining_room
+        hash: '#system-monitor-popup'
+        icon: >
+          {% if is_state('binary_sensor.updater', 'on') %}
+            mdi:update
+          {% else %}
+            mdi:home-assistant
+          {% endif %}
+        name: "System Status"
         state_display: >
-          {{ state_attr('climate.dining_room', 'current_temperature') }}° → 
-          {{ state_attr('climate.dining_room', 'temperature') }}°
+          {% set lights = states.light | selectattr('state', 'eq', 'on') | list | count %}
+          {% set media = states.media_player | selectattr('state', 'eq', 'playing') | list | count %}
+          {{ lights }} lights • {{ media }} media
         styles: |
           .bubble-button-background {
-            background: ${
-              (() => {
-                const hvacAction = hass.states['climate.dining_room']?.attributes?.hvac_action;
-                if (hvacAction === 'heating') return 'linear-gradient(135deg, rgba(255,150,64,0.3) 0%, rgba(255,150,64,0.05) 100%)';
-                if (hvacAction === 'cooling') return 'linear-gradient(135deg, rgba(64,150,255,0.3) 0%, rgba(64,150,255,0.05) 100%)';
-                if (hvacAction === 'idle') return 'linear-gradient(135deg, rgba(180,180,180,0.2) 0%, rgba(180,180,180,0.05) 100%)';
-                return 'none';
-              })()
-            } !important;
+            background: linear-gradient(135deg, rgba(var(--rgb-primary-color),0.1) 0%, rgba(var(--rgb-primary-color),0.03) 100%) !important;
             opacity: 1 !important;
-          }
-          
-          .bubble-icon {
-            color: ${
-              (() => {
-                const hvacAction = hass.states['climate.dining_room']?.attributes?.hvac_action;
-                if (hvacAction === 'heating') return 'rgba(255,150,64,1)';
-                if (hvacAction === 'cooling') return 'rgba(64,150,255,1)';
-                if (hvacAction === 'idle') return 'rgba(180,180,180,1)';
-                return 'var(--primary-text-color)';
-              })()
-            } !important;
-          }
-      
-      # Whole Home Audio
-      - type: custom:bubble-card
-        card_type: pop-up
-        hash: '#media-control'
-        icon: mdi:speaker-multiple
-        name: "Whole Home Audio"
-        state_display: >
-          {{ states.media_player | selectattr('state', 'eq', 'playing') | list | count }} active
-        styles: |
-          .bubble-button-background {
-            background: linear-gradient(135deg, rgba(var(--rgb-primary-color),0.2) 0%, rgba(var(--rgb-primary-color),0.05) 100%) !important;
-            opacity: 1 !important;
-          }
-          
-          ${
-            states.media_player | selectattr('state', 'eq', 'playing') | list | count > 0
-              ? '.bubble-icon { animation: pulse 2s infinite; } @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }'
-              : ''
           }
 
 # Main Bubble Card Dashboard - bubble_dashboard.yaml
@@ -282,7 +342,128 @@ states:
             tap_action:
               action: navigate # Changed to navigate for pop-up
               navigation_path: '#adaptive-lighting-popup'
-            active: "{{ is_state('switch.adaptive_lighting_default', 'on') }}" # AL switch from package
+            active: "{{ is_state('switch.adaptive_lighting_track_lights', 'on') }}" # Using track lights AL switch
+            active_color: "var(--bubble-primary-color)"
+
+          - icon: mdi:thermostat
+            tooltip: "Thermostat"
+            tap_action:
+              action: navigate # Changed to navigate for pop-up
+              navigation_path: '#thermostat-control'
+            active: "{{ states('climate.dining_room') != 'off' }}" # Climate entity from thermostat pop-up
+            active_color: >
+              {{ 'var(--bubble-error-color)' if is_state('climate.dining_room', 'heat') else
+                 ('var(--bubble-info-color)' if is_state('climate.dining_room', 'cool') else 'inherit') }}
+
+          - icon: mdi:cog # Changed icon
+            tooltip: "System Monitor"
+            tap_action:
+              action: navigate # Changed to navigate for pop-up
+              navigation_path: '#system-monitor-popup'
+
+          - icon: mdi:power-sleep
+            tooltip: "Toggle Good Night"
+            tap_action:
+              action: call-service
+              service: input_boolean.toggle
+              service_data:
+                entity_id: input_boolean.good_night_active # Using boolean from system monitor package
+            active: "{{ is_state('input_boolean.good_night_active', 'on') }}"
+            active_color: "var(--bubble-info-color)" # Use info color when active
+
+      # Weather & Calendar Information (Removed Calendar as requested)
+      - type: custom:bubble-card
+        card_type: pop-up
+        hash: '#morning-weather'
+        icon: "{{ state_attr('weather.home_2', 'forecast')[0].condition }}" # Assuming weather.home_2 exists
+        name: "Today's Weather"
+        state_display: "{{ state_attr('weather.home_2', 'temperature') }}° - {{ state_attr('weather.home_2', 'forecast')[0].condition }}"
+        styles: |
+          .bubble-button-background {
+            background: linear-gradient(135deg, rgba(${
+                state_attr('weather.home_2', 'temperature') > 75 ? '255,150,50,0.3' :
+                (state_attr('weather.home_2', 'temperature') < 45 ? '50,150,255,0.3' : '150,200,255,0.3')
+              }) 0%,
+              rgba(${
+                state_attr('weather.home_2', 'temperature') > 75 ? '255,150,50,0.05' :
+                (state_attr('weather.home_2', 'temperature') < 45 ? '50,150,255,0.05' : '150,200,255,0.05')
+              }) 100%);
+            opacity: 1 !important;
+          }
+
+      # Quick Morning Actions (Using Mushroom Chips)
+      - type: custom:mushroom-chips-card
+        alignment: center
+        chips:
+          - type: action
+            icon: mdi:lightbulb-group
+            tap_action:
+              action: call-service
+              service: scene.turn_on
+              service_data:
+                entity_id: scene.morning_lights_v1 # Using existing scene
+          # Removed Breakfast and News buttons as scripts are missing
+          - type: action
+            icon: mdi:weather-sunset-up
+            tap_action:
+              action: call-service
+              service: input_boolean.turn_off
+              service_data:
+                entity_id: input_boolean.good_night_active # Using boolean from system_monitor_control_package.yaml
+            chip_mod:
+              style: |
+                ha-state-icon {
+                  color: {{ 'var(--bubble-info-color)' if is_state('input_boolean.good_night_active', 'on') else 'var(--disabled-text-color)' }};
+                }
+
+      # Home Status Summary
+      - type: custom:bubble-header
+        title: "Home Status"
+
+      - type: custom:bubble-grid
+        columns: 2
+        cards:
+          # Essential Room Cards
+          - type: custom:bubble-card
+            card_type: pop-up
+            hash: '#kitchen-popup'
+            icon: mdi:countertop
+            name: "Kitchen"
+            state_display: "{{ states('sensor.kitchen_temperature') }}°" # Assuming sensor.kitchen_temperature exists
+            styles: |
+              .bubble-icon-container {
+                background-color: rgba(100, 200, 150, 0.2);
+              }
+          # Removed Bathroom card as requested
+
+  Default Daytime: # Placeholder for the default view
+    type: vertical-stack
+    cards:
+      # Contextual Header (Already added)
+      - type: custom:bubble-card
+        card_type: header
+        name: "{{ states('sensor.time') }}" # Assumes sensor.time exists
+        subtitle: "{{ states('sensor.date_long') }}" # Assumes sensor.date_long exists
+        icon: >
+          {{ 'mdi:weather-night' if is_state('input_boolean.good_night_active', 'on') else
+             (state_attr('weather.home_2', 'temperature') | int(0) > 80 ? 'mdi:weather-sunny-alert' :
+             (state_attr('weather.home_2', 'temperature') | int(0) < 40 ? 'mdi:snowflake-alert' :
+             state_attr('weather.home_2', 'icon') | replace('weather-', 'mdi:weather-'))) }}
+        icon_color: >
+          {{ 'var(--bubble-info-color)' if is_state('input_boolean.good_night_active', 'on') else
+             (state_attr('weather.home_2', 'temperature') | int(0) > 80 ? 'var(--bubble-warning-color)' :
+             (state_attr('weather.home_2', 'temperature') | int(0) < 40 ? 'var(--bubble-error-color)' : 'inherit')) }}
+        button_type: pop-up # Main button opens weather pop-up
+        hash: '#morning-weather' # Link to the weather pop-up
+
+        # Sub-buttons for quick access
+        sub_buttons:
+          - icon: mdi:theme-light-dark
+            tooltip: "Adaptive Lighting"
+            tap_action:
+              action: navigate # Changed to navigate for pop-up
+              navigation_path: '#adaptive-lighting-popup'
+            active: "{{ states('switch.adaptive_lighting_track_lights') == 'on' }}" # Using track lights AL switch
             active_color: "var(--bubble-primary-color)"
 
           - icon: mdi:thermostat
@@ -311,263 +492,229 @@ states:
             active: "{{ is_state('input_boolean.good_night_active', 'on') }}"
             active_color: "var(--bubble-info-color)" # Use info color when active
 
-      # Weather & Calendar Information
-      - type: custom:bubble-card
-        card_type: pop-up
-        hash: '#morning-weather'
-        icon: "{{ state_attr('weather.home_2', 'forecast')[0].condition }}" # Assuming weather.home_2 exists
-        name: "Today's Weather"
-        state_display: "{{ state_attr('weather.home_2', 'temperature') }}° - {{ state_attr('weather.home_2', 'forecast')[0].condition }}"
-        styles: |
-          .bubble-button-background {
-            background: linear-gradient(135deg,
-              rgba(${
-                state_attr('weather.home_2', 'temperature') > 75 ? '255,150,50,0.3' :
-                (state_attr('weather.home_2', 'temperature') < 45 ? '50,150,255,0.3' : '150,200,255,0.3')
-              }) 0%,
-              rgba(${
-                state_attr('weather.home_2', 'temperature') > 75 ? '255,150,50,0.05' :
-                (state_attr('weather.home_2', 'temperature') < 45 ? '50,150,255,0.05' : '150,200,255,0.05')
-              }) 100%);
-            opacity: 1 !important;
-          }
+      # Room Summaries Grid (Using Bubble Area Cards)
+      - type: custom:bubble-grid
+        columns: 2
+        cards:
+          # Living Room Summary (Using Bubble Card Area Module)
+          - type: custom:bubble-card
+            card_type: template
+            template: www/bubble/modules/area-card.yaml
+            variables:
+              title: "Living Room"
+              icon: mdi:sofa-outline
+              area_color: "rgba(120, 180, 220, 1)" # Cool Blue
+              light_group: light.living_room # Adjust if needed
+              occupancy_sensor: binary_sensor.living_room_presence
+              temperature_sensor: sensor.dining_room_temperature # Using dining as proxy
+              media_player: media_player.living_room
+              al_manual_control: input_boolean.al_manual_control_track_lights # Assuming track lights cover LR
+              al_switch: switch.adaptive_lighting_track_lights
+              popup_hash: '#living-room-popup'
 
-      # Quick Morning Actions
-      - type: custom:bubble-horizontal-buttons-stack
-        buttons:
-          - name: "Morning Lights"
-            icon: mdi:lightbulb-group
+          # Dining Room Summary (Using Bubble Card Area Module)
+          - type: custom:bubble-card
+            card_type: template
+            template: www/bubble/modules/area-card.yaml
+            variables:
+              title: "Dining Room"
+              icon: mdi:silverware-fork-knife
+              area_color: "rgba(220, 180, 120, 1)" # Warm Orange
+              light_group: light.al_group_track_lights # Using group for dining room
+              occupancy_sensor: binary_sensor.dining_room_presence
+              temperature_sensor: sensor.dining_room_temperature
+              # Removed media_player as it doesn't exist
+              al_manual_control: input_boolean.al_manual_control_track_lights # Assuming track lights cover Dining
+              al_switch: switch.adaptive_lighting_track_lights
+              popup_hash: '#dining-room-popup'
+
+          # Bedroom Summary (Already updated)
+          - type: custom:bubble-card
+            card_type: template
+            template: www/bubble/modules/area-card.yaml
+            variables:
+              title: "Bedroom"
+              icon: mdi:bed-outline
+              area_color: "rgba(180, 120, 220, 1)" # Soft Purple
+              light_group: light.master_bedroom_table_lamps # Using existing light entity
+              # Removed occupancy_sensor as it doesn't exist
+              # Removed temperature_sensor as it doesn't exist
+              # Removed media_player as it doesn't exist
+              al_manual_control: input_boolean.al_manual_control_master_adapt
+              al_switch: switch.adaptive_lighting_master_adapt
+              popup_hash: '#bedroom-popup'
+
+          # Kitchen Summary (Using Bubble Card Area Module)
+          - type: custom:bubble-card
+            card_type: template
+            template: www/bubble/modules/area-card.yaml
+            variables:
+              title: "Kitchen"
+              icon: mdi:countertop
+              area_color: "rgba(100, 200, 150, 1)" # Teal Green
+              light_group: light.al_group_non_hue # Using group for kitchen
+              occupancy_sensor: binary_sensor.kitchen_presence
+              temperature_sensor: sensor.dining_room_temperature # Using dining as proxy
+              media_player: media_player.kitchen
+              al_manual_control: input_boolean.al_manual_control_non_hue # Assuming non-hue covers kitchen
+              al_switch: switch.adaptive_lighting_non_hue
+              popup_hash: '#kitchen-popup'
+
+      # Quick Access Buttons (Using Mushroom Chips)
+      - type: custom:mushroom-chips-card
+        alignment: center
+        chips:
+          # Removed All Lights Off button as script is missing
+          # Removed Clean House button as script is missing
+          - type: action
+            icon: mdi:weather-night
             tap_action:
               action: call-service
               service: scene.turn_on
               service_data:
-                entity_id: scene.morning_lights # Assuming scene.morning_lights exists
-          - name: "Breakfast"
-            icon: mdi:coffee
-            tap_action:
-              action: call-service
-              service: script.start_coffee_maker # Using script from system_monitor_control_package.yaml
-              service_data: {} # No extra data needed based on script definition
-          - name: "News"
-            icon: mdi:newspaper
-            tap_action:
-              action: call-service
-              service: script.play_morning_news # Using script from system_monitor_control_package.yaml
-              service_data: {} # No extra data needed based on script definition
-          - name: "Good Night Off"
-            icon: mdi:weather-sunset-up
-            tap_action:
-              action: call-service
-              service: input_boolean.turn_off
-              service_data:
-                entity_id: input_boolean.good_night_active # Using boolean from system_monitor_control_package.yaml
-
-      # Calendar & Reminders
-      - type: custom:bubble-card
-        card_type: pop-up
-        hash: '#morning-calendar'
-        icon: mdi:calendar-today
-        name: "Today's Schedule"
-        state_display: >
-          {{ states('sensor.calendar_next_event') }} # Assuming sensor.calendar_next_event exists
-
-      # Home Status Summary
-      - type: custom:bubble-header
-        title: "Home Status"
-
-      - type: custom:bubble-grid
-        columns: 2
-        cards:
-          # Essential Room Cards
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#kitchen-popup'
-            icon: mdi:countertop
-            name: "Kitchen"
-            state_display: "{{ states('sensor.kitchen_temperature') }}°" # Assuming sensor.kitchen_temperature exists
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(100, 200, 150, 0.2);
-              }
-
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#bathroom-popup' # Assuming a bathroom pop-up will be defined later
-            icon: mdi:shower
-            name: "Bathroom"
-            state_display: "Ready" # Placeholder state
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(100, 150, 200, 0.2);
-              }
-
-  Default Daytime: # Placeholder for the default view
-    type: vertical-stack
-    cards:
-      # Contextual Header (Already added)
-      - type: custom:bubble-card
-        # ... header definition ... (Keeping existing header)
-
-      # Room Summaries Grid (Guide Lines 950-1015)
-      - type: custom:bubble-grid
-        columns: 2
-        cards:
-          # Living Room Summary
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#living-room-popup'
-            icon: mdi:sofa-outline
-            name: "Living Room"
-            state_display: >
-              {{ states('sensor.living_room_temperature') }}° | {{ states('sensor.living_room_lights_on_count') }} Lights
-              {# Assuming sensor.living_room_temperature & sensor.living_room_lights_on_count exist #}
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(120, 180, 220, 0.2); /* Cool Blue */
-                border: 1px solid {{ 'var(--bubble-primary-color)' if is_state('input_boolean.living_room_occupied', 'on') else 'transparent' }};
-              }
-
-          # Dining Room Summary
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#dining-room-popup' # Placeholder pop-up hash
-            icon: mdi:silverware-fork-knife
-            name: "Dining Room"
-            state_display: >
-              {{ states('climate.dining_room') }} | {{ state_attr('climate.dining_room', 'current_temperature') }}°
-              {# Using climate entity from thermostat pop-up #}
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(220, 180, 120, 0.2); /* Warm Orange */
-              }
-
-          # Bedroom Summary
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#bedroom-popup' # Placeholder pop-up hash
-            icon: mdi:bed-outline
-            name: "Bedroom"
-            state_display: >
-              {{ states('sensor.bedroom_temperature') }}° | {{ 'AL On' if is_state('switch.adaptive_lighting_bedroom', 'on') else 'AL Off' }}
-              {# Assuming sensor.bedroom_temperature & switch.adaptive_lighting_bedroom exist #}
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(180, 120, 220, 0.2); /* Soft Purple */
-              }
-
-          # Kitchen Summary (Reusing from Morning)
-          - type: custom:bubble-card
-            card_type: pop-up
-            hash: '#kitchen-popup'
-            icon: mdi:countertop
-            name: "Kitchen"
-            state_display: "{{ states('sensor.kitchen_temperature') }}°" # Assuming sensor.kitchen_temperature exists
-            styles: |
-              .bubble-icon-container {
-                background-color: rgba(100, 200, 150, 0.2); /* Teal Green */
-              }
-
-      # Quick Access Buttons (Guide Lines 1017-1050)
-      - type: custom:bubble-horizontal-buttons-stack
-        buttons:
-          - name: "All Lights Off"
-            icon: mdi:lightbulb-off
-            tap_action:
-              action: call-service
-              service: script.all_lights_off # Script from system monitor package
-          - name: "Clean House"
-            icon: mdi:robot-vacuum
-            tap_action:
-              action: call-service
-              service: script.start_vacuum_cleaning # Script from system monitor package
-          - name: "Evening Scene"
-            icon: mdi:weather-night # Changed icon
-            tap_action:
-              action: call-service
-              service: scene.turn_on
-              service_data:
-                entity_id: scene.evening_relaxation # Assuming scene exists
-          - name: "Focus Mode"
+                entity_id: scene.relax_evening_v1 # Using existing scene
+          - type: action
             icon: mdi:brain
             tap_action:
               action: call-service
               service: input_select.select_option
               service_data:
-                entity_id: input_select.dashboard_context # Select from system monitor package
+                entity_id: input_select.current_dashboard # Corrected input select name
                 option: "Focus Mode"
 
-      # Conditional Media Player (Guide Lines 1052-1070)
+      # Conditional Media Player (Using mini-media-player)
       - type: conditional
         conditions:
-          - entity: sensor.sonos_playing_count # Sensor from sonos_status package
-            state_not: "0"
+          - entity: sensor.sonos_status
+            attribute: active_count
+            state_not: "0" # Using active_count attribute
         card:
-          type: custom:bubble-card
-          card_type: media-player # Simplified media display
-          entity: sensor.sonos_last_active_player # Sensor from sonos_status package
+          type: custom:mini-media-player
+          entity: media_player.living_room # Using living room as default
+          group: true
+          artwork: cover
           name: "Now Playing"
-          # Add more detailed media controls if needed
+          info: scroll
+          hide:
+            power: true
+            source: true
+            # volume: true # Keep volume slider
+            controls: false # Keep basic controls
+          shortcuts:
+            columns: 3
+            buttons:
+              - icon: mdi:skip-previous
+                type: service
+                id: media_player.media_previous_track
+                data:
+                  entity_id: media_player.living_room # Using living room as target
+              - icon: mdi:play-pause
+                type: service
+                id: media_player.media_play_pause
+                data:
+                  entity_id: media_player.living_room # Using living room as target
+              - icon: mdi:skip-next
+                type: service
+                id: media_player.media_next_track
+                data:
+                  entity_id: media_player.living_room # Using living room as target
 
-      # Conditional Energy Usage (Guide Lines 1072-1088)
-      - type: conditional
-        conditions:
-          - entity: sensor.current_power_usage # Assuming sensor.current_power_usage exists
-            state_not: "unavailable"
-        card:
-          type: custom:bubble-card
-          card_type: sensor
-          entity: sensor.current_power_usage
-          name: "Current Energy Use"
-          icon: mdi:transmission-tower
-          styles: |
-            .bubble-value {
-              color: ${ hass.states['sensor.current_power_usage'].state | int > 2000 ? 'var(--bubble-warning-color)' : 'inherit' };
-            }
+      # Conditional Energy Usage (Removed as requested)
+      # - type: conditional
+      #   conditions:
+      #     - entity: sensor.current_power_usage # Assuming sensor.current_power_usage exists
+      #       state_not: "unavailable"
+      #   card:
+      #     type: custom:bubble-card
+      #     card_type: sensor
+      #     entity: sensor.current_power_usage
+      #     name: "Current Energy Use"
+      #     icon: mdi:transmission-tower
+      #     styles: |
+      #       .bubble-value {
+      #         color: ${ hass.states['sensor.current_power_usage'].state | int > 2000 ? 'var(--bubble-warning-color)' : 'inherit' };
+      #       }
+  Evening Relax:
+    type: vertical-stack
+    cards:
+      # Contextual Header
+      - type: custom:bubble-card
+        card_type: header
+        name: "Evening Relax"
+        icon: mdi:weather-night
+      # Contextual Chips
+      - type: custom:mushroom-chips-card
+        alignment: center
+        chips:
+          - type: action
+            icon: mdi:lightbulb-group-off
+            tap_action:
+              action: call-service
+              service: scene.turn_on
+              service_data:
+                entity_id: scene.all_common_off_v1
+          - type: action
+            icon: mdi:music
+            tap_action:
+              action: call-service
+              service: script.play_spotify_playlist # Assuming this exists
+              service_data:
+                entity_id: media_player.living_room # Target speaker
+                playlist_uri: spotify:playlist:YOUR_RELAX_PLAYLIST_URI # Replace with actual URI
+      # Enhanced Light Card
+      - type: custom:bubble-card
+        card_type: template
+        template: www/bubble/modules/enhanced-light.yaml
+        variables:
+          entity: light.al_group_hue_adapt
+          name: "Accent Lights"
+          al_manual_control: input_boolean.al_manual_control_hue_adapt
+          reset_al_script: script.reset_al_living_room # Assuming this resets Hue Adapt
+          show_color_temp: true
+          show_rgb: true
+          accent_color: "#9C27B0"
+      - !include ../popups/living_room.yaml # Example: Include living room popup content
 
-# --- Pop-up Definitions (To be added below or in separate files) ---
+  Good Night:
+    type: vertical-stack
+    cards:
+      # Contextual Header
+      - type: custom:bubble-card
+        card_type: header
+        name: "Good Night"
+        icon: mdi:sleep
+      # Contextual Chips
+      - type: custom:mushroom-chips-card
+        alignment: center
+        chips:
+          - type: action
+            icon: mdi:power-sleep
+            tap_action:
+              action: call-service
+              service: script.initiate_sleep_mode
+          - type: action
+            icon: mdi:alarm-check
+            tap_action:
+              action: call-service
+              service: script.set_sonos_alarm_from_input
+      - !include ../popups/bedroom.yaml # Example: Include bedroom popup content
 
-# Example Pop-up for Morning Weather (from guide lines 676-767)
-# Note: Pop-ups are typically defined separately and linked via hash
-# This structure assumes pop-ups might be included here or referenced from /dashboards/popups/
-
-# Placeholder for #morning-weather pop-up
-# - type: custom:bubble-pop-up
-#   hash: '#morning-weather'
-#   card:
-#     type: vertical-stack
-#     cards:
-#       - type: custom:bubble-header
-#         title: "Today's Weather"
-#         subtitle: "{{ now().strftime('%A, %B %d') }}"
-#         icon: "{{ state_attr('weather.home_2', 'forecast')[0].condition }}"
-#       # ... rest of weather pop-up cards from guide ...
-
-# Placeholder for #morning-calendar pop-up
-# - type: custom:bubble-pop-up
-#   hash: '#morning-calendar'
-#   card:
-#     type: vertical-stack
-#     cards:
-#       - type: custom:bubble-header
-#         title: "Today's Schedule"
-#       # ... calendar cards ...
-
-# Placeholder for #kitchen-popup
-# - type: custom:bubble-pop-up
-#   hash: '#kitchen-popup'
-#   card:
-#     type: vertical-stack
-#     cards:
-#       - type: custom:bubble-header
-#         title: "Kitchen Details"
-#       # ... kitchen cards ...
-
-# Placeholder for #bathroom-popup
-# - type: custom:bubble-pop-up
-#   hash: '#bathroom-popup'
-#   card:
-#     type: vertical-stack
-#     cards:
-#       - type: custom:bubble-header
-#         title: "Bathroom Details"
-#       # ... bathroom cards ...
+  Away:
+    type: vertical-stack
+    cards:
+      # Contextual Header
+      - type: custom:bubble-card
+        card_type: header
+        name: "Away Mode"
+        icon: mdi:home-export-outline
+      # Contextual Chips
+      - type: custom:mushroom-chips-card
+        alignment: center
+        chips:
+          - type: entity
+            entity: sensor.home_occupancy_duration
+            name: "Vacant Since"
+          # Removed Arm Security button as entity is unverified/removed
+          # - type: action
+          #   icon: mdi:shield-lock
+          #   tap_action:

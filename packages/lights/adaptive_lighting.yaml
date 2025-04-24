@@ -1,0 +1,23 @@
+# Light Groups for Adaptive Lighting
+light:
+  - platform: group
+    name: AL Group Non-Hue
+    unique_id: al_group_non_hue
+    entities:
+      - light.kitchen_main_lights
+      - light.living_room_hallway_lights
+  - platform: group
+    name: AL Group Track Lights
+    unique_id: al_group_track_lights
+    entities:
+      - light.dining_room_spot_lights
+      - light.living_room_spot_lights
+  - platform: group
+    name: AL Group Hue Adapt
+    unique_id: al_group_hue_adapt
+    entities:
+      - light.couch_lamp
+      - light.entry_lamp
+      - light.credenza_light
+      - light.living_room_floor_lamp
+      - light.office_lamp

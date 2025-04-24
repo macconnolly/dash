@@ -92,51 +92,6 @@ template:
             }
       
       # New sensor replacing light_integrity
-      - name: adaptive_lighting_status
-        unique_id: adaptive_lighting_status # Added unique_id
-        state: >
-          {% set manual_groups = namespace(count=0, list=[]) %}
-          {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
-            {% if is_state(entity_id, 'on') %}
-              {% set manual_groups.count = manual_groups.count + 1 %}
-              {% set manual_groups.list = manual_groups.list + [entity_id] %}
-            {% endif %}
-          {% endfor %}
-          
-          {% if manual_groups.count == 0 %}
-            fully_adaptive
-          {% elif manual_groups.count >= 4 %}
-            mostly_manual
-          {% else %}
-            partially_manual
-          {% endif %}
-        attributes:
-          manual_count: >
-            {% set count = namespace(value=0) %}
-            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
-              {% if is_state(entity_id, 'on') %}
-                {% set count.value = count.value + 1 %}
-              {% endif %}
-            {% endfor %}
-            {{ count.value }}
-          manual_groups: >
-            {% set groups = namespace(list=[]) %}
-            {% for entity_id in ['input_boolean.al_manual_control_non_hue', 'input_boolean.al_manual_control_kitchen_island', 'input_boolean.al_manual_control_master_adapt', 'input_boolean.al_manual_control_track_lights', 'input_boolean.al_manual_control_hue_adapt'] %}
-              {% if is_state(entity_id, 'on') %}
-                {% set groups.list = groups.list + [entity_id] %}
-              {% endif %}
-            {% endfor %}
-            {{ groups.list | join(',') }}
-          adaptive_lights: >
-            {% set al_info = namespace(current_values={}) %}
-            {% if states('sensor.adaptive_lighting_color_temperature_k') is not none %}
-              {% set al_info.current_values = al_info.current_values | combine(
-                {'color_temp': states('sensor.adaptive_lighting_color_temperature_k')|int,
-                 'brightness': states('sensor.adaptive_lighting_brightness')|int,
-                 'sun_position': states('sensor.adaptive_lighting_sun_position')|float}
-              ) %}
-            {% endif %}
-            {{ al_info.current_values | to_json }}
 
 # Note: Removed previous light_integrity and sonos_status sensors as they are superseded
 # Note: Removed previous room-specific, system state, time, and activity context engines as they are superseded by the new structure
